@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { X } from 'lucide-svelte'
+  import { t } from '$lib/i18n/index.svelte'
   import Button from './Button.svelte'
   import { cx, OVERLAY_OPEN_GRACE_MS } from './utils'
 
@@ -155,7 +156,7 @@
           {/if}
         </div>
         {#if dismissible}
-          <Button variant="ghost" size="icon" onclick={close} aria-label="Close dialog">
+          <Button variant="ghost" size="icon" onclick={close} aria-label={t('a11y.closeDialog')}>
             <X class="h-5 w-5" />
           </Button>
         {/if}

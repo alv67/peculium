@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { HTMLAttributes } from 'svelte/elements'
+  import { t } from '$lib/i18n/index.svelte'
   import { cx } from './utils'
 
   /**
@@ -21,7 +22,7 @@
 
 <span
   role="status"
-  aria-label="Loading"
+  aria-label={t('a11y.loading')}
   class={cx('inline-flex shrink-0 animate-spin text-current', sizes[size], className)}
   {...rest}
 >

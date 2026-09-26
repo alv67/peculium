@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte'
   import { fade } from 'svelte/transition'
   import { X } from 'lucide-svelte'
+  import { t } from '$lib/i18n/index.svelte'
   import Button from './Button.svelte'
   import { focusTrap } from './focus-trap'
   import { backdropFade, edgeSlide } from './transitions'
@@ -16,7 +17,8 @@
    *
    * Follows the Modal/MobileDrawer overlay recipe (no portal library):
    * dimmed backdrop (click closes), `role="dialog"` + `aria-modal` labelled
-   * by the title (falls back to `aria-label="Details"` when untitled), the
+   * by the title (falls back to the localized details aria-label when
+   * untitled), the
    * shared `focusTrap` action for Tab cycling + focus restore, and the
    * `duration-slow` (320 ms) motion token for entrance/exit. Body scroll is
    * locked while open. Lives on the drawer tier (z-30) of the z-index scale
@@ -32,7 +34,7 @@
     title = undefined,
     width = '32rem',
     class: className = '',
-    closeLabel = 'Close panel',
+    closeLabel = t('a11y.closePanel'),
     headerActions = undefined,
     footer = undefined,
     children = undefined,
@@ -44,9 +46,9 @@
     /** Panel width (CSS size); the panel never exceeds the viewport. */
     width?: string
     class?: string
-    /** Accessible name of the ✕ button (callers pass `t('common.close')`;
-     * defaults keep the pre-K.4c English label for untuned consumers —
-     * mirrors `Sheet.svelte`, the < lg counterpart sharing this API). */
+    /** Accessible name of the ✕ button; defaults through the dictionary and
+     *  callers may override (e.g. with `t('common.close')`) — mirrors
+     *  `Sheet.svelte`, the < lg counterpart sharing this API). */
     closeLabel?: string
     /** Snippet between title and ✕ (e.g. "open full page" link, D4). */
     headerActions?: Snippet
@@ -92,7 +94,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby={title ? titleId : undefined}
-    aria-label={title ? undefined : 'Details'}
+    aria-label={title ? undefined : t('a11y.details')}
     tabindex="-1"
     transition:fade={backdropFade()}
     onclick={handleBackdropClick}

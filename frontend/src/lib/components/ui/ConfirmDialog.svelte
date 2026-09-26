@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from './Button.svelte'
   import Modal from './Modal.svelte'
+  import { t } from '$lib/i18n/index.svelte'
 
   /**
    * Promise-friendly replacement for `window.confirm()` (EPIC D.2).
@@ -16,8 +17,8 @@
     open = $bindable(false),
     title,
     message,
-    confirmLabel = 'Confirm',
-    cancelLabel = 'Cancel',
+    confirmLabel = t('common.confirm'),
+    cancelLabel = t('common.cancel'),
     variant = 'primary',
     loading = false,
     onconfirm,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Asset } from '$lib/services/api'
+  import { t } from '$lib/i18n/index.svelte'
   import Input from '$lib/components/ui/Input.svelte'
   import { cx } from '$lib/components/ui/utils'
 
@@ -11,7 +12,7 @@
   let {
     assets = [],
     value = $bindable(''),
-    placeholder = 'Select asset',
+    placeholder = t('asset.comboboxPlaceholder'),
     disabled = false,
     error = undefined,
     inputId = undefined,
@@ -123,7 +124,7 @@
       <div
         class="absolute z-10 mt-1 w-full rounded-card border border-border bg-surface p-3 text-center text-sm text-muted-foreground shadow-raised"
       >
-        No assets found
+        {t('asset.noAssetsFound')}
       </div>
     {/if}
   {/if}

@@ -14,6 +14,8 @@ export const it = {
     /** Etichette generiche dei dialoghi di conferma (es. eliminazione portafoglio). */
     delete: 'Elimina',
     cancel: 'Annulla',
+    /** Fallback affermativo del ConfirmDialog (in coppia con `cancel`). */
+    confirm: 'Conferma',
     /** Chiusura di sheet/dialoghi (es. sheet transazione, K.4c). */
     close: 'Chiudi',
     /** Riga con il numero di asset detenuti (card portfolio in dashboard, dettaglio portafoglio). */
@@ -38,6 +40,10 @@ export const it = {
     rangeEmpty: '0 di {total}',
     /** Riga di avanzamento mentre una lista/tabella è in caricamento. */
     loading: 'Caricamento…',
+    /** Titolo di stato vuoto predefinito della card asincrona generica. */
+    nothingHere: "Non c'è ancora nulla",
+    /** Azione di riprova degli stati di errore (superficie d'errore di AsyncCard). */
+    retry: 'Riprova',
     /** Etichette generiche dei pulsanti dei form delle modali di creazione/modifica. */
     create: 'Crea',
     save: 'Salva',
@@ -49,6 +55,22 @@ export const it = {
     deleteFailed: 'Eliminazione non riuscita',
     saveFailed: 'Salvataggio non riuscito',
     createFailed: 'Creazione non riuscita',
+    somethingWentWrong: 'Si è verificato un errore',
+  },
+  /**
+   * Nomi accessibili incorporati nelle primitive generiche (spinner, modale,
+   * toast, drawer/sheet, tab). Copy solo per screen reader, mai visibile.
+   */
+  a11y: {
+    loading: 'Caricamento',
+    closeDialog: 'Chiudi finestra di dialogo',
+    dismissNotification: 'Chiudi notifica',
+    /** Nome predefinito della ✕ della coppia drawer/sheet (override possibile). */
+    closePanel: 'Chiudi pannello',
+    /** Fallback del drawer/sheet senza titolo. */
+    details: 'Dettagli',
+    /** Fallback della striscia Tabs quando il chiamante non passa un nome accessibile. */
+    sections: 'Sezioni',
   },
   nav: {
     main: 'Principale',
@@ -91,10 +113,38 @@ export const it = {
     signOut: 'Esci',
     fallbackName: 'Utente',
   },
-  /** Schermata di login / registrazione. Il wordmark "Peculium" è un nome
-   *  proprio e resta invariato; qui si localizza solo il tagline sotto il logo. */
+  /**
+   * Schermata di login / registrazione (pagina unica, toggle di modalità).
+   * Il wordmark "Peculium" è un nome proprio e resta invariato; tutto il
+   * resto — etichette di modalità, sottotitoli, label/hint dei campi,
+   * validazioni, toast — è localizzato qui.
+   */
   login: {
     tagline: 'Il tuo patrimonio, a casa tua',
+    /** Opzioni del SegmentedControl di modalità, riusate tal quali dalla CTA. */
+    signIn: 'Accedi',
+    register: 'Registrati',
+    /** Sottotitolo che cambia con la modalità, sotto il blocco brand. */
+    createAccount: 'Crea un account',
+    signInToAccount: 'Accedi al tuo account',
+    /** Nome accessibile del SegmentedControl di modalità. */
+    authMode: 'Modalità di autenticazione',
+    /** Etichette dei campi. */
+    name: 'Nome',
+    email: 'Email',
+    password: 'Password',
+    confirmPassword: 'Conferma password',
+    /** Hint in modalità registrazione, sotto il campo password. */
+    passwordHint: 'Almeno 8 caratteri',
+    /** Messaggi di validazione inline. */
+    emailRequired: "L'email è obbligatoria",
+    emailInvalid: 'Inserisci un indirizzo email valido',
+    passwordRequired: 'La password è obbligatoria',
+    passwordTooShort: 'La password deve essere lunga almeno 8 caratteri',
+    passwordMismatch: 'Le password non coincidono',
+    nameRequired: 'Il nome è obbligatorio',
+    /** Toast di esito della registrazione (poi il form torna al login). */
+    registered: 'Registrazione completata! Ora puoi accedere.',
   },
   theme: {
     group: 'Tema',
@@ -476,6 +526,10 @@ export const it = {
     colInvested: 'Investito',
     namePerformance: 'Performance',
     nameCapital: 'Investito contro valore',
+    /** Titoli predefiniti dei wrapper donut di allocazione/esposizione quando
+     *  il chiamante non passa un `title` (nome serie, toggle e didascalia). */
+    nameAllocation: 'Allocazione',
+    nameDistribution: 'Distribuzione',
     /** Stati vuoti dei wrapper di grafici di allocazione/esposizione. */
     noData: 'Nessun dato',
     noDistribution: 'Nessuna distribuzione',
@@ -687,6 +741,12 @@ export const it = {
     add: 'Aggiungi asset',
     newTitle: 'Nuovo asset',
     lookupHint: 'Cerca un ticker per precompilare i dettagli.',
+    /** Copy interna dei selettori di asset: placeholder e testo vuoto del
+     *  combobox delle transazioni e dell'autocomplete di ricerca Yahoo. */
+    comboboxPlaceholder: 'Seleziona un asset',
+    noAssetsFound: 'Nessun asset trovato',
+    tickerPlaceholder: 'Ticker (es. AAPL)',
+    noResultsFound: 'Nessun risultato trovato',
     colCountry: 'Paese',
     /** Nome accessibile del pulsante di eliminazione della riga
      *  ({ticker} riportato verbatim). */

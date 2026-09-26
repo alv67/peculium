@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte'
   import { fade } from 'svelte/transition'
   import { X } from 'lucide-svelte'
+  import { t } from '$lib/i18n/index.svelte'
   import Button from './Button.svelte'
   import { focusTrap } from './focus-trap'
   import { backdropFade, edgeSlide } from './transitions'
@@ -27,7 +28,7 @@
     onClose,
     title = undefined,
     class: className = '',
-    closeLabel = 'Close panel',
+    closeLabel = t('a11y.closePanel'),
     headerActions = undefined,
     footer = undefined,
     children = undefined,
@@ -37,8 +38,8 @@
     onClose: () => void
     title?: string
     class?: string
-    /** Accessible name of the ✕ button (callers pass `t('common.close')`;
-     * defaults keep the pre-K.4c English label for untuned consumers). */
+    /** Accessible name of the ✕ button; defaults through the dictionary and
+     *  callers may override (e.g. with `t('common.close')`). */
     closeLabel?: string
     /** Snippet between title and ✕ (e.g. a secondary action). */
     headerActions?: Snippet
@@ -84,7 +85,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby={title ? titleId : undefined}
-    aria-label={title ? undefined : 'Details'}
+    aria-label={title ? undefined : t('a11y.details')}
     tabindex="-1"
     transition:fade={backdropFade()}
     onclick={handleBackdropClick}
