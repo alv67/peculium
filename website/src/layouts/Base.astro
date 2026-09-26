@@ -1,0 +1,141 @@
+---
+import { withBase, toRootPath, localeSwitchPath } from '../lib/base';
+import { UI, NAV, type Locale, type NavKey } from '../lib/i18n';
+import '../styles/global.css';
+
+interface Props {
+  /** Full <title> text, already localized by the page. */
+  title: string;
+  description?: string;
+  locale: Locale;
+  /** Locale-root-relative path of this page, e.g. '/' or '/install'. */
+  path: string;
+}
+
+const { title, description = '', locale, path } = Astro.props;
+const t = UI[locale];
+
+const rootPath = toRootPath(path);
+const isHome = rootPath === '/';
+const other: Locale = locale === 'en' ? 'it' : 'en';
+
+const switchHref = withBase(localeSwitchPath(path, other));
+const navItems = (Object.keys(NAV) as NavKey[]).map((key) => ({
+  key,
+  label: t.navLabel[key],
+  href: withBase(NAV[key]),
+}));
+
+const canonicalURL = new URL(withBase(rootPath), Astro.site);
+const enURL = new URL(withBase(localeSwitchPath(path, 'en')), Astro.site);
+const itURL = new URL(withBase(localeSwitchPath(path, 'it')), Astro.site);
+
+const GITHUB_REPO = 'https://github.com/alv67/peculium';
+const GITHUB_RELEASES = `${GITHUB_REPO}/releases`;
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang={locale} class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <link rel="canonical" href={canonicalURL.href} />
+    <link rel="alternate" hreflang="en" href={enURL.href} />
+    <link rel="alternate" hreflang="it" href={itURL.href} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Peculium" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL.href} />
+    <meta property="og:locale" content={locale === 'en' ? 'en_US' : 'it_IT'} />
+  </head>
+  <body class="flex min-h-screen flex-col bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm dark:focus:bg-slate-900"
+    >
+      {locale === 'en' ? 'Skip to content' : 'Vai al contenuto'}
+    </a>
+
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+      <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <a href={withBase('/')} class="flex items-center gap-2 text-base font-bold tracking-tight">
+          <img src={withBase('/favicon.svg')} alt="" width="24" height="24" class="h-6 w-6" />
+          <span>{t.siteName}</span>
+        </a>
+
+        <nav class="order-3 -mx-1 w-full overflow-x-auto md:order-none md:mx-0 md:w-auto" aria-label={t.siteName}>
+          <ul class="flex items-center gap-1 whitespace-nowrap text-sm">
+            {navItems.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  aria-current={isHome && item.key === 'home' ? 'page' : undefined}
+                  class="rounded-md px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                >{item.label}</a
+                >
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div class="ml-auto flex items-center gap-1">
+          <a
+            href={switchHref}
+            class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition-colors hover:border-brand hover:text-brand dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-dark dark:hover:text-brand-dark"
+            title={t.switchLangLabel}
+            aria-label={t.switchLangLabel}
+          >{other.toUpperCase()}</a>
+          <a
+            href={GITHUB_REPO}
+            rel="noopener"
+            class="rounded-md p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            title={t.githubLabel}
+            aria-label={t.githubLabel}
+          >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.29 9.42 7.86 10.95.58.1.79-.25.79-.55v-2.1c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.78 1.05.78 2.12v3.14c0 .3.2.66.8.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="border-t border-slate-200 dark:border-slate-800">
+      <div class="mx-auto grid max-w-5xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <p class="text-sm font-bold">{t.siteName}</p>
+          <p class="mt-2 max-w-xs text-sm text-slate-500 dark:text-slate-400">{t.footer.blurb}</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold">{t.footer.project}</p>
+          <ul class="mt-2 space-y-1 text-sm text-slate-500 dark:text-slate-400">
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/features')}>{t.navLabel.features}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/install')}>{t.navLabel.install}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/releases')}>{t.navLabel.releases}</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-sm font-semibold">{locale === 'en' ? 'Resources' : 'Risorse'}</p>
+          <ul class="mt-2 space-y-1 text-sm text-slate-500 dark:text-slate-400">
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={GITHUB_REPO} rel="noopener">{t.footer.sourceCode}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={GITHUB_RELEASES} rel="noopener">{t.navLabel.releases} (GitHub)</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-slate-200 dark:border-slate-800">
+        <p class="mx-auto max-w-5xl px-4 py-4 text-xs text-slate-400 dark:text-slate-500">
+          {t.footer.copyright.replace('{year}', String(year))}
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

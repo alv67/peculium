@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+import { UI } from '../../lib/i18n';
+
+const t = UI.it;
+---
+
+<Base
+  locale="it"
+  path="/it/install"
+  title={`${t.navLabel.install} · Peculium`}
+  description="Installa Peculium sul tuo homelab: immagini container ufficiali e un singolo docker compose up."
+>
+  <div class="mx-auto max-w-3xl px-4 py-16">
+    <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.install}</h1>
+
+    <p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+      {t.comingSoon}
+    </p>
+
+    <p class="mt-6 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+      Peculium è una classica app self-hosted: non compili nulla, ti limiti a scaricare le immagini
+      container ufficiali e ad avviare l’intera stack.
+    </p>
+
+    <h2 class="mt-10 text-xl font-bold">In breve</h2>
+    <ol class="mt-4 list-decimal space-y-3 pl-6 text-slate-600 dark:text-slate-300">
+      <li>
+        Installa <span class="font-semibold text-slate-800 dark:text-slate-100">Docker</span> (con il
+        plugin Compose) su un qualsiasi server Linux, NAS o VM.
+      </li>
+      <li>
+        Recupera il file compose — Peculium è distribuito
+        <span class="font-semibold">solo via pull</span> con immagini su GHCR
+        (<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">ghcr.io/alv67/peculium/*</code>).
+      </li>
+      <li>
+        Imposta qualche variabile nel <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">.env</code>.
+      </li>
+      <li>
+        <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">docker compose up -d</code>
+        — interfaccia web, API, database e cache partono tutti insieme.
+      </li>
+    </ol>
+
+    <p class="mt-6 text-slate-600 dark:text-slate-300">
+      La guida passo passo (dimensionamento, backup, aggiornamenti, reverse proxy, primo utente)
+      vivrà su questa pagina. Nel frattempo, fai riferimento al
+      <a
+        href="https://github.com/alv67/peculium"
+        rel="noopener"
+        class="font-semibold text-brand hover:underline dark:text-brand-dark">README del repository</a
+      >.
+    </p>
+  </div>
+</Base>

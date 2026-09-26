@@ -1,0 +1,55 @@
+---
+import Base from '../layouts/Base.astro';
+import { UI } from '../lib/i18n';
+
+const t = UI.en;
+---
+
+<Base
+  locale="en"
+  path="/install"
+  title={`${t.navLabel.install} · Peculium`}
+  description="Install Peculium on your homelab: pull-only container images and a single docker compose up."
+>
+  <div class="mx-auto max-w-3xl px-4 py-16">
+    <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.install}</h1>
+
+    <p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+      {t.comingSoon}
+    </p>
+
+    <p class="mt-6 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+      Peculium is a classic self-hosted app: you never build anything, you just pull the official
+      container images and start the whole stack.
+    </p>
+
+    <h2 class="mt-10 text-xl font-bold">The short version</h2>
+    <ol class="mt-4 list-decimal space-y-3 pl-6 text-slate-600 dark:text-slate-300">
+      <li>
+        Have <span class="font-semibold text-slate-800 dark:text-slate-100">Docker</span> (with the
+        Compose plugin) on any Linux box, NAS or VM.
+      </li>
+      <li>
+        Grab the compose file — Peculium ships as <span class="font-semibold">pull-only</span> images
+        published on GHCR (<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">ghcr.io/alv67/peculium/*</code>).
+      </li>
+      <li>
+        Set a few variables in <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">.env</code>.
+      </li>
+      <li>
+        <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">docker compose up -d</code>
+        — web UI, API, database and cache come up together.
+      </li>
+    </ol>
+
+    <p class="mt-6 text-slate-600 dark:text-slate-300">
+      The step-by-step guide (sizing, backups, updates, reverse proxy, first user) will live on this
+      page. Until then, see the
+      <a
+        href="https://github.com/alv67/peculium"
+        rel="noopener"
+        class="font-semibold text-brand hover:underline dark:text-brand-dark">repository README</a
+      >.
+    </p>
+  </div>
+</Base>

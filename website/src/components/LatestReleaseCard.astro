@@ -1,0 +1,43 @@
+---
+import { UI, type Locale } from '../lib/i18n';
+import { GITHUB_RELEASES_URL, type LatestRelease } from '../lib/releases';
+
+interface Props {
+  locale: Locale;
+  release: LatestRelease | null;
+}
+
+const { locale, release } = Astro.props;
+const t = UI[locale];
+---
+
+{
+  release ? (
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {t.hero.ctaRelease}
+      </p>
+      <p class="mt-2 text-lg font-bold">
+        <a href={release.url} rel="noopener" class="hover:text-brand dark:hover:text-brand-dark">
+          {release.tag}
+        </a>
+      </p>
+      {release.date && <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{release.date}</p>}
+      <a
+        href={GITHUB_RELEASES_URL}
+        rel="noopener"
+        class="btn-secondary mt-4"
+      >{t.releasesError.linkText}</a>
+    </div>
+  ) : (
+    <div class="rounded-xl border border-dashed border-slate-300 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        {t.releasesError.text}{' '}
+        <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">
+          {t.releasesError.linkText}
+        </a>
+        .
+      </p>
+    </div>
+  )
+}
