@@ -93,7 +93,8 @@ flowchart LR
     NGX -- "proxy_pass → http://backend:8080" --> BE
 ```
 
-The pieces that run (defined in `docker-compose.yml`):
+The pieces that run (defined in `docker-compose.dev.yml` for local development
+and in `docker-compose.yml` for the pull-only release stack):
 
 - **frontend** — the web page. The image is built by `frontend/Dockerfile` in
   two stages:

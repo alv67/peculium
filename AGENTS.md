@@ -8,9 +8,9 @@
   (force-recreating containers is not always sufficient).
 - Run e2e/smoke tests ONLY against the isolated test stack: `make test-e2e`
   (`docker-compose.test.yml`, project `peculium-test`, separate DB `peculium_test`,
-  ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev/prod
-  stack (`docker-compose.yml` / `make up`, DB `peculium`, port 8080): it holds real
-  data and must stay clean.
+  ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev stack
+  (`docker-compose.dev.yml` / `make up`, DB `peculium`, port 8080) or the release
+  stack (`docker-compose.yml`): they hold real data and must stay clean.
 - Delegate implementation to the dedicated subagents whenever the work fits
   their scope: `backend` for Go/Postgres/Redis/API, `frontend` for SvelteKit/
   TypeScript/Tailwind, `python` for the `python-service/` ETF metadata microservice

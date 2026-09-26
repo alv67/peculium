@@ -1,80 +1,114 @@
 name: peculium
 
+# Pull-only release stack: images come from GHCR (see .env.example for the
+# optional overrides). Secrets are generated on first boot by secrets-init
+# and persisted in the peculium_secrets volume; every other service reads
+# them from /run/peculium (or via *_FILE env, per Docker convention).
+#
+# NOTE on secrets-init: the container does NOT exit after writing the secret
+# files — it keeps running with a "--health" heartbeat. This works around the
+# podman-compose bug on depends_on with condition: service_completed_successfully
+# (dependents are never released). The heartbeat lets the stack gate on
+# service_healthy instead, which behaves correctly under both engines.
+
 services:
+  secrets-init:
+    image: ghcr.io/alv67/peculium-secrets-init:${PECULIUM_VERSION:-latest}
+    environment:
+      PECULIUM_SECRETS_DIR: /run/peculium
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      PECULIUM_JWT_SECRET: ${PECULIUM_JWT_SECRET:-}
+    volumes:
+      - peculium_secrets:/run/peculium
+    healthcheck:
+      test: ["CMD", "/secrets-init", "--health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: peculium
       POSTGRES_USER: peculium
-      POSTGRES_PASSWORD: peculium
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD_FILE: /run/peculium/postgres_password
     volumes:
+      - peculium_secrets:/run/peculium:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U peculium"]
       interval: 5s
       timeout: 5s
       retries: 5
+    depends_on:
+      secrets-init:
+        condition: service_healthy
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+    image: ghcr.io/alv67/peculium-backend:${PECULIUM_VERSION:-latest}
     environment:
       PECULIUM_DB_HOST: postgres
       PECULIUM_DB_PORT: 5432
       PECULIUM_DB_NAME: peculium
       PECULIUM_DB_USER: peculium
-      PECULIUM_DB_PASSWORD: peculium
       PECULIUM_DB_SSLMODE: disable
+      PECULIUM_DB_PASSWORD_FILE: /run/peculium/postgres_password
+      PECULIUM_JWT_SECRET_FILE: /run/peculium/jwt_secret
       PECULIUM_REDIS_ADDR: redis:6379
-      PECULIUM_JWT_SECRET: change-me-in-production
       PECULIUM_SERVER_PORT: 8080
-      PECULIUM_LOG_LEVEL: debug
+      PECULIUM_LOG_LEVEL: info
       PECULIUM_PYTHON_SERVICE_URL: "http://python-service:8000"
+      PECULIUM_YAHOO_FINANCE_ENABLED: "${PECULIUM_YAHOO_FINANCE_ENABLED:-true}"
+    volumes:
+      - peculium_secrets:/run/peculium:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      secrets-init:
+        condition: service_healthy
     restart: unless-stopped
-    command: >
-      sh -c "sleep 3 && /server migrate && /server"
+    command: sh -c "/server migrate && /server"
 
   worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+    image: ghcr.io/alv67/peculium-worker:${PECULIUM_VERSION:-latest}
     environment:
       PECULIUM_DB_HOST: postgres
       PECULIUM_DB_PORT: 5432
       PECULIUM_DB_NAME: peculium
       PECULIUM_DB_USER: peculium
-      PECULIUM_DB_PASSWORD: peculium
       PECULIUM_DB_SSLMODE: disable
+      PECULIUM_DB_PASSWORD_FILE: /run/peculium/postgres_password
       PECULIUM_REDIS_ADDR: redis:6379
-      PECULIUM_JWT_SECRET: change-me-in-production
-      PECULIUM_YAHOO_FINANCE_ENABLED: "true"
+      PECULIUM_YAHOO_FINANCE_ENABLED: "${PECULIUM_YAHOO_FINANCE_ENABLED:-true}"
       PECULIUM_PRICE_FETCH_INTERVAL: 1h
+    volumes:
+      - peculium_secrets:/run/peculium:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      secrets-init:
+        condition: service_healthy
     restart: unless-stopped
 
   python-service:
-    build:
-      context: ./python-service
-      dockerfile: Dockerfile
+    image: ghcr.io/alv67/peculium-python-service:${PECULIUM_VERSION:-latest}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
       interval: 5s
@@ -83,14 +117,15 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/alv67/peculium-frontend:${PECULIUM_VERSION:-latest}
     ports:
-      - "3000:80"
+      - "${PECULIUM_HTTP_PORT:-3000}:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
+  peculium_secrets:
+    name: peculium_secrets
   pgdata:
     name: peculium_pgdata

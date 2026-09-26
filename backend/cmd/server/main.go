@@ -151,6 +151,12 @@ func runMigrations(cfg *config.Config) {
 }
 
 func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/login", h.Login)

@@ -96,8 +96,12 @@ flowchart LR
     WK --> PG
 ```
 
-I pezzi che girano (definiti in `docker-compose.yml`):
+I pezzi che girano (definiti in `docker-compose.dev.yml` per lo sviluppo locale
+e in `docker-compose.yml` per lo stack di release pull-only):
 
+- **secrets-init** — genera la password del database e la chiave di firma JWT al
+  primo avvio e le conserva nel volume `peculium_secrets`; poi resta attivo come
+  heartbeat che fa da gate per il database e il backend.
 - **postgres** — il database vero e proprio: utenti, portafogli, transazioni,
   prezzi, tassi di cambio, serie giornaliere.
 - **redis** — un magazzino in memoria usato come contatore condiviso per
@@ -116,9 +120,10 @@ quando viene avviato, fa due cose diverse (`cmd/server/main.go`):
   termina;
 - `server` — avvia l'API HTTP e resta in ascolto.
 
-Nel container il comando è
-`sleep 3 && /server migrate && /server` (`docker-compose.yml`), quindi le
-migrazioni girano sempre prima dell'avvio dell'API.
+Nel container il comando è `sh -c "/server migrate && /server"`, quindi le
+migrazioni girano sempre prima dell'avvio dell'API. Lo stack di release fa
+partire il backend solo quando Postgres è healthy (`depends_on: condition:
+service_healthy`); il compose di sviluppo antepone allo stesso comando `sleep 3`.
 
 ---
 
@@ -129,7 +134,12 @@ La sequenza di avvio del server è:
 1. **Configurazione** — `config.Load()` legge le variabili d'ambiente (con un
    valore di default se mancano). Le variabili d'ambiente sono valori di
    configurazione che si passano al programma all'avvio (ad esempio l'indirizzo
-   del database), senza doverle scrivere dentro al codice.
+   del database), senza doverle scrivere dentro al codice. I due valori
+   sensibili, la password del database e il segreto di firma JWT, accettano
+   anche una variante `*_FILE` (`PECULIUM_DB_PASSWORD_FILE`,
+   `PECULIUM_JWT_SECRET_FILE`): il valore viene allora letto dal file indicato
+   (gli spazi bianchi in coda sono ignorati). La precedenza è: valore
+   d'ambiente esplicito > contenuto del file > default.
 2. **Connessione al database** — `pgxpool.New(ctx, cfg.DSN())`. `pgxpool` è un
    **pool di connessioni**: tiene pronte alcune connessioni al database, le si
    prende quando serve e le si restituisce, così non si riapre una connessione
@@ -144,7 +154,9 @@ La sequenza di avvio del server è:
    chiamare l'API).
 5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
    Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
-   autenticati (controlla il capitolo sull'autenticazione).
+   autenticati (controlla il capitolo sull'autenticazione). Fuori da
+   `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
+   `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
    rispondere alle richieste mentre il calcolo prosegue) ricostruisce le serie
@@ -1022,7 +1034,8 @@ L'utente precompile l'esposizione ──► POST /assets/{id}/fetch-exposure
 backend/
 ├── cmd/
 │   ├── server/main.go      # avvio API, routing, migrazioni, backfill serie
-│   └── worker/main.go      # aggiornamento prezzi in background
+│   ├── worker/main.go      # aggiornamento prezzi in background
+│   └── secrets/main.go     # secrets-init: genera i segreti al primo avvio
 ├── internal/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
@@ -1032,6 +1045,7 @@ backend/
 │   ├── position/           # motore AVCO (State, Apply, Walk)
 │   ├── price/              # client Yahoo (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + fetcher JustETF/Morningstar
 │   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
 │   └── service/            # logica di business (service.go)
 ├── migrations/             # SQL versionato (000001..000018)

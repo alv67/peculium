@@ -1,24 +1,26 @@
 COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose > /dev/null 2>&1; then echo "docker-compose"; elif command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; else echo "podman-compose"; fi)
 
-.PHONY: dev build up down reset migrate migrate-down frontend-dev
+COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
 
-up: ## Start all services
-	$(COMPOSE) up --build -d
+.PHONY: dev build up down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell help
 
-down: ## Stop all services
-	$(COMPOSE) down
+up: ## Start all services (dev stack)
+	$(COMPOSE_DEV) up --build -d
 
-reset: ## Stop all services and delete data volumes (fresh start)
-	$(COMPOSE) down -v
+down: ## Stop all services (dev stack)
+	$(COMPOSE_DEV) down
 
-logs: ## Follow logs
-	$(COMPOSE) logs -f
+reset: ## Stop all services and delete data volumes (fresh start, dev stack)
+	$(COMPOSE_DEV) down -v
 
-restart: ## Restart all services
-	$(COMPOSE) restart
+logs: ## Follow logs (dev stack)
+	$(COMPOSE_DEV) logs -f
 
-migrate: ## Run DB migrations
-	$(COMPOSE) exec backend /server migrate
+restart: ## Restart all services (dev stack)
+	$(COMPOSE_DEV) restart
+
+migrate: ## Run DB migrations (dev stack)
+	$(COMPOSE_DEV) exec backend /server migrate
 
 migrate-down: ## Rollback DB migrations
 	migrate -path backend/migrations -database "postgres://peculium:peculium@localhost:5432/peculium?sslmode=disable" down 1
@@ -26,11 +28,11 @@ migrate-down: ## Rollback DB migrations
 frontend-dev: ## Run frontend in dev mode
 	cd frontend && npm run dev
 
-build: ## Build all binaries (inside container)
-	$(COMPOSE) build
+build: ## Build all images (dev stack)
+	$(COMPOSE_DEV) build
 
 test: ## Run tests
-	cd backend && go test ./... 2>/dev/null || echo "Go not installed locally, use: $(COMPOSE) exec backend go test ./..."
+	cd backend && go test ./... 2>/dev/null || echo "Go not installed locally, use: $(COMPOSE_DEV) exec backend go test ./..."
 
 test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio import/export, EPIC K filters/drill-down)
 	$(COMPOSE) -p peculium-test -f docker-compose.test.yml up -d --build
@@ -41,8 +43,8 @@ test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio im
 	./tests/test-epic-k.sh http://localhost:8081
 	$(COMPOSE) -p peculium-test -f docker-compose.test.yml down -v
 
-db-shell: ## Connect to postgres
-	$(COMPOSE) exec postgres psql -U peculium peculium
+db-shell: ## Connect to postgres (dev stack)
+	$(COMPOSE_DEV) exec postgres psql -U peculium peculium
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

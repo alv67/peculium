@@ -1,0 +1,100 @@
+# Dev stack: builds images from source and uses the fixed local password
+# "peculium" (the existing dev DB volume was initialized with it — do NOT
+# switch this file to generated secrets or the volume will stop working).
+# For end users there is the pull-only docker-compose.yml instead.
+name: peculium
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: peculium
+      POSTGRES_USER: peculium
+      POSTGRES_PASSWORD: peculium
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peculium"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PECULIUM_DB_HOST: postgres
+      PECULIUM_DB_PORT: 5432
+      PECULIUM_DB_NAME: peculium
+      PECULIUM_DB_USER: peculium
+      PECULIUM_DB_PASSWORD: peculium
+      PECULIUM_DB_SSLMODE: disable
+      PECULIUM_REDIS_ADDR: redis:6379
+      PECULIUM_JWT_SECRET: change-me-in-production
+      PECULIUM_SERVER_PORT: 8080
+      PECULIUM_LOG_LEVEL: debug
+      PECULIUM_PYTHON_SERVICE_URL: "http://python-service:8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    command: >
+      sh -c "sleep 3 && /server migrate && /server"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      PECULIUM_DB_HOST: postgres
+      PECULIUM_DB_PORT: 5432
+      PECULIUM_DB_NAME: peculium
+      PECULIUM_DB_USER: peculium
+      PECULIUM_DB_PASSWORD: peculium
+      PECULIUM_DB_SSLMODE: disable
+      PECULIUM_REDIS_ADDR: redis:6379
+      PECULIUM_JWT_SECRET: change-me-in-production
+      PECULIUM_YAHOO_FINANCE_ENABLED: "true"
+      PECULIUM_PRICE_FETCH_INTERVAL: 1h
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  python-service:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+    name: peculium_pgdata

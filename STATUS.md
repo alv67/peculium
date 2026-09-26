@@ -166,7 +166,7 @@ ticker corretto. Da documentare o aggiungere selezione exchange nell'autocomplet
   **anteprima non persistente** (vedi «Redesign modale distribuzione geografica»: la
   persistenza avviene solo via `PUT /assets/{id}/exposure`). Config `PECULIUM_PYTHON_SERVICE_URL`;
   servizio `python-service` presente
-  sia in `docker-compose.yml` sia in `docker-compose.test.yml`.
+  sia in `docker-compose.dev.yml` sia in `docker-compose.test.yml`.
 - **Asset duplicato** — `POST /assets` con ticker già esistente ora risponde **409 Conflict** con
   messaggio chiaro e l'id dell'asset esistente (`asset_id` + `id`).
 - **Verifica** — pytest (`python-service/tests`, 17 test), Go `build/vet/test green`; e2e su stack
@@ -491,7 +491,7 @@ Branch unico `feat/D-design-system`, 5 commit:
 
 ### Ondata 0 — Fix & infrastruttura (13 Set 2026)
 
-- H.1 (#32) — GitHub Actions: `.github/workflows/ci.yml` con due job (backend: `go build` + `go vet` + `go test`; frontend: `npm ci` + `npm run check` + `npm run lint`) su push e pull request verso `develop`/`main`. Fase 0 completa.
+- H.1 (#32) — GitHub Actions: `.github/workflows/ci.yml` con due job (backend: `go build` + `go vet` + `go test`; frontend: `npm ci` + `npm run check` + `npm run lint`) su push e pull request verso `develop`/`main`, più un job `compose` che valida i tre file Compose. Release automation in `.github/workflows/publish-images.yml`: buildx multi-arch (`amd64` + `arm64`) delle cinque immagini su GHCR (`peculium-*`) e GitHub Release creata dai `docs/RELEASE-NOTES.*` sui tag `v*`. Fase 0 completa.
 - H.4 (#46) — Price sync health: campo `has_data` nel summary; la card Success Rate mostra **N/A** (niente più `NaN%`) quando non ci sono eventi nel periodo; `formatRate` robusto a null/undefined/NaN.
 - H.5 (#47) — Logging API: `FetchIssue` con `request_type` (`chart`/`spark`/`search`/`fx`) e `asset_id`; `HealthEvent.AssetID` popolato sugli eventi per-asset; messaggi di successo con l'elenco dei ticker; registrazione degli eventi `search` (lookup) prima assenti.
 - E.9 (#71) — Le allocazioni del portafoglio (classi, geo, settori) vengono rifetchate dopo create/update/delete di una transazione, senza reload.
@@ -1145,7 +1145,7 @@ benchmark overlay (EPIC C), density toggle (fuori MVP), passkey/2FA (solo slot).
 ## Comandi Utili
 
 ```bash
-make up              # Avvia tutto con podman-compose
+make up              # Avvia tutto con podman-compose (stack dev)
 make down            # Ferma tutti i servizi
 make reset           # Ferma i servizi e cancella i volumi dati (fresh start)
 make logs            # Log in tempo reale
@@ -1157,8 +1157,8 @@ make frontend-dev    # Sviluppo frontend con hot-reload
 #   tests/api-test.http — richieste in ordine contro http://localhost:8081/api/v1
 # Smoke test EPIC B sulle allocazioni (stack test, porta 8081):
 #   tests/test-epic-b.sh [--step | --no-seed]
-# Per ricreare container dopo modifiche:
-podman-compose stop <service>
+# Per ricreare container dopo modifiche (stack dev):
+podman-compose -f docker-compose.dev.yml stop <service>
 podman rm <container>
-podman-compose up -d --build <service>
+podman-compose -f docker-compose.dev.yml up -d --build <service>
 ```
