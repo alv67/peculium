@@ -6,9 +6,10 @@ import { UI } from '../../lib/i18n';
 const t = UI.it;
 
 /**
- * Aree funzionali dell’app, ciascuna con il proprio screenshot da
- * `public/screenshots/<file>` (capturati dalla stack di test isolata a 2× DPR
- * di un viewport 1280×800; il markup li imposta a 1280×800).
+ * Aree funzionali dell'app, ciascuna con il proprio screenshot (UI italiana)
+ * da `public/screenshots/it/<file>` — catturati dalla stack di test isolata a
+ * 2× DPR di un viewport 1280×800; il markup li imposta a 1280×800.
+ * La pagina inglese è lo specchio di questa e legge `screenshots/en/`.
  */
 const areas = [
   {
@@ -63,7 +64,7 @@ const areas = [
           <p class="mt-2 max-w-2xl leading-relaxed text-slate-600 dark:text-slate-300">{area.body}</p>
           <figure class="mt-4">
             <img
-              src={withBase(`/screenshots/${area.file}`)}
+              src={withBase(`/screenshots/it/${area.file}`)}
               alt={area.title}
               width="1280"
               height="800"
