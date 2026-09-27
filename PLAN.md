@@ -30,6 +30,7 @@
 - [x] Struttura repository (monorepo con backend Go + frontend SvelteKit)
 - [ ] Docker + docker-compose con Postgres + Redis
 - [x] CI/CD base (GitHub Actions: build + vet + test Go, check + lint frontend) — **EPIC H.1 (#32)**
+- [x] Release automation: publish delle immagini multi-arch su GHCR + GitHub Release sui tag `v*` — **#131**
 - [ ] Task runner / Makefile per comandi comuni
 
 ### FASE 1 — Core: Auth & Gestione Investimenti
@@ -123,12 +124,16 @@ Goal         → id, user_id, name, target_amount, current_amount, deadline
 
 ```
 peculium/
-├── docker-compose.yml
+├── docker-compose.yml          # release, pull-only (images from GHCR)
+├── docker-compose.dev.yml      # local development (builds from source)
+├── docker-compose.test.yml     # isolated e2e stack
+├── .env.example                # optional release overrides
 ├── Makefile
 ├── backend/
 │   ├── cmd/
 │   │   ├── server/main.go
-│   │   └── worker/main.go
+│   │   ├── worker/main.go
+│   │   └── secrets/main.go   # secrets-init: generates secrets on first boot
 │   ├── internal/
 │   │   ├── auth/        # JWT, middleware
 │   │   ├── handler/     # HTTP handlers

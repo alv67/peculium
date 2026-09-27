@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,13 +48,13 @@ func Load() *Config {
 		DBPort:     getEnvInt("PECULIUM_DB_PORT", 5432),
 		DBName:     getEnv("PECULIUM_DB_NAME", "peculium"),
 		DBUser:     getEnv("PECULIUM_DB_USER", "peculium"),
-		DBPassword: getEnv("PECULIUM_DB_PASSWORD", "peculium"),
+		DBPassword: getEnvOrFile("PECULIUM_DB_PASSWORD", "peculium"),
 		DBSSLMode:  getEnv("PECULIUM_DB_SSLMODE", "disable"),
 
 		RedisAddr:     getEnv("PECULIUM_REDIS_ADDR", "localhost:6379"),
 		RedisPassword: getEnv("PECULIUM_REDIS_PASSWORD", ""),
 
-		JWTSecret:     getEnv("PECULIUM_JWT_SECRET", "change-me-in-production"),
+		JWTSecret:     getEnvOrFile("PECULIUM_JWT_SECRET", "change-me-in-production"),
 		JWTAccessTTL:  getEnvDuration("PECULIUM_JWT_ACCESS_TTL", 15*time.Minute),
 		JWTRefreshTTL: getEnvDuration("PECULIUM_JWT_REFRESH_TTL", 72*time.Hour),
 
@@ -87,6 +88,30 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getEnvOrFile resolves a secret value with precedence: explicit env value >
+// contents of the file named by <key>_FILE > fallback. The fallback is only
+// applied after the file lookup, so a default never masks a *_FILE setting.
+func getEnvOrFile(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	if v := readSecretFile(os.Getenv(key + "_FILE")); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func readSecretFile(path string) string {
+	if path == "" {
+		return ""
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func getEnvInt(key string, fallback int) int {

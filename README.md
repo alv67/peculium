@@ -17,7 +17,7 @@ Track your investments, monitor asset performance, and gain insights into your f
 - **Dashboard** — Portfolio value, gain/loss, allocation, performance charts, ROI by asset
 - **Market prices** — Yahoo Finance with Redis caching, rate-limit/backoff, series materialization, price health dashboard
 - **Data quality** — Summary exposes staleness / missing-country / missing-sector / missing-FX metrics
-- **Self-contained** — Everything runs via `podman-compose up`
+- **Self-contained** — Everything runs via Docker/Podman Compose
 
 ## Tech Stack
 
@@ -33,11 +33,31 @@ Track your investments, monitor asset performance, and gain insights into your f
 
 ## Quick Start
 
+### From source (local build)
+
 ```bash
-podman-compose up -d --build
+make up
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. This builds the images from the working tree
+(`docker-compose.dev.yml`).
+
+### Pull-only install (no local build)
+
+The release stack (`docker-compose.yml`) runs pre-built images published to
+GitHub Container Registry (`ghcr.io/alv67/peculium-*`, available from the
+v1.0.0 release onward):
+
+```bash
+curl -O https://raw.githubusercontent.com/alv67/peculium/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/alv67/peculium/main/.env.example
+cp .env.example .env   # optional: pin a version or provide your own secrets
+podman-compose up -d
+```
+
+Secrets are generated on first boot and stored in the `peculium_secrets` volume
+(back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
+release.
 
 > Requires Podman (or Docker) with Compose support.
 

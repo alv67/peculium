@@ -100,8 +100,12 @@ flowchart LR
     WK --> PG
 ```
 
-The pieces that run (defined in `docker-compose.yml`):
+The pieces that run (defined in `docker-compose.dev.yml` for local development
+and in `docker-compose.yml` for the pull-only release stack):
 
+- **secrets-init** — generates the database password and the JWT signing key on
+  first boot and stores them in the `peculium_secrets` volume; it then keeps
+  running as the heartbeat that gates the database and the backend.
 - **postgres** — the actual database: users, portfolios, transactions, prices,
   exchange rates, daily series.
 - **redis** — an in-memory store used as a shared counter to avoid exceeding
@@ -123,9 +127,10 @@ when it is started, does two different things (`cmd/server/main.go`):
   terminates;
 - `server` — starts the HTTP API and keeps listening.
 
-Inside the container the command is
-`sleep 3 && /server migrate && /server` (`docker-compose.yml`), so migrations
-always run before the API starts.
+Inside the container the command is `sh -c "/server migrate && /server"`, so
+migrations always run before the API starts. The release stack gates the backend
+on Postgres being healthy (`depends_on: condition: service_healthy`); the dev
+compose prefixes the same command with `sleep 3`.
 
 ---
 
@@ -136,7 +141,12 @@ The server startup sequence is:
 1. **Configuration** — `config.Load()` reads the environment variables (with a
    default value if they are missing). Environment variables are configuration
    values passed to the program at startup (for example the database address),
-   without having to write them in the code.
+   without having to write them in the code. The two secret values, the
+   database password and the JWT signing secret, also accept a `*_FILE`
+   variant (`PECULIUM_DB_PASSWORD_FILE`, `PECULIUM_JWT_SECRET_FILE`): the
+   value is then read from the file it points at (trailing whitespace is
+   ignored). Precedence is explicit environment value > file contents >
+   default.
 2. **Database connection** — `pgxpool.New(ctx, cfg.DSN())`. `pgxpool` is a
    **connection pool**: it keeps a few database connections ready, you take
    one when needed and give it back, so a connection is not opened from
@@ -150,7 +160,10 @@ The server startup sequence is:
    rules that allow the frontend to call the API).
 5. **Routes** — the endpoints are connected to the functions that handle
    them. Some endpoints are public (`/auth/*`), the others require
-   authentication (see the chapter on authentication).
+   authentication (see the chapter on authentication). Outside `/api/v1`,
+   `GET /healthz` is a public liveness probe: it answers
+   `{"status":"ok"}` with HTTP 200 and does not touch the database or
+   Redis.
 6. **Series backfill** — after startup, a goroutine (a "thread" of execution
    that works in parallel with the rest of the program, so the API can answer
    requests while the calculation continues) rebuilds the daily series of all
@@ -1007,7 +1020,8 @@ The user prefills the exposure ──► POST /assets/{id}/fetch-exposure
 backend/
 ├── cmd/
 │   ├── server/main.go      # API startup, routing, migrations, series backfill
-│   └── worker/main.go      # background price updates
+│   ├── worker/main.go      # background price updates
+│   └── secrets/main.go     # secrets-init: generates secrets on first boot
 ├── internal/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
@@ -1017,6 +1031,7 @@ backend/
 │   ├── position/           # AVCO engine (State, Apply, Walk)
 │   ├── price/              # Yahoo client (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + JustETF/Morningstar fetchers
 │   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
 │   └── service/            # business logic (service.go)
 ├── migrations/             # versioned SQL (000001..000018)
