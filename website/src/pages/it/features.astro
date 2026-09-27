@@ -6,11 +6,9 @@ import { UI } from '../../lib/i18n';
 const t = UI.it;
 
 /**
- * Aree funzionali dell’app. Slice 3 porterà gli screenshot reali in
- * `public/screenshots/<file>` (capturati dalla stack di test isolata); fino a
- * allora ogni figura mostra il segnaposto. Per collegare uno screenshot,
- * sostituisci il <div> segnaposto con
- * <img src={withBase(`/screenshots/${area.file}`)} ... />.
+ * Aree funzionali dell’app, ciascuna con il proprio screenshot da
+ * `public/screenshots/<file>` (capturati dalla stack di test isolata a 2× DPR
+ * di un viewport 1280×800; il markup li imposta a 1280×800).
  */
 const areas = [
   {
@@ -64,16 +62,15 @@ const areas = [
           <h2 class="text-xl font-bold tracking-tight">{area.title}</h2>
           <p class="mt-2 max-w-2xl leading-relaxed text-slate-600 dark:text-slate-300">{area.body}</p>
           <figure class="mt-4">
-            {/* Slice 3: sostituisci questo segnaposto con
-                <img src={withBase(`/screenshots/${area.file}`)} alt={area.title} width="1280" height="800" class="rounded-xl border border-slate-200 shadow-card dark:border-slate-800" /> */}
-            <div
-              class="flex aspect-video items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-100 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
-            >
-              {t.screenshotSoon}
-            </div>
-            <figcaption class="mt-2 font-mono text-xs text-slate-400 dark:text-slate-500">
-              {withBase(`/screenshots/${area.file}`)}
-            </figcaption>
+            <img
+              src={withBase(`/screenshots/${area.file}`)}
+              alt={area.title}
+              width="1280"
+              height="800"
+              loading="lazy"
+              decoding="async"
+              class="rounded-xl border border-slate-200 shadow-card dark:border-slate-800"
+            />
           </figure>
         </section>
       ))}

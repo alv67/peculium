@@ -48,7 +48,6 @@ interface Strings {
     /** `{year}` is substituted by the layout; the name is the app's copyright holder. */
     copyright: string;
   };
-  screenshotSoon: string;
 }
 
 export const UI: Record<Locale, Strings> = {
@@ -125,7 +124,6 @@ export const UI: Record<Locale, Strings> = {
       sourceCode: 'Source code',
       copyright: '© {year} Alessandro Varesi (alv67) · MIT License',
     },
-    screenshotSoon: 'Screenshot coming soon',
   },
   it: {
     siteName: 'Peculium',
@@ -202,6 +200,5 @@ export const UI: Record<Locale, Strings> = {
       sourceCode: 'Codice sorgente',
       copyright: '© {year} Alessandro Varesi (alv67) · Licenza MIT',
     },
-    screenshotSoon: 'Screenshot in arrivo',
   },
 };

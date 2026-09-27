@@ -1,16 +1,17 @@
 # Screenshots
 
-Slot for the feature-area screenshots (website issue #102, slice 3). Files are
-captured from the **isolated test stack** (`make test-e2e` stack — never the
-dev/prod one) and dropped here with exactly these names, which the Features
-pages already reference through `withBase('/screenshots/<file>')`:
+Feature-area screenshots of Peculium, captured from the **isolated test stack**
+(`docker-compose.test.yml` — never the dev/prod one) at **2× DPR of a
+1280×800 viewport** (2560×1600 px). The Features pages reference them through
+`withBase('/screenshots/<file>')`, laid out at 1280×800:
 
-- `portfolio-dashboard.png`
-- `allocations.png`
-- `transactions.png`
-- `asset-exposure.png`
-- `price-health.png`
-- `multi-currency.png`
+- `portfolio-dashboard.png` — Portfolio & dashboard
+- `allocations.png` — Allocations
+- `transactions.png` — Transactions & history
+- `asset-exposure.png` — Asset detail & exposure
+- `price-health.png` — Data & sync / price health
+- `multi-currency.png` — Multi-currency
 
-Recommended size: 1280×800 (16:10). Until a file lands, the page renders the
-"screenshot coming soon" placeholder.
+To refresh them after a UI change, re-capture the matching area from the test
+stack at the same viewport/DPR and replace the file in place — the names are
+the contract with the pages.

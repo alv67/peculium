@@ -28,7 +28,7 @@ Requirements: Node **22.12+** (Astro 7's minimum).
 | `/` and `/it/`         | `src/pages/index.astro`, `src/pages/it/index.astro` | real content |
 | `/install` and `/it/install` | `src/pages/install.astro`, `src/pages/it/install.astro` | real content (pull-only guide) |
 | `/releases` and `/it/releases` | `src/pages/releases.astro`, `src/pages/it/releases.astro` | real content (notes rendered from `docs/RELEASE-NOTES.*` at build time) |
-| `/features` and `/it/features` | `src/pages/features.astro`, `src/pages/it/features.astro` | real content (screenshots land in `public/screenshots/`, slice 3) |
+| `/features` and `/it/features` | `src/pages/features.astro`, `src/pages/it/features.astro` | real content, with screenshots from `public/screenshots/` |
 
 English is the default locale and is **not** prefixed (`prefixDefaultLocale:
 false`); Italian pages live under `/it/...`. The nav has an EN/IT switcher that
