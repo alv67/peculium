@@ -3,54 +3,124 @@ import Base from '../../layouts/Base.astro';
 import { UI } from '../../lib/i18n';
 
 const t = UI.it;
+const GH = 'https://github.com/alv67/peculium';
 ---
 
 <Base
   locale="it"
   path="/it/install"
   title={`${t.navLabel.install} · Peculium`}
-  description="Installa Peculium sul tuo homelab: immagini container ufficiali e un singolo docker compose up."
+  description="Installa Peculium sul tuo homelab: scarica le immagini pubbliche da GHCR e avvia tutta la stack con un solo comando."
 >
   <div class="mx-auto max-w-3xl px-4 py-16">
     <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.install}</h1>
-
-    <p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
-      {t.comingSoon}
+    <p class="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+      Peculium è una classica app self-hosted, e installarla avviene solo via pull: sulla tua macchina
+      non si compila nulla. Le immagini ufficiali sono pubbliche su GitHub Container Registry —
+      download anonimi, senza login e senza token — per
+      <span class="font-semibold text-slate-800 dark:text-slate-100">linux/amd64</span> e
+      <span class="font-semibold text-slate-800 dark:text-slate-100">linux/arm64</span>.
     </p>
 
-    <p class="mt-6 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-      Peculium è una classica app self-hosted: non compili nulla, ti limiti a scaricare le immagini
-      container ufficiali e ad avviare l’intera stack.
+    <h2 class="mt-10 text-xl font-bold">Prerequisiti</h2>
+    <ul class="mt-3 list-disc space-y-2 pl-6 text-slate-600 dark:text-slate-300">
+      <li>
+        <span class="font-semibold text-slate-800 dark:text-slate-100">Podman</span> (o Docker) con il
+        supporto a Compose, su un qualsiasi server Linux, NAS o VM.
+      </li>
+      <li>
+        Una macchina <span class="font-semibold text-slate-800 dark:text-slate-100">amd64</span> o
+        <span class="font-semibold text-slate-800 dark:text-slate-100">arm64</span>: le immagini sono multi-arch.
+      </li>
+    </ul>
+    <p class="mt-3 text-sm text-slate-500 dark:text-slate-400">
+      Le immagini sono pubblicate su <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">ghcr.io/alv67/peculium-*</code>
+      (frontend, backend, worker, python-service, secrets-init) a partire dalla release
+      <span class="font-semibold">v1.0.0</span>.
     </p>
 
-    <h2 class="mt-10 text-xl font-bold">In breve</h2>
-    <ol class="mt-4 list-decimal space-y-3 pl-6 text-slate-600 dark:text-slate-300">
-      <li>
-        Installa <span class="font-semibold text-slate-800 dark:text-slate-100">Docker</span> (con il
-        plugin Compose) su un qualsiasi server Linux, NAS o VM.
-      </li>
-      <li>
-        Recupera il file compose — Peculium è distribuito
-        <span class="font-semibold">solo via pull</span> con immagini su GHCR
-        (<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">ghcr.io/alv67/peculium/*</code>).
-      </li>
-      <li>
-        Imposta qualche variabile nel <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">.env</code>.
-      </li>
-      <li>
-        <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200">docker compose up -d</code>
-        — interfaccia web, API, database e cache partono tutti insieme.
-      </li>
-    </ol>
+    <h2 class="mt-10 text-xl font-bold">Passo 1 — Scarica i file della stack</h2>
+    <p class="mt-2 text-slate-600 dark:text-slate-300">Recupera il compose di release e il template degli ambienti di variabili:</p>
+    <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm leading-relaxed text-slate-100"><code>curl -O https://raw.githubusercontent.com/alv67/peculium/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/alv67/peculium/main/.env.example
+cp .env.example .env   # opzionale</code></pre>
 
-    <p class="mt-6 text-slate-600 dark:text-slate-300">
-      La guida passo passo (dimensionamento, backup, aggiornamenti, reverse proxy, primo utente)
-      vivrà su questa pagina. Nel frattempo, fai riferimento al
-      <a
-        href="https://github.com/alv67/peculium"
-        rel="noopener"
-        class="font-semibold text-brand hover:underline dark:text-brand-dark">README del repository</a
-      >.
+    <h2 class="mt-10 text-xl font-bold">Passo 2 — Configura (facoltativo)</h2>
+    <p class="mt-2 text-slate-600 dark:text-slate-300">
+      Ogni valore ha un sensato default: puoi anche saltare <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">.env</code>
+      e la stack parte con segreti generati automaticamente. Modificalo solo se vuoi cambiare qualcosa:
+    </p>
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <th class="py-2 pr-4 font-semibold">Variabile</th>
+            <th class="py-2 pr-4 font-semibold">Default</th>
+            <th class="py-2 font-semibold">Note</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-600 dark:text-slate-300">
+          <tr class="border-b border-slate-100 dark:border-slate-800">
+            <td class="py-2 pr-4 font-mono text-xs">PECULIUM_VERSION</td>
+            <td class="py-2 pr-4 font-mono text-xs">latest</td>
+            <td class="py-2">Tag delle immagini di tutti i servizi Peculium — fissa una release (es. <code class="font-mono text-xs">v1.0.0</code>) per bloccare la stack su una versione.</td>
+          </tr>
+          <tr class="border-b border-slate-100 dark:border-slate-800">
+            <td class="py-2 pr-4 font-mono text-xs">PECULIUM_HTTP_PORT</td>
+            <td class="py-2 pr-4 font-mono text-xs">3000</td>
+            <td class="py-2">Porta dell’host su cui è pubblicata l’interfaccia web.</td>
+          </tr>
+          <tr class="border-b border-slate-100 dark:border-slate-800">
+            <td class="py-2 pr-4 font-mono text-xs">POSTGRES_PASSWORD</td>
+            <td class="py-2 pr-4 font-mono text-xs">(vuota)</td>
+            <td class="py-2">Lasciala vuota per generarne una casuale al primo avvio.</td>
+          </tr>
+          <tr>
+            <td class="py-2 pr-4 font-mono text-xs">PECULIUM_JWT_SECRET</td>
+            <td class="py-2 pr-4 font-mono text-xs">(vuota)</td>
+            <td class="py-2">Lasciala vuota per generarne uno casuale al primo avvio. Modificarlo disconnette tutti.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="mt-10 text-xl font-bold">Passo 3 — Avvia</h2>
+    <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm leading-relaxed text-slate-100"><code>podman-compose up -d</code></pre>
+    <p class="mt-2 text-slate-600 dark:text-slate-300">
+      Interfaccia web, API, worker, servizio prezzi, PostgreSQL e Redis partono insieme; il primo
+      <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">up</code>
+      genera e salva anche i segreti (vedi le note qui sotto).
+    </p>
+
+    <h2 class="mt-10 text-xl font-bold">Passo 4 — Apri Peculium</h2>
+    <p class="mt-2 text-slate-600 dark:text-slate-300">
+      Punta il browser a <a href="http://localhost:3000" class="font-semibold text-brand hover:underline dark:text-brand-dark">http://localhost:3000</a>
+      e crea il primo account. Da lì aggiungi asset e portfolio: a recuperare i prezzi ci pensa Peculium.
+    </p>
+
+    <h2 class="mt-10 text-xl font-bold">Buono a sapersi</h2>
+    <ul class="mt-3 list-disc space-y-2 pl-6 text-slate-600 dark:text-slate-300">
+      <li>
+        <span class="font-semibold text-slate-800 dark:text-slate-100">Fai il backup del volume dei segreti.</span>
+        Al primo avvio la password del database e il segreto JWT vengono generati automaticamente e
+        persistiti nel volume <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">peculium_secrets</code>,
+        per essere riutilizzati a ogni riavvio — se perdi quel volume perdi l’accesso al database.
+      </li>
+      <li>
+        PostgreSQL e Redis <span class="font-semibold text-slate-800 dark:text-slate-100">non</span>
+        sono esposti sull’host; dell’intera stack è pubblicata solo la porta della web UI (il backend
+        è raggiungibile tramite il proxy <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">/api/</code> del frontend).
+      </li>
+      <li>
+        <span class="font-semibold text-slate-800 dark:text-slate-100">Per aggiornare</span> scarica il
+        nuovo tag e riavvia in-place:
+        <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs dark:bg-slate-800">PECULIUM_VERSION=vX.Y.Z podman-compose pull &amp;&amp; podman-compose up -d</code>
+      </li>
+    </ul>
+
+    <p class="mt-10 text-sm text-slate-500 dark:text-slate-400">
+      Qualcosa non funziona? Apri una issue su{' '}
+      <a href={`${GH}/issues`} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">GitHub</a>.
     </p>
   </div>
 </Base>

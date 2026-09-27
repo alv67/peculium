@@ -26,9 +26,9 @@ Requirements: Node **22.12+** (Astro 7's minimum).
 | Route                  | Source                                   | Status                 |
 | ---------------------- | ---------------------------------------- | ---------------------- |
 | `/` and `/it/`         | `src/pages/index.astro`, `src/pages/it/index.astro` | real content |
-| `/install` and `/it/install` | `src/pages/install.astro`, `src/pages/it/install.astro` | stub (issue #102, slice 2) |
-| `/releases` and `/it/releases` | `src/pages/releases.astro`, `src/pages/it/releases.astro` | stub + latest-release card (full notes in slice 2) |
-| `/features` and `/it/features` | `src/pages/features.astro`, `src/pages/it/features.astro` | stub (screenshots in slice 3) |
+| `/install` and `/it/install` | `src/pages/install.astro`, `src/pages/it/install.astro` | real content (pull-only guide) |
+| `/releases` and `/it/releases` | `src/pages/releases.astro`, `src/pages/it/releases.astro` | real content (notes rendered from `docs/RELEASE-NOTES.*` at build time) |
+| `/features` and `/it/features` | `src/pages/features.astro`, `src/pages/it/features.astro` | real content (screenshots land in `public/screenshots/`, slice 3) |
 
 English is the default locale and is **not** prefixed (`prefixDefaultLocale:
 false`); Italian pages live under `/it/...`. The nav has an EN/IT switcher that
@@ -44,10 +44,13 @@ Key conventions:
   `@tailwind` directives in `src/styles/global.css`. The `@astrojs/tailwind`
   integration is not used because its peer range does not cover Astro 7.
 - **Single source of truth for releases.** GitHub Releases are created from
-  `docs/RELEASE-NOTES.en.md` / `.it.md`, so the build reads that file directly —
-  never the network. The latest-release card parses the first version heading
-  and degrades gracefully to a plain link to the releases page when the file or
-  heading is missing; the releases page will render the notes in full (slice 2).
+  `docs/RELEASE-NOTES.en.md` / `.it.md`, so the build reads those files directly
+  — never the network. `src/lib/releases.ts` locates them by walking up the
+  directory tree from the module (Astro bundling makes fixed relative paths
+  unreliable) and parses the version headings into entries; the EN pages use
+  the EN notes, the IT pages the IT notes. `## Unreleased` sections are skipped
+  (the site publishes released versions only). When a notes file is missing the
+  build still succeeds: the pages degrade to a plain link to GitHub Releases.
   The site never stores hand-copied release notes.
 - Keep dependencies light: Astro + Tailwind only. No CMS, no UI kit.
 

@@ -1,0 +1,32 @@
+---
+/**
+ * Renders parsed `docs/RELEASE-NOTES.<locale>.md` entries. All interpolated
+ * strings are HTML-escaped by Astro; note text is emitted as plain text.
+ */
+import type { ReleaseEntry } from '../lib/releases';
+
+interface Props {
+  entries: ReleaseEntry[];
+}
+
+const { entries } = Astro.props;
+---
+
+<div class="mt-8 space-y-10">
+  {entries.map((entry, i) => (
+    <article class={i === 0 ? undefined : 'border-t border-slate-200 pt-8 dark:border-slate-800'}>
+      <h2 class="text-xl font-bold tracking-tight">
+        <a href={entry.url} rel="noopener" class="hover:text-brand dark:hover:text-brand-dark">{entry.tag}</a>
+        <span class="ml-2 align-middle text-sm font-medium text-slate-500 dark:text-slate-400">— {entry.date}</span>
+      </h2>
+      {entry.sections.map((section) => (
+        <section class="mt-4">
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{section.heading}</h3>
+          <ul class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            {section.items.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      ))}
+    </article>
+  ))}
+</div>
