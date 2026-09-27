@@ -1,5 +1,5 @@
 ---
-import { withBase, toRootPath, localeSwitchPath } from '../lib/base';
+import { withBase, toRootPath, localeSwitchPath, localePath } from '../lib/base';
 import { UI, NAV, type Locale, type NavKey } from '../lib/i18n';
 import '../styles/global.css';
 
@@ -20,10 +20,11 @@ const isHome = rootPath === '/';
 const other: Locale = locale === 'en' ? 'it' : 'en';
 
 const switchHref = withBase(localeSwitchPath(path, other));
+// All internal links stay in the active locale (nav, logo, footer).
 const navItems = (Object.keys(NAV) as NavKey[]).map((key) => ({
   key,
   label: t.navLabel[key],
-  href: withBase(NAV[key]),
+  href: withBase(localePath(NAV[key], locale)),
 }));
 
 const canonicalURL = new URL(withBase(rootPath), Astro.site);
@@ -63,7 +64,7 @@ const year = new Date().getFullYear();
 
     <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
       <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <a href={withBase('/')} class="flex items-center gap-2 text-base font-bold tracking-tight">
+        <a href={withBase(localePath('/', locale))} class="flex items-center gap-2 text-base font-bold tracking-tight">
           <img src={withBase('/peculium.svg')} alt="" width="24" height="24" class="h-6 w-6" />
           <span>{t.siteName}</span>
         </a>
@@ -118,9 +119,9 @@ const year = new Date().getFullYear();
         <div>
           <p class="text-sm font-semibold">{t.footer.project}</p>
           <ul class="mt-2 space-y-1 text-sm text-slate-500 dark:text-slate-400">
-            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/features')}>{t.navLabel.features}</a></li>
-            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/install')}>{t.navLabel.install}</a></li>
-            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase('/releases')}>{t.navLabel.releases}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase(localePath('/features', locale))}>{t.navLabel.features}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase(localePath('/install', locale))}>{t.navLabel.install}</a></li>
+            <li><a class="hover:text-brand dark:hover:text-brand-dark" href={withBase(localePath('/releases', locale))}>{t.navLabel.releases}</a></li>
           </ul>
         </div>
         <div>

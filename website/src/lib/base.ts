@@ -41,6 +41,15 @@ export function localeSwitchPath(pathname: string, target: 'en' | 'it'): string 
   return target === 'en' ? root : withIt(root);
 }
 
+/**
+ * Build a root-relative page path for a specific locale, e.g.
+ * `localePath('/install', 'it')` -> `/it/install`. Intended for locale-root
+ * paths like the nav entries; `toRootPath` is idempotent on those.
+ */
+export function localePath(root: string, locale: 'en' | 'it'): string {
+  return localeSwitchPath(root, locale);
+}
+
 function withIt(root: string): string {
   return root === '/' ? '/it' : `/it${root}`;
 }
