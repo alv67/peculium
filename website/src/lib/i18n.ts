@@ -45,8 +45,7 @@ interface Strings {
     blurb: string;
     project: string;
     sourceCode: string;
-    /** Author-credit label; the name itself is a literal in the layout. */
-    author: string;
+    /** `{year}` is substituted by the layout; the name is the app's copyright holder. */
     copyright: string;
   };
   comingSoon: string;
@@ -125,8 +124,7 @@ export const UI: Record<Locale, Strings> = {
       blurb: 'A self-hosted personal finance & investment suite for your homelab.',
       project: 'Project',
       sourceCode: 'Source code',
-      author: 'Created by',
-      copyright: '© {year} Peculium contributors · MIT License',
+      copyright: '© {year} Alessandro Varesi (alv67) · MIT License',
     },
     comingSoon: 'This page is being written — full guide coming soon.',
     screenshotSoon: 'Screenshot coming soon',
@@ -204,8 +202,7 @@ export const UI: Record<Locale, Strings> = {
       blurb: 'Una suite self-hosted per la finanza personale e gli investimenti del tuo homelab.',
       project: 'Progetto',
       sourceCode: 'Codice sorgente',
-      author: 'Creato da',
-      copyright: '© {year} Contributori di Peculium · Licenza MIT',
+      copyright: '© {year} Alessandro Varesi (alv67) · Licenza MIT',
     },
     comingSoon: 'Questa pagina è in lavorazione — guida completa in arrivo.',
     screenshotSoon: 'Screenshot in arrivo',
