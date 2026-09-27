@@ -42,7 +42,8 @@ const year = new Date().getFullYear();
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <meta name="author" content="Alessandro Varesi (alv67)" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/peculium.svg')} />
     <link rel="canonical" href={canonicalURL.href} />
     <link rel="alternate" hreflang="en" href={enURL.href} />
     <link rel="alternate" hreflang="it" href={itURL.href} />
@@ -64,7 +65,7 @@ const year = new Date().getFullYear();
     <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
       <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <a href={withBase('/')} class="flex items-center gap-2 text-base font-bold tracking-tight">
-          <img src={withBase('/favicon.svg')} alt="" width="24" height="24" class="h-6 w-6" />
+          <img src={withBase('/peculium.svg')} alt="" width="24" height="24" class="h-6 w-6" />
           <span>{t.siteName}</span>
         </a>
 
@@ -132,7 +133,13 @@ const year = new Date().getFullYear();
         </div>
       </div>
       <div class="border-t border-slate-200 dark:border-slate-800">
-        <p class="mx-auto max-w-5xl px-4 py-4 text-xs text-slate-400 dark:text-slate-500">
+        <p class="mx-auto max-w-5xl px-4 pt-4 text-xs text-slate-400 dark:text-slate-500">
+          {t.footer.author}{' '}
+          <a href="https://github.com/alv67" rel="noopener me" class="font-medium text-slate-500 hover:text-brand dark:text-slate-500 dark:hover:text-brand-dark"
+            >Alessandro Varesi (alv67)</a
+          >
+        </p>
+        <p class="mx-auto max-w-5xl px-4 pb-4 text-xs text-slate-400 dark:text-slate-500">
           {t.footer.copyright.replace('{year}', String(year))}
         </p>
       </div>

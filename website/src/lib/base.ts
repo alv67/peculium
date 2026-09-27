@@ -13,7 +13,7 @@ function basePrefix(): string {
 }
 
 /**
- * Prefix a root-relative site path (e.g. `/`, `/install`, `/favicon.svg`)
+ * Prefix a root-relative site path (e.g. `/`, `/install`, `/peculium.svg`)
  * with the deployment base. Paths that already start with the base are
  * returned unchanged; absolute URLs (http/https/mailto) pass through.
  */
