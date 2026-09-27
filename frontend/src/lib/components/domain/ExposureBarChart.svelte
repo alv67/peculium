@@ -7,7 +7,7 @@
   import { CanvasRenderer } from 'echarts/renderers'
   import { formatCurrency, formatPercent } from '$lib/format'
   import { resolvePalette } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { dismissTooltipOutside } from '$lib/chartTooltip'
   import { resolved } from '$lib/stores/theme.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -97,7 +97,7 @@
   // the {#key} block also re-inits the chart with the new ECharts theme),
   // with the optional per-row colorFor override.
   const palette = $derived(resolvePalette(resolved()))
-  const labelColor = $derived(VAULTLAB_CHART_THEMES[resolved()].textStyle.color)
+  const labelColor = $derived(PECULIUM_CHART_THEMES[resolved()].textStyle.color)
 
   // Axis label for a row: the mapped display name when `labelFor` is set
   // (e.g. full country names), else the raw row name (sector charts).
@@ -259,7 +259,7 @@
       <Chart
         {init}
         {options}
-        theme={VAULTLAB_CHART_THEMES[resolved()]}
+        theme={PECULIUM_CHART_THEMES[resolved()]}
         onclick={handleBarClick}
         bind:chart={chartInstance}
       />

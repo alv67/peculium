@@ -1,6 +1,6 @@
-# VaultLab — The backend explained
+# Peculium — The backend explained
 
-> This document explains how the VaultLab backend works: the program that
+> This document explains how the Peculium backend works: the program that
 > manages financial data and makes it available to the website.
 > No programming knowledge is required: server, database and language concepts
 > are explained as we go. If you have never opened a code file, read chapter 2
@@ -9,9 +9,9 @@
 
 ---
 
-## 1. What VaultLab does
+## 1. What Peculium does
 
-VaultLab is an application for keeping track of investments: you record what
+Peculium is an application for keeping track of investments: you record what
 you buy and what you sell, and the app shows you what your securities are
 worth, how much you have gained or lost, and how your portfolio has performed
 over time.
@@ -45,7 +45,7 @@ concepts, feel free to skip this chapter.
   of "name: value" pairs inside curly braces, for example
   `{"email": "mario@example.com", "name": "Mario"}`. You can read it like a
   filled-in form.
-- **Database**: a program that stores data in an orderly way on disk. VaultLab
+- **Database**: a program that stores data in an orderly way on disk. Peculium
   uses **PostgreSQL**.
 - **Table**: inside the database, data is organized into tables (like
   spreadsheets) with rows and columns. The `users` table, for example,
@@ -64,7 +64,7 @@ concepts, feel free to skip this chapter.
 - **Rate limit / throttle**: limiting the number of calls made to an external
   service in a unit of time, so you don't get blocked.
 - **Container**: an isolated environment in which a program runs together with
-  everything it needs. VaultLab uses Docker.
+  everything it needs. Peculium uses Docker.
 - **Redis**: an in-memory database (very fast) that here works as a "shared
   counter" to keep Yahoo calls under control.
 
@@ -100,8 +100,12 @@ flowchart LR
     WK --> PG
 ```
 
-The pieces that run (defined in `docker-compose.yml`):
+The pieces that run (defined in `docker-compose.dev.yml` for local development
+and in `docker-compose.yml` for the pull-only release stack):
 
+- **secrets-init** — generates the database password and the JWT signing key on
+  first boot and stores them in the `peculium_secrets` volume; it then keeps
+  running as the heartbeat that gates the database and the backend.
 - **postgres** — the actual database: users, portfolios, transactions, prices,
   exchange rates, daily series.
 - **redis** — an in-memory store used as a shared counter to avoid exceeding
@@ -113,7 +117,7 @@ The pieces that run (defined in `docker-compose.yml`):
   tickers. Resolution is **market-aware**: tickers with a recognized exchange
   suffix (e.g. `XMME.MI`) resolve via Morningstar on that specific market
   (ISIN can differ by listing), while bare tickers use JustETF. The Go backend
-  calls it through `VAULT_PYTHON_SERVICE_URL`.
+  calls it through `PECULIUM_PYTHON_SERVICE_URL`.
 - **frontend** — the web page.
 
 The backend is **a single Go program** that, depending on the argument passed
@@ -123,9 +127,10 @@ when it is started, does two different things (`cmd/server/main.go`):
   terminates;
 - `server` — starts the HTTP API and keeps listening.
 
-Inside the container the command is
-`sleep 3 && /server migrate && /server` (`docker-compose.yml`), so migrations
-always run before the API starts.
+Inside the container the command is `sh -c "/server migrate && /server"`, so
+migrations always run before the API starts. The release stack gates the backend
+on Postgres being healthy (`depends_on: condition: service_healthy`); the dev
+compose prefixes the same command with `sleep 3`.
 
 ---
 
@@ -136,7 +141,12 @@ The server startup sequence is:
 1. **Configuration** — `config.Load()` reads the environment variables (with a
    default value if they are missing). Environment variables are configuration
    values passed to the program at startup (for example the database address),
-   without having to write them in the code.
+   without having to write them in the code. The two secret values, the
+   database password and the JWT signing secret, also accept a `*_FILE`
+   variant (`PECULIUM_DB_PASSWORD_FILE`, `PECULIUM_JWT_SECRET_FILE`): the
+   value is then read from the file it points at (trailing whitespace is
+   ignored). Precedence is explicit environment value > file contents >
+   default.
 2. **Database connection** — `pgxpool.New(ctx, cfg.DSN())`. `pgxpool` is a
    **connection pool**: it keeps a few database connections ready, you take
    one when needed and give it back, so a connection is not opened from
@@ -150,7 +160,10 @@ The server startup sequence is:
    rules that allow the frontend to call the API).
 5. **Routes** — the endpoints are connected to the functions that handle
    them. Some endpoints are public (`/auth/*`), the others require
-   authentication (see the chapter on authentication).
+   authentication (see the chapter on authentication). Outside `/api/v1`,
+   `GET /healthz` is a public liveness probe: it answers
+   `{"status":"ok"}` with HTTP 200 and does not touch the database or
+   Redis.
 6. **Series backfill** — after startup, a goroutine (a "thread" of execution
    that works in parallel with the rest of the program, so the API can answer
    requests while the calculation continues) rebuilds the daily series of all
@@ -285,7 +298,7 @@ What happens, step by step:
 ### The time-weighted return chart (`GET /dashboard/performance`)
 
 `GET /api/v1/dashboard/performance?granularity=month|year` returns one chart
-for the whole vault (all portfolios aggregated, converted to the user's base
+for the whole wealth (all portfolios aggregated, converted to the user's base
 currency) instead of one series per portfolio. `granularity` defaults to
 `month`; any other value is rejected with 400. The response is
 `{currency, granularity, buckets[]}`, where each bucket carries `period`
@@ -297,7 +310,7 @@ currency) instead of one series per portfolio. `granularity` defaults to
   `return = (Π (1 + r(d)) − 1) × 100` over the days `d` of the bucket, where
   each day carries `r(d) = (V(d) − V(d−1) − flow(d)) / V(d−1)` when
   `V(d−1) > 0` and is skipped (factor 1) otherwise — the first day and the
-  gaps of a fully liquidated vault measure no return, so liquidating and
+  gaps of a fully liquidated wealth measure no return, so liquidating and
   reopening a position never distorts the chart. `V(d)` is the **market
   value only**: `V(d) = mv_priced(d) + bond_at_cost(d)`, the FX-converted
   market value of the priced assets plus the cost basis of the unpriced
@@ -383,7 +396,7 @@ with `ErrInvalidInput` even when the caller bypasses the HTTP parser.
 applies exactly the same daily TWR model to a **single portfolio**, expressed
 in the **portfolio's own currency**: same `granularity` default (`month`, any
 other value → 400) and same `{currency, granularity, buckets[]}` response
-shape as the vault-wide chart. It is simpler than the dashboard version
+shape as the wealth-wide chart. It is simpler than the dashboard version
 because nothing is converted to a base currency: the materialized per-asset
 series is already denominated in the portfolio currency, so `V(d)` needs no
 FX leg at all. Only the cash flows — recorded in the asset currency — are
@@ -563,7 +576,7 @@ signals it (the model shows the `fx_missing` field).
 in `users.base_currency` (default EUR) and editable via `PATCH /users/me`
 with the `base_currency` field (an omitted/empty value keeps the stored one;
 a non-empty value must be an enabled currency from the whitelist, chapter 11,
-otherwise the request is rejected with 400). All vault-wide dashboard
+otherwise the request is rejected with 400). All wealth-wide dashboard
 aggregations are converted into it: `GET /dashboard` returns `base_currency`,
 a `summary` roll-up in the base currency — nested `active` (invested, value,
 gain/loss of the lots still held, plus the dividends of the open positions;
@@ -573,13 +586,13 @@ unpriced open positions stay out of invested/value, see chapter 7) and
 realized_pct) — where
 amounts whose rate is missing are excluded from the totals and reported by
 `fx_missing_count`/`fx_missing_value` (only non-zero amounts are flagged);
-`GET /dashboard/performance` charts the vault-wide percentage time-weighted
+`GET /dashboard/performance` charts the wealth-wide percentage time-weighted
 return (true TWR with daily geometric linking, with the invested/value
 capital series) by month or year in the base currency (chapter 7);
 `GET /portfolios/{id}/performance/buckets` charts the same buckets for a
 single portfolio, staying in that portfolio's own currency (chapter 7);
 `GET /dashboard/allocation` is expressed in the base currency too and
-aggregates every portfolio into the vault-wide `classes`, `regions`,
+aggregates every portfolio into the wealth-wide `classes`, `regions`,
 `countries` and `sectors` breakdowns. The
 per-currency (`by_currency`) and per-portfolio
 (`portfolios`, `assets`) sections of the dashboard keep their own currency.
@@ -649,10 +662,10 @@ through two "brakes":
 
 1. a **FIFO queue** (first in, first out) that guarantees a **minimum
    interval** between one call and the next (default 400ms, configurable with
-   `VAULT_YAHOO_MIN_INTERVAL`);
+   `PECULIUM_YAHOO_MIN_INTERVAL`);
 2. a **shared global counter** (`RateBudget`), implemented in Redis: a cap of
    requests per time window (default 8 requests per second, configurable with
-   `VAULT_YAHOO_GLOBAL_RATE` and `VAULT_YAHOO_GLOBAL_WINDOW`). The counter is
+   `PECULIUM_YAHOO_GLOBAL_RATE` and `PECULIUM_YAHOO_GLOBAL_WINDOW`). The counter is
    shared between the server and the worker, so the two processes together do
    not exceed the limit.
 
@@ -738,7 +751,7 @@ see `meta.go`):
   paging is only client-side UI), with a residual share not exposed as a
   country, so the weights sum to ~95% (no forced scaling to 100).
   The Morningstar region keys (`northAmerica`, `unitedKingdom`, `japan`,
-  `australasia`, ...) are mapped 1:1 onto the canonical VaultLab taxonomy and
+  `australasia`, ...) are mapped 1:1 onto the canonical Peculium taxonomy and
   returned as the `regions` dimension. Like the other fetches this endpoint is a
   **read-only preview**: countries, sectors and the official regions (when
   present) are returned but NOT persisted — the only write is an auto-resolved
@@ -813,12 +826,12 @@ The two prefill fetches that hit the python-service
 `POST /assets/{id}/fetch-morningstar-exposure`) cache the **raw provider
 payload** in the Redis lookup cache (`s.repos.Lookup`) under the key
 `exposure:<source>:<ISIN>` (source is `justetf` or `morningstar`, the ISIN
-is uppercased; the full Redis key is `vl:lookup:exposure:...`). The first
+is uppercased; the full Redis key is `pc:lookup:exposure:...`). The first
 request for an ISIN runs the heavy fetch (Morningstar needs a Chromium/SAL
 session) and stores the result; later requests are served from the cache and
 never call the provider. Each source keeps its own entry, so prefilling from
 JustETF does not warm Morningstar and vice versa. The TTL is
-`VAULT_EXPOSURE_CACHE_TTL` (default 7 days). Country-less results are never
+`PECULIUM_EXPOSURE_CACHE_TTL` (default 7 days). Country-less results are never
 cached, so a transient empty fetch cannot stick for a week. The cache only
 speeds up the read: entries are provider payloads, never stored weights
 (saving still happens exclusively through `PUT /assets/{id}/exposure`).
@@ -847,7 +860,7 @@ call Yahoo again.
 ## 13. The worker
 
 The worker process (`cmd/worker/main.go`) is separate from the server. Every
-interval (`VAULT_PRICE_FETCH_INTERVAL`, default 1 hour) it updates prices:
+interval (`PECULIUM_PRICE_FETCH_INTERVAL`, default 1 hour) it updates prices:
 
 ```go
 ticker := time.NewTicker(interval)
@@ -1007,7 +1020,8 @@ The user prefills the exposure ──► POST /assets/{id}/fetch-exposure
 backend/
 ├── cmd/
 │   ├── server/main.go      # API startup, routing, migrations, series backfill
-│   └── worker/main.go      # background price updates
+│   ├── worker/main.go      # background price updates
+│   └── secrets/main.go     # secrets-init: generates secrets on first boot
 ├── internal/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
@@ -1017,6 +1031,7 @@ backend/
 │   ├── position/           # AVCO engine (State, Apply, Walk)
 │   ├── price/              # Yahoo client (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + JustETF/Morningstar fetchers
 │   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
 │   └── service/            # business logic (service.go)
 ├── migrations/             # versioned SQL (000001..000018)

@@ -5,21 +5,23 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vault.svg" />
+    <link rel="icon" type="image/svg+xml" href="/peculium.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5f9" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#020617" />
-    <title>VaultLab</title>
+    <title>Peculium</title>
     <script>
       // Pre-paint theme bootstrap (EPIC D / K.1a). Runs before CSS is applied
       // so the first frame never flashes the wrong background. Without a
       // stored preference the `system` mode resolves the OS
       // prefers-color-scheme (dark only on systems configured dark). Keep the
-      // storage key, the validation and the 'system' fallback in sync with
-      // src/lib/stores/theme.svelte.ts (DEFAULT_MODE).
+      // storage keys (current + legacy read fallback), the validation and the
+      // 'system' fallback in sync with src/lib/stores/theme.svelte.ts
+      // (THEME_STORAGE_KEY / LEGACY_THEME_STORAGE_KEY / DEFAULT_MODE).
       (function () {
         try {
-          var stored = localStorage.getItem('vaultlab-theme');
+          var stored = localStorage.getItem('peculium-theme');
+          if (stored === null) stored = localStorage.getItem('vaultlab-theme');
           var mode =
             stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
           var dark =
@@ -33,12 +35,14 @@
       // Pre-paint CVD-palette bootstrap (EPIC K.5c / decision D6). Applies
       // the opt-in blue/orange gain/loss `cvd` class alongside the theme so
       // users who enabled it never flash the default green/red. Keep the
-      // storage key and the 'true' check in sync with
-      // src/lib/stores/palette.svelte.ts (CVD_STORAGE_KEY / DEFAULT_CVD).
+      // storage keys (current + legacy read fallback) and the 'true' check in
+      // sync with src/lib/stores/palette.svelte.ts (CVD_STORAGE_KEY /
+      // LEGACY_CVD_STORAGE_KEY / DEFAULT_CVD).
       (function () {
         try {
-          var cvd = localStorage.getItem('vaultlab-cvd') === 'true';
-          document.documentElement.classList.toggle('cvd', cvd);
+          var cvd = localStorage.getItem('peculium-cvd');
+          if (cvd === null) cvd = localStorage.getItem('vaultlab-cvd');
+          document.documentElement.classList.toggle('cvd', cvd === 'true');
         } catch {
           // Storage unavailable (e.g. private mode): stay on the default palette.
         }

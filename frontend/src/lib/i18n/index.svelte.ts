@@ -10,8 +10,9 @@ import { it } from './it'
  *   (`group.key`), flattened here into dot-joined lookup keys
  *   (`nav.dashboard`); `MessageKey` is the compile-time union of them all,
  *   so `t()` calls are typo-checked;
- * - the active locale lives in `localStorage['vaultlab-locale']` and falls
- *   back to `DEFAULT_LOCALE` (Italian) when unset/invalid; English is the
+ * - the active locale lives in `localStorage['peculium-locale']` (read with
+ *   a one-time fallback to the legacy storage key) and falls back to
+ *   `DEFAULT_LOCALE` (Italian) when unset/invalid; English is the
  *   fallback language: a string missing in the active locale resolves from
  *   `en` before giving up, and a fully unknown key returns the key itself
  *   (never throws, dev warning only);
@@ -30,7 +31,11 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number]
 /** Italian is the product default (decision D1); `app.html` ships matching. */
 export const DEFAULT_LOCALE: Locale = 'it'
 
-export const LOCALE_STORAGE_KEY = 'vaultlab-locale'
+export const LOCALE_STORAGE_KEY = 'peculium-locale'
+
+/** Legacy storage key: when the new key is absent, the value stored here is
+ *  adopted and written forward once, so no saved preference is lost. */
+export const LEGACY_LOCALE_STORAGE_KEY = 'vaultlab-locale'
 
 /**
  * Dot-joined lookup key union (e.g. `'nav.dashboard'`), derived from the
@@ -68,7 +73,15 @@ const dictionaries: Record<Locale, Record<string, string>> = {
 function readStoredLocale(): Locale {
   if (!browser) return DEFAULT_LOCALE
   try {
-    const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    let stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    if (stored === null) {
+      // One-time migration: adopt the legacy value and write it forward.
+      const legacy = window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY)
+      if (legacy !== null) {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, legacy)
+        stored = legacy
+      }
+    }
     return isLocale(stored) ? stored : DEFAULT_LOCALE
   } catch {
     // Storage unavailable (e.g. private mode): fall back to the default.

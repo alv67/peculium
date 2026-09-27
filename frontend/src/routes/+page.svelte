@@ -11,7 +11,7 @@
     type PortfolioPerformanceSummary,
   } from '$lib/services/api'
   import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
-  import { applyDashboardStatus } from '$lib/stores/vaultStatus.svelte'
+  import { applyDashboardStatus } from '$lib/stores/dashboardStatus.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import AllocationDonut from '$lib/components/domain/AllocationDonut.svelte'
   import CapitalChart from '$lib/components/domain/CapitalChart.svelte'
@@ -97,17 +97,28 @@
   // the backend omits empty months, and true daily 1M/3M ranges need the
   // daily vault-series endpoint already logged as a K.3 fast-follow ask.
   type HeroPeriod = '1Y' | '3Y' | 'ALL'
-  const HERO_PERIOD_KEY = 'vaultlab-hero-period'
+  const HERO_PERIOD_KEY = 'peculium-hero-period'
+  // Legacy storage key: when the new key is absent, the value stored here is
+  // adopted and written forward once, so no saved preference is lost.
+  const LEGACY_HERO_PERIOD_KEY = 'vaultlab-hero-period'
   function readStoredPeriod(): HeroPeriod {
     try {
-      const v = localStorage.getItem(HERO_PERIOD_KEY)
+      let v = localStorage.getItem(HERO_PERIOD_KEY)
+      if (v === null) {
+        // One-time migration: adopt the legacy value and write it forward.
+        const legacy = localStorage.getItem(LEGACY_HERO_PERIOD_KEY)
+        if (legacy !== null) {
+          localStorage.setItem(HERO_PERIOD_KEY, legacy)
+          v = legacy
+        }
+      }
       if (v === '1Y' || v === '3Y' || v === 'ALL') return v
     } catch {
       /* storage unavailable (private mode): default below */
     }
     return 'ALL'
   }
-  // §8.2: the last-used period persists per scope; only the vault scope
+  // §8.2: the last-used period persists per scope; only the wealth scope
   // exists today, so one key. Storage errors must never break the page.
   let heroPeriod = $state<HeroPeriod>(readStoredPeriod())
   function selectHeroPeriod(value: string): void {
@@ -577,7 +588,7 @@
             </div>
           </div>
           <!-- One drill panel per page (D4): the clicked chart fills the
-               bucket and the fetcher runs the vault-scope request. -->
+               bucket and the fetcher runs the wealth-scope request. -->
           <AllocationDrillPanel
             open={drillOpen}
             onClose={closeDrill}

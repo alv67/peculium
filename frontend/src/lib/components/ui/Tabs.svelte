@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
+  import { t } from '$lib/i18n/index.svelte'
   import { cx } from './utils'
 
   /**
@@ -80,7 +81,7 @@
   }
 </script>
 
-<nav aria-label={ariaLabel ?? 'Sections'} class={cx('min-w-0', className)}>
+<nav aria-label={ariaLabel ?? t('a11y.sections')} class={cx('min-w-0', className)}>
   <div
     role="tablist"
     tabindex="-1"

@@ -1,5 +1,5 @@
--- VaultLab — FX history seed for the ISOLATED test stack only
--- (project vaultlab-test, DB vaultlab_test, port 8081, Yahoo finance disabled).
+-- Peculium — FX history seed for the ISOLATED test stack only
+-- (project peculium-test, DB peculium_test, port 8081, Yahoo finance disabled).
 --
 -- Used by tests/test-fx-history.sh. It plants a stable EUR price for the
 -- VLABEUR1 smoke asset on two dates and a USD->EUR FX history that moves
@@ -8,7 +8,7 @@
 --
 -- Run it against the test stack ONLY, NEVER against dev/prod (real data):
 --
---   docker compose -p vaultlab-test -f docker-compose.test.yml exec -T postgres psql -U vaultlab -d vaultlab_test < tests/seed-fx-history.sql
+--   docker compose -p peculium-test -f docker-compose.test.yml exec -T postgres psql -U peculium -d peculium_test < tests/seed-fx-history.sql
 --
 -- Idempotent: ON CONFLICT DO UPDATE makes reruns safe.
 

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/model"
 )
 
 func posTx(typ model.TransactionType, qty, price, fees string) model.TransactionWithAsset {

@@ -1,4 +1,4 @@
-# VaultLab — Fase 1: Specifica Dettagliata
+# Peculium — Fase 1: Specifica Dettagliata
 
 ## Panoramica
 

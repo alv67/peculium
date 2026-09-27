@@ -1,6 +1,8 @@
-# VaultLab
+# Peculium
 
-**Self-hosted, multi-user personal finance and investment suite for homelabs.**
+**Your wealth, self-hosted.**
+
+Self-hosted, multi-user personal finance and investment suite for homelabs.
 
 Track your investments, monitor asset performance, and gain insights into your financial portfolio — all from your own infrastructure.
 
@@ -15,7 +17,7 @@ Track your investments, monitor asset performance, and gain insights into your f
 - **Dashboard** — Portfolio value, gain/loss, allocation, performance charts, ROI by asset
 - **Market prices** — Yahoo Finance with Redis caching, rate-limit/backoff, series materialization, price health dashboard
 - **Data quality** — Summary exposes staleness / missing-country / missing-sector / missing-FX metrics
-- **Self-contained** — Everything runs via `podman-compose up`
+- **Self-contained** — Everything runs via Docker/Podman Compose
 
 ## Tech Stack
 
@@ -31,11 +33,31 @@ Track your investments, monitor asset performance, and gain insights into your f
 
 ## Quick Start
 
+### From source (local build)
+
 ```bash
-podman-compose up -d --build
+make up
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. This builds the images from the working tree
+(`docker-compose.dev.yml`).
+
+### Pull-only install (no local build)
+
+The release stack (`docker-compose.yml`) runs pre-built images published to
+GitHub Container Registry (`ghcr.io/alv67/peculium-*`, available from the
+v1.0.0 release onward):
+
+```bash
+curl -O https://raw.githubusercontent.com/alv67/peculium/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/alv67/peculium/main/.env.example
+cp .env.example .env   # optional: pin a version or provide your own secrets
+podman-compose up -d
+```
+
+Secrets are generated on first boot and stored in the `peculium_secrets` volume
+(back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
+release.
 
 > Requires Podman (or Docker) with Compose support.
 
@@ -53,13 +75,13 @@ and send the requests in order.
 
 ## Project Status
 
-Releases on [`main`](https://github.com/alv67/vault-lab/tree/main): **v0.1.0** (25 Aug 2026,
+Releases on [`main`](https://github.com/alv67/peculium/tree/main): **v0.1.0** (25 Aug 2026,
 first official release), **v0.2.0** (30 Aug 2026, EPIC A — data correctness & security —
 and EPIC B — geographic/sector distribution, asset classes, FX history, charts) and
 **v0.3.0** (11 Sep 2026, asset editing overhaul and per-country exposure editing with
 Morningstar/JustETF prefill).
 
-Active development on the [`develop`](https://github.com/alv67/vault-lab/tree/develop) branch — see [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md) for the roadmap.
+Active development on the [`develop`](https://github.com/alv67/peculium/tree/develop) branch — see [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md) for the roadmap.
 
 ## License
 

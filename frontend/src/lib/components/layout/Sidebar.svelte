@@ -39,7 +39,7 @@
   >
     <Banknote class="h-6 w-6 shrink-0 text-accent-text" aria-hidden="true" />
     {#if !collapsed}
-      <span class="truncate text-lg font-bold">VaultLab</span>
+      <span class="truncate text-lg font-bold">Peculium</span>
     {/if}
   </div>
 

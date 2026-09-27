@@ -1,6 +1,6 @@
-# VaultLab — Il backend spiegato
+# Peculium — Il backend spiegato
 
-> Questo documento spiega come funziona il backend di VaultLab: il programma
+> Questo documento spiega come funziona il backend di Peculium: il programma
 > che gestisce i dati finanziari e li mette a disposizione del sito web.
 > Non richiede conoscenze di programmazione: i concetti di server, database e
 > linguaggi vengono spiegati man mano. Se non hai mai aperto un file di codice,
@@ -9,9 +9,9 @@
 
 ---
 
-## 1. Cosa fa VaultLab
+## 1. Cosa fa Peculium
 
-VaultLab è un'applicazione per tenere traccia degli investimenti: registri cosa
+Peculium è un'applicazione per tenere traccia degli investimenti: registri cosa
 compri e cosa vendi, e l'app ti mostra quanto valgono i tuoi titoli, quanto hai
 guadagnato o perso, e come è andato il portafoglio nel tempo.
 
@@ -43,7 +43,7 @@ concetti, puoi saltare il capitolo.
   `{"email": "mario@example.com", "nome": "Mario"}`. Si legge come una scheda
   compilata.
 - **Database**: un programma che conserva i dati in modo ordinato su disco.
-  VaultLab usa **PostgreSQL**.
+  Peculium usa **PostgreSQL**.
 - **Tabella**: dentro al database i dati sono organizzati in tabelle (come
   fogli di calcolo) con righe e colonne. La tabella `users`, per esempio,
   contiene una riga per ogni utente.
@@ -61,7 +61,7 @@ concetti, puoi saltare il capitolo.
 - **Rate limit / throttle**: limitare il numero di chiamate verso un servizio
   esterno nell'unità di tempo, per non essere bloccati.
 - **Container**: un ambiente isolato in cui un programma gira con tutto ciò che
-  gli serve. VaultLab usa Docker.
+  gli serve. Peculium usa Docker.
 - **Redis**: un database in memoria (molto veloce) che qui funziona da
   "contatore condiviso" per tenere sotto controllo le chiamate verso Yahoo.
 
@@ -96,8 +96,12 @@ flowchart LR
     WK --> PG
 ```
 
-I pezzi che girano (definiti in `docker-compose.yml`):
+I pezzi che girano (definiti in `docker-compose.dev.yml` per lo sviluppo locale
+e in `docker-compose.yml` per lo stack di release pull-only):
 
+- **secrets-init** — genera la password del database e la chiave di firma JWT al
+  primo avvio e le conserva nel volume `peculium_secrets`; poi resta attivo come
+  heartbeat che fa da gate per il database e il backend.
 - **postgres** — il database vero e proprio: utenti, portafogli, transazioni,
   prezzi, tassi di cambio, serie giornaliere.
 - **redis** — un magazzino in memoria usato come contatore condiviso per
@@ -106,7 +110,7 @@ I pezzi che girano (definiti in `docker-compose.yml`):
 - **worker** — un processo separato che aggiorna i prezzi in background.
 - **python-service** — un piccolo servizio FastAPI (`python-service/`) che recupera
   i metadati ETF (paesi/regioni e settori GICS) e risolve l'ISIN dal ticker via
-  JustETF. Il backend Go lo chiama tramite `VAULT_PYTHON_SERVICE_URL`.
+  JustETF. Il backend Go lo chiama tramite `PECULIUM_PYTHON_SERVICE_URL`.
 - **frontend** — la pagina web.
 
 Il backend è **un unico programma Go** che, a seconda dell'argomento passato
@@ -116,9 +120,10 @@ quando viene avviato, fa due cose diverse (`cmd/server/main.go`):
   termina;
 - `server` — avvia l'API HTTP e resta in ascolto.
 
-Nel container il comando è
-`sleep 3 && /server migrate && /server` (`docker-compose.yml`), quindi le
-migrazioni girano sempre prima dell'avvio dell'API.
+Nel container il comando è `sh -c "/server migrate && /server"`, quindi le
+migrazioni girano sempre prima dell'avvio dell'API. Lo stack di release fa
+partire il backend solo quando Postgres è healthy (`depends_on: condition:
+service_healthy`); il compose di sviluppo antepone allo stesso comando `sleep 3`.
 
 ---
 
@@ -129,7 +134,12 @@ La sequenza di avvio del server è:
 1. **Configurazione** — `config.Load()` legge le variabili d'ambiente (con un
    valore di default se mancano). Le variabili d'ambiente sono valori di
    configurazione che si passano al programma all'avvio (ad esempio l'indirizzo
-   del database), senza doverle scrivere dentro al codice.
+   del database), senza doverle scrivere dentro al codice. I due valori
+   sensibili, la password del database e il segreto di firma JWT, accettano
+   anche una variante `*_FILE` (`PECULIUM_DB_PASSWORD_FILE`,
+   `PECULIUM_JWT_SECRET_FILE`): il valore viene allora letto dal file indicato
+   (gli spazi bianchi in coda sono ignorati). La precedenza è: valore
+   d'ambiente esplicito > contenuto del file > default.
 2. **Connessione al database** — `pgxpool.New(ctx, cfg.DSN())`. `pgxpool` è un
    **pool di connessioni**: tiene pronte alcune connessioni al database, le si
    prende quando serve e le si restituisce, così non si riapre una connessione
@@ -144,7 +154,9 @@ La sequenza di avvio del server è:
    chiamare l'API).
 5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
    Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
-   autenticati (controlla il capitolo sull'autenticazione).
+   autenticati (controlla il capitolo sull'autenticazione). Fuori da
+   `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
+   `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
    rispondere alle richieste mentre il calcolo prosegue) ricostruisce le serie
@@ -280,7 +292,7 @@ conferiti dalle posizioni completamente chiuse), `realized` (proceeds −
 ### Il grafico del time-weighted return (`GET /dashboard/performance`)
 
 `GET /api/v1/dashboard/performance?granularity=month|year` restituisce un
-unico grafico per l'intero vault (tutti i portafogli aggregati, convertiti
+unico grafico per l'intero patrimonio (tutti i portafogli aggregati, convertiti
 nella valuta base dell'utente) invece di una serie per portafoglio.
 `granularity` è `month` di default; qualunque altro valore viene rifiutato
 con 400. La risposta è `{currency, granularity, buckets[]}`, dove ogni bucket
@@ -292,7 +304,7 @@ ha `period` (`YYYY-MM` per i mesi, `YYYY` per gli anni), `return`, `twr`,
   geometricamente, `return = (Π (1 + r(d)) − 1) × 100` sui giorni `d` del
   bucket, dove ogni giorno porta `r(d) = (V(d) − V(d−1) − flusso(d)) /
   V(d−1)` quando `V(d−1) > 0` e viene saltato (fattore 1) altrimenti — il
-  primo giorno e le pause di un vault completamente liquidato non misurano
+  primo giorno e le pause di un patrimonio completamente liquidato non misurano
   alcun rendimento, quindi liquidare e riaprire una posizione non distorce
   mai il grafico. `V(d)` è **solo il valore di mercato**: `V(d) =
   mv_priced(d) + bond_at_cost(d)`, il valore di mercato convertito in FX
@@ -387,7 +399,7 @@ applica esattamente lo stesso modello TWR giornaliero a un **singolo
 portafoglio**, espresso nella **valuta del portafoglio stesso**: stesso
 default di `granularity` (`month`, qualunque altro valore → 400) e stessa
 forma di risposta `{currency, granularity, buckets[]}` del grafico
-vault-wide. È la versione più semplice di quella della dashboard perché non
+a livello di patrimonio. È la versione più semplice di quella della dashboard perché non
 c'è alcuna conversione in valuta base: le serie materializzate per asset sono
 già denominate nella valuta del portafoglio, quindi `V(d)` non ha bisogno di
 alcun passaggio FX. Solo i flussi di cassa — registrati nella valuta
@@ -572,7 +584,7 @@ Se un tasso manca, la conversione non è disponibile e l'applicazione lo segnala
 il campo `base_currency` (un valore omesso/vuoto mantiene quello salvato; un
 valore non vuoto deve essere una valuta abilitata della whitelist, capitolo
 11, altrimenti la richiesta è rifiutata con 400). Tutte le aggregazioni a
-livello di vault della dashboard sono convertite in essa: `GET /dashboard`
+livello di patrimonio della dashboard sono convertite in essa: `GET /dashboard`
 restituisce `base_currency`, un riepilogo `summary` nella valuta base — gli
 oggetti annidati `active` (investito, valore, guadagno/perdita dei lotti
 ancora detenuti, più i dividendi delle posizioni aperte; le posizioni aperte
@@ -583,13 +595,13 @@ invested, realized_pct) — dove gli importi senza
 tasso disponibile sono esclusi dai totali e riportati da
 `fx_missing_count`/`fx_missing_value` (solo gli importi nonnulli vengono
 segnalati); `GET /dashboard/performance` mostra lo stesso rendimento
-percentuale time-weighted (TWR) del vault per bucket mensili o annuali nella
+percentuale time-weighted (TWR) del patrimonio per bucket mensili o annuali nella
 valuta base, con le serie invested/value del capitale (capitolo 7);
 `GET /portfolios/{id}/performance/buckets` mostra gli stessi bucket per un
 singolo portafoglio, restando nella valuta del portafoglio (capitolo 7);
 anche
 `GET /dashboard/allocation` è espressa nella valuta base e aggrega tutti i
-portafogli nelle ripartizioni vault-wide `classes`, `regions`, `countries`
+portafogli nelle ripartizioni a livello di patrimonio `classes`, `regions`, `countries`
 e `sectors`. Le sezioni per-valuta
 (`by_currency`) e per-portafoglio (`portfolios`, `assets`) della dashboard
 mantengono la propria valuta. L'elenco `invested_assets` è invece espresso
@@ -660,11 +672,11 @@ quindi attraverso due "freni":
 
 1. una **coda FIFO** (primo arrivato, primo servito) che garantisce un
    **intervallo minimo** tra una chiamata e l'altra (default 400ms,
-   configurabile con `VAULT_YAHOO_MIN_INTERVAL`);
+   configurabile con `PECULIUM_YAHOO_MIN_INTERVAL`);
 2. un **contatore globale condiviso** (`RateBudget`), implementato in Redis:
    un tetto di richieste per finestra di tempo (default 8 richieste al
-   secondo, configurabile con `VAULT_YAHOO_GLOBAL_RATE` e
-   `VAULT_YAHOO_GLOBAL_WINDOW`). Il contatore è condiviso tra server e worker,
+   secondo, configurabile con `PECULIUM_YAHOO_GLOBAL_RATE` e
+   `PECULIUM_YAHOO_GLOBAL_WINDOW`). Il contatore è condiviso tra server e worker,
    così i due processi insieme non sforano il limite.
 
 Se Redis non è raggiungibile, il contatore viene disattivato e si procede
@@ -749,7 +761,7 @@ sessione a vita breve, vedi `meta.go`):
   una quota residuale non esposta come paese, quindi la somma è ~95% (nessuna
   forzatura a 100). Le chiavi regione Morningstar (`northAmerica`,
   `unitedKingdom`, `japan`, `australasia`, ...) sono mappate 1:1 sulla
-  tassonomia canonica VaultLab e restituite come dimensione `regions`. Come
+  tassonomia canonica Peculium e restituite come dimensione `regions`. Come
   gli altri fetch, l'endpoint è una **preview in sola lettura**: paesi, settori
   e regioni ufficiali (quando presenti) vengono restituiti ma NON persistiti —
   l'unica scrittura è l'ISIN auto-risolto; il salvataggio avviene con
@@ -825,11 +837,11 @@ I due fetch di prefill che interrogano il python-service
 `POST /assets/{id}/fetch-morningstar-exposure`) memorizzano nella cache Redis
 delle lookup (`s.repos.Lookup`) il **payload grezzo del provider**, con chiave
 `exposure:<source>:<ISIN>` (source è `justetf` o `morningstar`, l'ISIN è
-maiuscolo; la chiave Redis completa è `vl:lookup:exposure:...`). La prima
+maiuscolo; la chiave Redis completa è `pc:lookup:exposure:...`). La prima
 richiesta su un ISIN esegue il fetch pesante (Morningstar richiede una
 sessione Chromium/SAL) e lo salva; le successive rispondono dalla cache senza
 richiamare il provider. Ogni fonte ha la sua voce: prefillare da JustETF non
-scalda Morningstar e viceversa. Il TTL è `VAULT_EXPOSURE_CACHE_TTL` (default
+scalda Morningstar e viceversa. Il TTL è `PECULIUM_EXPOSURE_CACHE_TTL` (default
 7 giorni). I risultati senza paesi non vengono mai cachati, così un fetch
 vuoto transitorio non resta in giro per una settimana. La cache accelera solo
 la lettura: le voci sono payload del provider, non pesi persistiti (il
@@ -862,7 +874,7 @@ non rifà la chiamata a Yahoo.
 ## 13. Il worker
 
 Il processo worker (`cmd/worker/main.go`) è separato dal server. Ogni intervallo
-(`VAULT_PRICE_FETCH_INTERVAL`, default 1 ora) aggiorna i prezzi:
+(`PECULIUM_PRICE_FETCH_INTERVAL`, default 1 ora) aggiorna i prezzi:
 
 ```go
 ticker := time.NewTicker(interval)
@@ -1022,7 +1034,8 @@ L'utente precompile l'esposizione ──► POST /assets/{id}/fetch-exposure
 backend/
 ├── cmd/
 │   ├── server/main.go      # avvio API, routing, migrazioni, backfill serie
-│   └── worker/main.go      # aggiornamento prezzi in background
+│   ├── worker/main.go      # aggiornamento prezzi in background
+│   └── secrets/main.go     # secrets-init: genera i segreti al primo avvio
 ├── internal/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
@@ -1032,6 +1045,7 @@ backend/
 │   ├── position/           # motore AVCO (State, Apply, Walk)
 │   ├── price/              # client Yahoo (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + fetcher JustETF/Morningstar
 │   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
 │   └── service/            # logica di business (service.go)
 ├── migrations/             # SQL versionato (000001..000018)

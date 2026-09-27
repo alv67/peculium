@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -43,38 +44,38 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		DBHost:     getEnv("VAULT_DB_HOST", "localhost"),
-		DBPort:     getEnvInt("VAULT_DB_PORT", 5432),
-		DBName:     getEnv("VAULT_DB_NAME", "vaultlab"),
-		DBUser:     getEnv("VAULT_DB_USER", "vaultlab"),
-		DBPassword: getEnv("VAULT_DB_PASSWORD", "vaultlab"),
-		DBSSLMode:  getEnv("VAULT_DB_SSLMODE", "disable"),
+		DBHost:     getEnv("PECULIUM_DB_HOST", "localhost"),
+		DBPort:     getEnvInt("PECULIUM_DB_PORT", 5432),
+		DBName:     getEnv("PECULIUM_DB_NAME", "peculium"),
+		DBUser:     getEnv("PECULIUM_DB_USER", "peculium"),
+		DBPassword: getEnvOrFile("PECULIUM_DB_PASSWORD", "peculium"),
+		DBSSLMode:  getEnv("PECULIUM_DB_SSLMODE", "disable"),
 
-		RedisAddr:     getEnv("VAULT_REDIS_ADDR", "localhost:6379"),
-		RedisPassword: getEnv("VAULT_REDIS_PASSWORD", ""),
+		RedisAddr:     getEnv("PECULIUM_REDIS_ADDR", "localhost:6379"),
+		RedisPassword: getEnv("PECULIUM_REDIS_PASSWORD", ""),
 
-		JWTSecret:     getEnv("VAULT_JWT_SECRET", "change-me-in-production"),
-		JWTAccessTTL:  getEnvDuration("VAULT_JWT_ACCESS_TTL", 15*time.Minute),
-		JWTRefreshTTL: getEnvDuration("VAULT_JWT_REFRESH_TTL", 72*time.Hour),
+		JWTSecret:     getEnvOrFile("PECULIUM_JWT_SECRET", "change-me-in-production"),
+		JWTAccessTTL:  getEnvDuration("PECULIUM_JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL: getEnvDuration("PECULIUM_JWT_REFRESH_TTL", 72*time.Hour),
 
-		ServerPort: getEnvInt("VAULT_SERVER_PORT", 8080),
-		ServerHost: getEnv("VAULT_SERVER_HOST", "0.0.0.0"),
+		ServerPort: getEnvInt("PECULIUM_SERVER_PORT", 8080),
+		ServerHost: getEnv("PECULIUM_SERVER_HOST", "0.0.0.0"),
 
-		SeriesMaxPoints: getEnvInt("VAULT_SERIES_MAX_POINTS", 500),
+		SeriesMaxPoints: getEnvInt("PECULIUM_SERIES_MAX_POINTS", 500),
 
-		LogLevel: getEnv("VAULT_LOG_LEVEL", "debug"),
+		LogLevel: getEnv("PECULIUM_LOG_LEVEL", "debug"),
 
-		YahooFinanceEnabled: getEnvBool("VAULT_YAHOO_FINANCE_ENABLED", true),
-		PriceFetchInterval:  getEnvDuration("VAULT_PRICE_FETCH_INTERVAL", 1*time.Hour),
-		LookupCacheTTL:      getEnvDuration("VAULT_LOOKUP_CACHE_TTL", 7*24*time.Hour),
-		ExposureCacheTTL:    getEnvDuration("VAULT_EXPOSURE_CACHE_TTL", 7*24*time.Hour),
-		YahooMinInterval:    getEnvDuration("VAULT_YAHOO_MIN_INTERVAL", 400*time.Millisecond),
-		YahooGlobalRate:     getEnvInt("VAULT_YAHOO_GLOBAL_RATE", 8),
-		YahooGlobalWindow:   getEnvDuration("VAULT_YAHOO_GLOBAL_WINDOW", 1*time.Second),
+		YahooFinanceEnabled: getEnvBool("PECULIUM_YAHOO_FINANCE_ENABLED", true),
+		PriceFetchInterval:  getEnvDuration("PECULIUM_PRICE_FETCH_INTERVAL", 1*time.Hour),
+		LookupCacheTTL:      getEnvDuration("PECULIUM_LOOKUP_CACHE_TTL", 7*24*time.Hour),
+		ExposureCacheTTL:    getEnvDuration("PECULIUM_EXPOSURE_CACHE_TTL", 7*24*time.Hour),
+		YahooMinInterval:    getEnvDuration("PECULIUM_YAHOO_MIN_INTERVAL", 400*time.Millisecond),
+		YahooGlobalRate:     getEnvInt("PECULIUM_YAHOO_GLOBAL_RATE", 8),
+		YahooGlobalWindow:   getEnvDuration("PECULIUM_YAHOO_GLOBAL_WINDOW", 1*time.Second),
 
-		PythonServiceURL: getEnv("VAULT_PYTHON_SERVICE_URL", "http://python-service:8000"),
+		PythonServiceURL: getEnv("PECULIUM_PYTHON_SERVICE_URL", "http://python-service:8000"),
 
-		StalePriceDays: getEnvInt("VAULT_STALE_PRICE_DAYS", 7),
+		StalePriceDays: getEnvInt("PECULIUM_STALE_PRICE_DAYS", 7),
 	}
 }
 
@@ -87,6 +88,30 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getEnvOrFile resolves a secret value with precedence: explicit env value >
+// contents of the file named by <key>_FILE > fallback. The fallback is only
+// applied after the file lookup, so a default never masks a *_FILE setting.
+func getEnvOrFile(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	if v := readSecretFile(os.Getenv(key + "_FILE")); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func readSecretFile(path string) string {
+	if path == "" {
+		return ""
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func getEnvInt(key string, fallback int) int {

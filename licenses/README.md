@@ -1,7 +1,7 @@
 # Third-party licenses
 
-This folder documents the open-source components used by VaultLab and the
-licenses they are distributed under. VaultLab itself is released under the
+This folder documents the open-source components used by Peculium and the
+licenses they are distributed under. Peculium itself is released under the
 [MIT License](../LICENSE).
 
 ## Scope

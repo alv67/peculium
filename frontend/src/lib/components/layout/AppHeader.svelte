@@ -25,7 +25,7 @@
    * so the header must not duplicate it, while on phones — where the More
    * sheet is navigation only — account and theme stay in the header (spec
    * §5.2). The control
-   * aria-labels go through `t()` (EPIC K.1b, decision D1); the "VaultLab"
+   * aria-labels go through `t()` (EPIC K.1b, decision D1); the "Peculium"
    * brand is a proper noun and stays as-is.
    *
    * Condensing (spec §5.1): the shell measures its main scroll container and
@@ -76,7 +76,7 @@
       class="focus-ring flex items-center gap-2 rounded-control px-1 lg:hidden"
     >
       <Banknote class="h-5 w-5 shrink-0 text-accent-text" aria-hidden="true" />
-      <span class="truncate text-base font-bold">VaultLab</span>
+      <span class="truncate text-base font-bold">Peculium</span>
     </a>
   </div>
 

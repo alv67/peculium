@@ -15,7 +15,11 @@ import { browser } from '$app/environment'
  * Storage key and class name written on `<html>`. The pre-paint bootstrap
  * script in `src/app.html` mirrors both — keep them in sync.
  */
-export const CVD_STORAGE_KEY = 'vaultlab-cvd'
+export const CVD_STORAGE_KEY = 'peculium-cvd'
+
+/** Legacy storage key: when the new key is absent, the value stored here is
+ *  adopted and written forward once, so no saved preference is lost. */
+export const LEGACY_CVD_STORAGE_KEY = 'vaultlab-cvd'
 
 /** Default: the classic green/red palette (finance convention, spec §7.2). */
 export const DEFAULT_CVD = false
@@ -23,7 +27,16 @@ export const DEFAULT_CVD = false
 function readStoredCvd(): boolean {
   if (!browser) return DEFAULT_CVD
   try {
-    return window.localStorage.getItem(CVD_STORAGE_KEY) === 'true'
+    let stored = window.localStorage.getItem(CVD_STORAGE_KEY)
+    if (stored === null) {
+      // One-time migration: adopt the legacy value and write it forward.
+      const legacy = window.localStorage.getItem(LEGACY_CVD_STORAGE_KEY)
+      if (legacy !== null) {
+        window.localStorage.setItem(CVD_STORAGE_KEY, legacy)
+        stored = legacy
+      }
+    }
+    return stored === 'true'
   } catch {
     // Storage unavailable (e.g. private mode): fall back to the default.
     return DEFAULT_CVD

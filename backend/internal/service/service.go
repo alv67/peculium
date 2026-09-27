@@ -15,13 +15,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/alv67/vault-lab/internal/auth"
-	"github.com/alv67/vault-lab/internal/cache"
-	"github.com/alv67/vault-lab/internal/geo"
-	"github.com/alv67/vault-lab/internal/model"
-	"github.com/alv67/vault-lab/internal/price"
-	"github.com/alv67/vault-lab/internal/repository"
-	"github.com/alv67/vault-lab/internal/series"
+	"github.com/alv67/peculium/internal/auth"
+	"github.com/alv67/peculium/internal/cache"
+	"github.com/alv67/peculium/internal/geo"
+	"github.com/alv67/peculium/internal/model"
+	"github.com/alv67/peculium/internal/price"
+	"github.com/alv67/peculium/internal/repository"
+	"github.com/alv67/peculium/internal/series"
 	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 )
@@ -159,7 +159,7 @@ func cached[T any](c *cache.Cache, ctx context.Context, kind string, id string, 
 	if err != nil {
 		log.Warn().Err(err).Msg("cache rev read failed")
 	}
-	key := fmt.Sprintf("vl:%s:%s:%d", kind, id, rev)
+	key := fmt.Sprintf("pc:%s:%s:%d", kind, id, rev)
 	var v T
 	if hit, err := c.GetJSON(ctx, key, &v); err != nil {
 		log.Warn().Err(err).Msg("cache read failed")
@@ -175,7 +175,7 @@ func cached[T any](c *cache.Cache, ctx context.Context, kind string, id string, 
 		if err != nil {
 			log.Warn().Err(err).Msg("cache rev bump failed")
 		}
-		key = fmt.Sprintf("vl:%s:%s:%d", kind, id, rev)
+		key = fmt.Sprintf("pc:%s:%s:%d", kind, id, rev)
 	}
 	if err := c.SetJSON(ctx, key, result, ttl); err != nil {
 		log.Warn().Err(err).Msg("cache write failed")
@@ -1134,7 +1134,7 @@ func (s *Service) getCachedExposure(ctx context.Context, source, isin string) (*
 }
 
 // setCachedExposure stores a raw provider exposure payload under
-// exposureCacheKey with the configured TTL (VAULT_EXPOSURE_CACHE_TTL). Failures
+// exposureCacheKey with the configured TTL (PECULIUM_EXPOSURE_CACHE_TTL). Failures
 // are logged as warnings and never fail the surrounding request.
 func (s *Service) setCachedExposure(ctx context.Context, source, isin string, ex *model.AssetExposure) {
 	if s.repos == nil || s.repos.Lookup == nil || ex == nil {

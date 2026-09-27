@@ -1,18 +1,18 @@
-# VaultLab — manual API tests (REST Client for VS Code, extension: humao.rest-client)
+# Peculium — manual API tests (REST Client for VS Code, extension: humao.rest-client)
 #
-# Run against the ISOLATED test stack only (separate DB vaultlab_test, port 8081,
+# Run against the ISOLATED test stack only (separate DB peculium_test, port 8081,
 # Yahoo finance disabled). NEVER against the dev/prod stack (port 8080, real data).
 #
 # Start the stack:
-#   docker compose -p vaultlab-test -f docker-compose.test.yml up -d --build python-service backend
+#   docker compose -p peculium-test -f docker-compose.test.yml up -d --build python-service backend
 #   until curl -s -o /dev/null http://localhost:8081/api/v1/health/prices; do sleep 1; done
 #
 # Optional — seed prices so the portfolio allocation weights below are non-zero
 # (Yahoo is disabled on the test stack, so there is no HTTP writer for prices):
-#   docker compose -p vaultlab-test -f docker-compose.test.yml exec -T postgres psql -U vaultlab -d vaultlab_test < tests/seed-prices.sql
+#   docker compose -p peculium-test -f docker-compose.test.yml exec -T postgres psql -U peculium -d peculium_test < tests/seed-prices.sql
 #
 # Then send each request in order. Stop afterwards:
-#   docker compose -p vaultlab-test -f docker-compose.test.yml down -v
+#   docker compose -p peculium-test -f docker-compose.test.yml down -v
 #
 # The python-service microservice is intentionally not exposed on the host:
 # exercise it through the backend endpoint (auto-resolve + fetch below).
@@ -80,7 +80,7 @@ Content-Type: application/json
 ### POST /assets/{id}/fetch-morningstar-exposure. Persist them with the "Save"
 ### buttons / PUT /assets/{id}/exposure.
 ### NOTE: the raw provider payload is cached in Redis
-### (vl:lookup:exposure:justetf:<ISIN>, TTL VAULT_EXPOSURE_CACHE_TTL = 7d), so
+### (pc:lookup:exposure:justetf:<ISIN>, TTL PECULIUM_EXPOSURE_CACHE_TTL = 7d), so
 ### reruns answer without calling the provider; append ?refresh=1 to force a
 ### fresh fetch and rewrite the cache (see 11b3).
 # @name fetchEtfExposure
@@ -147,7 +147,7 @@ Authorization: Bearer {{token}}
 ### resolver (headless Chromium bootstrap) in the python-service; falls back to
 ### 502 if Morningstar is unreachable in the sandbox (Yahoo disabled, external
 ### calls may be blocked). The raw payload is cached per ISIN under
-### vl:lookup:exposure:morningstar:<ISIN> (its own entry, separate from the
+### pc:lookup:exposure:morningstar:<ISIN> (its own entry, separate from the
 ### JustETF one), so a rerun is served from Redis and never boots Chromium; use
 ### 11b3 to force a refetch.
 # @name fetchMorningstarExposure
@@ -157,7 +157,7 @@ Authorization: Bearer {{token}}
 ### 11b3. Force a provider refetch bypassing the exposure cache: ?refresh=1
 ### (refresh=true also accepted) skips the Redis read and rewrites the cached
 ### payload. Works on both prefill endpoints (also /fetch-etf-exposure). The
-### cache TTL is VAULT_EXPOSURE_CACHE_TTL (default 7 days).
+### cache TTL is PECULIUM_EXPOSURE_CACHE_TTL (default 7 days).
 # @name fetchMorningstarRefresh
 POST {{baseUrl}}/assets/{{asset2Id}}/fetch-morningstar-exposure?refresh=1
 Authorization: Bearer {{token}}

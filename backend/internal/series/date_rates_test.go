@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/model"
 )
 
 func fxDay(y int, m time.Month, d int) time.Time {

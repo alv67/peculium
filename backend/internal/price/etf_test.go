@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/model"
 )
 
 const sampleETFETFExposureJSON = `{"countries":[{"name":"United States","weight":63.34}],"sectors":[{"name":"Information Technology","weight":27.5}]}`

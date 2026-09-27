@@ -1,0 +1,71 @@
+---
+import Base from '../../layouts/Base.astro';
+import LatestReleaseCard from '../../components/LatestReleaseCard.astro';
+import { withBase } from '../../lib/base';
+import { UI } from '../../lib/i18n';
+import { readLatestRelease, GITHUB_RELEASES_URL } from '../../lib/releases';
+
+const t = UI.it;
+const release = readLatestRelease('it');
+---
+
+<Base
+  locale="it"
+  path="/it"
+  title="Peculium — Il tuo patrimonio, self-hosted."
+  description={t.hero.lede}
+>
+  <section class="mx-auto grid max-w-5xl items-center gap-10 px-4 pb-16 pt-16 lg:grid-cols-[3fr_2fr] lg:pt-24">
+    <div>
+      <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl">
+        {t.hero.tagline}
+      </h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+        {t.hero.lede}
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a href={withBase('/it/install')} class="btn-primary">{t.hero.ctaInstall}</a>
+        <a href={release?.url ?? GITHUB_RELEASES_URL} rel="noopener" class="btn-secondary">
+          {t.hero.ctaRelease}{release ? ` · ${release.tag}` : ''}
+        </a>
+      </div>
+    </div>
+    <LatestReleaseCard locale="it" {release} />
+  </section>
+
+  <section class="border-t border-slate-200 bg-white py-16 dark:border-slate-800 dark:bg-slate-900/40">
+    <div class="mx-auto max-w-5xl px-4">
+      <h2 class="text-2xl font-bold tracking-tight">{t.cardsHeading}</h2>
+      <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {t.features.map((f) => (
+          <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 class="font-semibold">{f.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{f.body}</p>
+          </article>
+        ))}
+      </div>
+      <p class="mt-8 text-sm">
+        <a href={withBase('/it/features')} class="font-semibold text-brand hover:underline dark:text-brand-dark">
+          Esplora tutte le funzionalità →
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <section class="mx-auto grid max-w-5xl gap-6 px-4 py-16 sm:grid-cols-2">
+    <article class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="text-lg font-bold">{t.teasers.installTitle}</h2>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{t.teasers.installBody}</p>
+      <a href={withBase('/it/install')} class="mt-4 inline-block text-sm font-semibold text-brand hover:underline dark:text-brand-dark">
+        {t.teasers.installCta} →
+      </a>
+    </article>
+    <article class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="text-lg font-bold">{t.teasers.releasesTitle}</h2>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{t.teasers.releasesBody}</p>
+      <a href={withBase('/it/releases')} class="mt-4 inline-block text-sm font-semibold text-brand hover:underline dark:text-brand-dark">
+        {t.teasers.releasesCta} →
+      </a>
+    </article>
+  </section>
+</Base>

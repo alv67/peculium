@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/model"
 )
 
 // SeriesRepository exposes the materialized daily position series tables.

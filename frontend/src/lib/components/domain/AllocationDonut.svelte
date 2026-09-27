@@ -7,7 +7,7 @@
   import { CanvasRenderer } from 'echarts/renderers'
   import { formatCurrency, formatPercent } from '$lib/format'
   import { resolvePalette } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { dismissTooltipOutside } from '$lib/chartTooltip'
   import { resolved } from '$lib/stores/theme.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -40,7 +40,7 @@
   let {
     data = [] as AllocationDatum[],
     currency = 'USD',
-    title = 'Allocation',
+    title = t('chartView.nameAllocation'),
     showLegend = false,
     showValue = true,
     showTableToggle = true,
@@ -82,7 +82,7 @@
   // Pie labels do not inherit the ECharts theme textStyle: without an explicit
   // color they keep the default dark fill + white text border, which is
   // unreadable on a dark card ("outlined in white").
-  const labelColor = $derived(VAULTLAB_CHART_THEMES[resolved()].textStyle.color)
+  const labelColor = $derived(PECULIUM_CHART_THEMES[resolved()].textStyle.color)
 
   const options = $derived.by((): EChartsOption => ({
     color: palette,
@@ -172,7 +172,7 @@
   {:else}
     <div class="h-[240px] w-full" use:dismissTooltipOutside={chartInstance}>
       {#key resolved()}
-        <Chart {init} {options} theme={VAULTLAB_CHART_THEMES[resolved()]} bind:chart={chartInstance} />
+        <Chart {init} {options} theme={PECULIUM_CHART_THEMES[resolved()]} bind:chart={chartInstance} />
       {/key}
     </div>
     {#if showLegend}

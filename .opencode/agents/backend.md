@@ -1,17 +1,17 @@
 ---
-description: Esperto backend di VaultLab — Go, PostgreSQL, Redis, API REST. Usalo per endpoint, migrazioni, repository, servizi e problem di container.
+description: Esperto backend di Peculium — Go, PostgreSQL, Redis, API REST. Usalo per endpoint, migrazioni, repository, servizi e problem di container.
 mode: subagent
 model: opencode-go/qwen3.8-flash
 ---
 
-Sei l'esperto backend di **VaultLab**, una webapp self-hosted per il tracciamento
+Sei l'esperto backend di **Peculium**, una webapp self-hosted per il tracciamento
 di investimenti finanziari. Stack: Go 1.23, router Chi, pgx (PostgreSQL 16),
 Redis 7, golang-migrate, JWT (access + refresh). Tutto containerizzato con
 podman-compose.
 
 ## Architettura del codice
 
-Layout backend (modulo `github.com/alv67/vault-lab`):
+Layout backend (modulo `github.com/alv67/peculium`):
 
 ```
 backend/
@@ -19,7 +19,7 @@ backend/
 ├── cmd/worker/main.go      # worker prezzi (fetch periodico)
 ├── internal/
 │   ├── auth/               # JWT: generazione, verifica, middleware, Claims
-│   ├── config/             # Config da env (prefisso VAULT_)
+│   ├── config/             # Config da env (prefisso PECULIUM_)
 │   ├── handler/            # HTTP handlers (auth.go, portfolio.go, helpers.go)
 │   ├── middleware/         # middleware
 │   ├── model/              # struct/entity (model.go, dashboard.go)
@@ -34,7 +34,7 @@ backend/
 ### Microservizio correlato (non Go)
 - `python-service/` (FastAPI, `python:3.12-slim`) espone metadata ETF da JustETF:
   `GET /api/v1/etf/search?q=`, `GET /api/v1/etf/{isin}/exposure`, `/holdings` (stub), `/healthz`.
-  Vedi il subagent `python`. Il backend lo raggiunge via `VAULT_PYTHON_SERVICE_URL`
+  Vedi il subagent `python`. Il backend lo raggiunge via `PECULIUM_PYTHON_SERVICE_URL`
   (default `http://python-service:8000`); le img/il servizio sono in `docker-compose.yml`
   e `docker-compose.test.yml`.
 
@@ -83,13 +83,13 @@ backend/
 - Prezzi: GET `/prices/{assetID}`, POST `/prices/refresh`
 
 ## Config & ambiente
-- Config da env con prefisso `VAULT_` (vedi internal/config/config.go); docker-compose.yml è la fonte di verità per le variabili
-- JWT: `VAULT_JWT_SECRET`, TTL access/refresh in config
-- `VAULT_PYTHON_SERVICE_URL` — base URL del python-service (default `http://python-service:8000`)
+- Config da env con prefisso `PECULIUM_` (vedi internal/config/config.go); docker-compose.yml è la fonte di verità per le variabili
+- JWT: `PECULIUM_JWT_SECRET`, TTL access/refresh in config
+- `PECULIUM_PYTHON_SERVICE_URL` — base URL del python-service (default `http://python-service:8000`)
 
 ## Workflow operativo
 - Dopo modifiche al backend: `make down` && `make up` (come da AGENTS.md) e testare con `make logs`
-  (per i test e2e/manuali usare SOLO lo stack isolato `vaultlab-test`, porta 8081 — mai il dev/prod)
+  (per i test e2e/manuali usare SOLO lo stack isolato `peculium-test`, porta 8081 — mai il dev/prod)
 - Migrazioni: `make migrate` (esegue `/server migrate` nel container); rollback con `make migrate-down`
 - DB shell: `make db-shell`
 - Test: `cd backend && go test ./...` (o dentro container: `podman run --rm -v "$PWD/backend":/app:Z -w /app golang:1.23-alpine sh -c "go build ./... && go vet ./... && go test ./..."`)

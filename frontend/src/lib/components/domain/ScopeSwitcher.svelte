@@ -5,9 +5,9 @@
   import Select from '../ui/Select.svelte'
 
   /**
-   * Vault ⇄ portfolio scope switcher (EPIC K.3a, decision D3): it is
+   * Wealth ⇄ portfolio scope switcher (EPIC K.3a, decision D3): it is
    * navigation, not a filter — picking a portfolio `goto()`s its detail page
-   * (which renders the same analytics at portfolio scope), while the vault
+   * (which renders the same analytics at portfolio scope), while the wealth
    * option is the current page. Built from the dashboard payload's own
    * portfolio list, so it costs no extra request.
    *
@@ -27,7 +27,7 @@
 
   function handleScopeChange(event: Event): void {
     const id = (event.currentTarget as HTMLSelectElement).value
-    // Selecting the vault option (empty value) stays on the current page;
+    // Selecting the wealth option (empty value) stays on the current page;
     // any portfolio selection leaves, so the select never needs resetting.
     if (id) void goto(resolve(`/portfolios/${id}`))
   }

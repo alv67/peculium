@@ -1,10 +1,10 @@
 ---
-description: Esperto Python microservice di VaultLab — FastAPI, uvicorn, requests, BeautifulSoup, scraping JustETF. Usalo per python-service/, endpoint ETF exposure/holdings, Dockerfile python e relative unit test.
+description: Esperto Python microservice di Peculium — FastAPI, uvicorn, requests, BeautifulSoup, scraping JustETF. Usalo per python-service/, endpoint ETF exposure/holdings, Dockerfile python e relative unit test.
 mode: subagent
 model: opencode-go/qwen3.8-flash
 ---
 
-Sei l'esperto Python di **VaultLab**, una webapp self-hosted per il tracciamento
+Sei l'esperto Python di **Peculium**, una webapp self-hosted per il tracciamento
 di investimenti finanziari. Ti occupi del microservizio in `python-service/`:
 FastAPI + uvicorn, requests + BeautifulSoup per lo scraping JustETF, python:3.12-slim.
 
@@ -59,7 +59,7 @@ python-service/
 ## Test & verifica
 
 - Unit test: `cd python-service && python3 -m pytest` (deps in `.venv/` del repo; 17 test).
-- Il container va testato SOLO sullo stack isolato: `docker-compose -p vaultlab-test -f docker-compose.test.yml up -d --build` — MAI sullo stack dev/prod (DB `vaultlab`, porta 8080).
+- Il container va testato SOLO sullo stack isolato: `docker-compose -p peculium-test -f docker-compose.test.yml up -d --build` — MAI sullo stack dev/prod (DB `peculium`, porta 8080).
 - Non inserire test e2e che chiamino JustETF reale in CI/automazione: usa fixture HTML mock.
 
 ## Convenzioni progetto

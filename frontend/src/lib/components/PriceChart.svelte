@@ -13,7 +13,7 @@
   import { formatCurrency } from '$lib/format'
   import type { SplitInfo } from '$lib/services/api'
   import { chartSemanticColors, resolvePalette } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { resolved } from '$lib/stores/theme.svelte'
   import { t } from '$lib/i18n/index.svelte'
 
@@ -143,7 +143,7 @@
 {:else}
   <div class="h-[340px] w-full">
     {#key resolved()}
-      <Chart {init} {options} theme={VAULTLAB_CHART_THEMES[resolved()]} notMerge={false} ondatazoom={() => onDataZoom?.()} />
+      <Chart {init} {options} theme={PECULIUM_CHART_THEMES[resolved()]} notMerge={false} ondatazoom={() => onDataZoom?.()} />
     {/key}
   </div>
 {/if}

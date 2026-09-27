@@ -1,6 +1,6 @@
-# VaultLab — Il database spiegato
+# Peculium — Il database spiegato
 
-> Questo documento spiega com'è fatto il database di VaultLab: quali tabelle
+> Questo documento spiega com'è fatto il database di Peculium: quali tabelle
 > esistono, cosa contengono e come sono collegate tra loro.
 > È il compagno della guida al backend (`docs/BACKEND-GUIDE.it.md`) e non
 > richiede conoscenze di programmazione: i concetti come chiavi e relazioni

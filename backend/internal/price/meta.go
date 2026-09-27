@@ -11,8 +11,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/alv67/vault-lab/internal/geo"
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/geo"
+	"github.com/alv67/peculium/internal/model"
 )
 
 type AssetMeta struct {

@@ -1,6 +1,6 @@
-# VaultLab — The database explained
+# Peculium — The database explained
 
-> This document explains how the VaultLab database is structured: which tables
+> This document explains how the Peculium database is structured: which tables
 > exist, what they contain and how they are connected to each other.
 > It is the companion to the backend guide (`docs/BACKEND-GUIDE.en.md`) and
 > requires no programming knowledge: concepts such as keys and relationships

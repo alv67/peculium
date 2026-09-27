@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/alv67/vault-lab/internal/model"
+	"github.com/alv67/peculium/internal/model"
 )
 
 const assetColumns = "id, ticker, isin, name, type, asset_class, price_source, country, currency, exchange, sector, industry, created_at, price_fetched_at, history_backfilled"

@@ -1,0 +1,47 @@
+---
+import Base from '../layouts/Base.astro';
+import LatestReleaseCard from '../components/LatestReleaseCard.astro';
+import ReleaseNotes from '../components/ReleaseNotes.astro';
+import { UI } from '../lib/i18n';
+import { readLatestRelease, readReleaseNotes, GITHUB_RELEASES_URL } from '../lib/releases';
+
+const t = UI.en;
+const release = readLatestRelease('en');
+// Full notes come straight from docs/RELEASE-NOTES.en.md at build time —
+// the single source of truth. `## Unreleased` sections are not published.
+const notes = readReleaseNotes('en');
+---
+
+<Base
+  locale="en"
+  path="/releases"
+  title={`${t.navLabel.releases} · Peculium`}
+  description="Every Peculium release with its end-user release notes."
+>
+  <div class="mx-auto max-w-3xl px-4 py-16">
+    <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.releases}</h1>
+
+    <div class="mt-8 max-w-md">
+      <LatestReleaseCard locale="en" {release} />
+    </div>
+
+    <h2 class="mt-12 text-2xl font-bold tracking-tight">Release notes</h2>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Published here with every version, straight from the repository notes — the full history is
+      also on
+      <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">GitHub Releases</a>.
+    </p>
+
+    {notes.length > 0 ? (
+      <ReleaseNotes entries={notes} />
+    ) : (
+      <p class="mt-6 text-sm text-slate-500 dark:text-slate-400">
+        {t.releasesError.text}{' '}
+        <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">
+          {t.releasesError.linkText}
+        </a>
+        .
+      </p>
+    )}
+  </div>
+</Base>

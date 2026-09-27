@@ -1,6 +1,6 @@
-# VaultLab — Il frontend spiegato
+# Peculium — Il frontend spiegato
 
-> Questo documento spiega come funziona il frontend di VaultLab: la pagina web
+> Questo documento spiega come funziona il frontend di Peculium: la pagina web
 > che vedi nel browser (grafici, form, pulsanti). È il compagno della guida al
 > backend (`docs/BACKEND-GUIDE.it.md`) e della guida al database
 > (`docs/DATABASE-GUIDE.it.md`) e non richiede conoscenze di programmazione: i
@@ -13,7 +13,7 @@
 
 ## 1. Cos'è il frontend
 
-Il frontend è l'applicazione web di VaultLab: l'utente accede, crea portafogli,
+Il frontend è l'applicazione web di Peculium: l'utente accede, crea portafogli,
 registra transazioni, aggiunge titoli e guarda i grafici (performance,
 allocazione, prezzi).
 
@@ -64,9 +64,9 @@ già questi termini, salta al capitolo 3.
   backend emette due token (access e refresh); il frontend li conserva nel
   `localStorage` del browser (capitolo 9).
 - **localStorage**: una piccola area di memoria del browser che sopravvive ai
-  ricaricamenti della pagina. VaultLab ci salva i due token.
+  ricaricamenti della pagina. Peculium ci salva i due token.
 - **Libreria grafici / ECharts**: una libreria pronta per disegnare grafici
-  (a linee, a torta, ...). VaultLab usa ECharts tramite il wrapper
+  (a linee, a torta, ...). Peculium usa ECharts tramite il wrapper
   `svelte-echarts`.
 - **Proxy / reverse proxy**: un server (qui nginx) che riceve le richieste e le
   inoltra altrove. Il browser pensa di parlare con "il suo" server, ma `/api/...`
@@ -100,7 +100,8 @@ flowchart LR
     NGX -- "proxy_pass → http://backend:8080" --> BE
 ```
 
-I pezzi che girano (definiti in `docker-compose.yml`):
+I pezzi che girano (definiti in `docker-compose.dev.yml` per lo sviluppo locale
+e in `docker-compose.yml` per lo stack di release pull-only):
 
 - **frontend** — la pagina web. L'immagine è costruita da `frontend/Dockerfile`
   in due fasi:
@@ -164,7 +165,7 @@ frontend/
 ├── postcss.config.js       # tailwindcss + autoprefixer
 ├── Dockerfile              # build node → serve nginx (porta 80)
 ├── nginx.conf              # file statici + proxy /api/ verso backend:8080
-├── static/vault.svg        # favicon
+├── static/peculium.svg     # favicon
 └── src/
     ├── app.html            # HTML radice (bootstrap tema, meta theme-color, favicon, titolo)
     ├── app.css             # @tailwind + token semantici (:root / .dark) + base layer
@@ -372,7 +373,7 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   richiesta monotònico scarta le risposte obsolete); il grafico dell'hero è
   inoltre finesttrato lato client da un `$state` `heroPeriod` bucket-driven
   (1Y = ultimi 12 / 3Y = ultimi 36 / TUTTO sui bucket mensili,
-  persistito in `localStorage['vaultlab-hero-period']`);
+  persistito in `localStorage['peculium-hero-period']`);
   `hasMultipleCurrencies` pilota il donut "Allocation by portfolio" (valori grezzi nascosti e nota
   "valute miste" quando i portafogli usano valute diverse);
   `glClass` sceglie la classe testo verde/rosso per un guadagno o una perdita.
@@ -427,7 +428,7 @@ Ogni componente grafico segue lo stesso schema:
 
 <div class="h-[340px] w-full">
   {#key resolved()}
-    <Chart {init} {options} theme={VAULTLAB_CHART_THEMES[resolved()]} />
+    <Chart {init} {options} theme={PECULIUM_CHART_THEMES[resolved()]} />
   {/key}
 </div>
 ```
@@ -446,9 +447,9 @@ del tema dice se l'app sta disegnando in chiaro o scuro; il blocco
 tema cambia, perché `svelte-echarts` legge la prop `theme` solo una volta al
 mount. Due helper lo rendono possibile:
 
-- `lib/chartTheme.ts` registra due temi ECharts (`vaultlab-light`,
-  `vaultlab-dark`) costruiti dagli stessi token del CSS (colori di assi,
-  legenda, tooltip) e li espone come `VAULTLAB_CHART_THEMES`;
+- `lib/chartTheme.ts` registra due temi ECharts (`peculium-light`,
+  `peculium-dark`) costruiti dagli stessi token del CSS (colori di assi,
+  legenda, tooltip) e li espone come `PECULIUM_CHART_THEMES`;
 - `lib/chartPalette.ts` espone `resolvePalette()` (i colori serie
   `--chart-1..12`, letti dal DOM e messi in cache per tema) e
   `chartSemanticColors()` per le linee speciali (cost basis, realizzato,
@@ -470,7 +471,7 @@ scuro contornato di bianco).
 | `CapitalChart.svelte` (`lib/components/domain/`) | **due linee** sugli **stessi** bucket a categorie: `invested` (capitale netto investito, linea a scalini `end` nel grigio semantico `costBasis`) e `value` (valore di mercato, linea liscia nel verde semantico `marketValue`), tooltip in valuta con `formatCurrency(value, currency)`, dataZoom `inside` + `slider` (o solo `inside` e canvas da 240px con la prop `compact`), legenda `Invested` / `Value`, re-init theme-aware (`{#key}`), stato vuoto "No data" | il grafico valore-vs-investito dell'**hero** della dashboard, alimentato dalla **stessa** chiamata `dashboardPerformance(granularity)` e dagli stessi bucket di `PerformanceChart` (importi nella **valuta base** dell'utente, `currency` del payload) e con lo stesso selettore mensile/annuale; l'hero passa `compact` e finestra i bucket lato client con i chip periodo bucket-driven |
 | `Sparkline.svelte` (`lib/components/domain/`) | minuscola **linea senza assi**: niente legenda/tooltip/zoom, griglia ai bordi zero; accetta numeri semplici (asse indice nascosto) o punti `{date, value}` (`SparklinePoint`, asse **temporale** nascosto così i buchi di calendario restano veritieri — non mescolare le due forme), il verde semantico `marketValue` di default con override `color` opzionale, riempimento d'area discreto al 10% (`area`), `smooth` + `sampling: 'lttb'`, nessun hover (`silent`), strip d'altezza fissa via `heightClass` (default `h-10`); sotto i 2 punti **non renderizza nulla**; wrapper `role="img"` con `aria-label` (del chiamante, altrimenti `sparkline.trend`), re-init theme-aware (`{#key}`) | il fondo delle **card portafoglio** della **dashboard**: strip con lo storico del valore di mercato del portafoglio, alimentato da `portfolioApi.history(id)` (le stringhe `market_value` della serie mappate in punti `{date, value}`) caricato in background dopo il payload principale della dashboard; se la chiamata fallisce la card resta senza sparkline, in silenzio |
 | `ExposurePie.svelte` | **ciambella** (raggio 45%–70%), palette a 12 colori, legenda mostrata solo con ≤ 6 righe, righe a peso zero filtrate; `complete={false}` la rende **aperta** quando le righe sommano < 100 (una fetta residua trasparente tiene veritieri gli angoli — niente fetta grigia "Other") | pagina dettaglio asset (donut regioni con `complete={false}` e donut settori) e le due modali esposizione (in modalità `mute`: regioni in `ExposureGeoModal`, settori in `ExposureSectorModal`). I paesi (pagina e modale geografica) sono liste a barre, mai una pie. Accetta `ExposureRow[]` (`{name, weight}`). |
-| `ClassDonut.svelte` (`lib/components/domain/`) | **ciambella** delle classi di asset (stesso stile radius/palette/etichette di `ExposurePie`): righe `AssetClassSlice[]` (`{class, value, weight}`) mappate con `assetClassLabel` per i nomi localizzati, tooltip con importo (`formatCurrency`) e peso (`formatPercent`), fetta `other` in grigio spento, righe a peso zero scartate, stato vuoto "Nessuna allocazione per classi"; prop `label` opzionale per l'intestazione sopra il grafico; l'opzionale `onDrill?: (classKey) => void` rende le fette cliccabili — al click la invoca con la chiave classe **grezza** (il click arriva dal prop `onclick` del wrapper svelte-echarts, che ri-registra l'handler a ogni re-init `{#key}`) e le fette mostrano il cursore pointer | il pannello classi della card "Allocazione complessiva" della **dashboard**, alimentato da `dashboardAllocation().classes` (vault intero, valuta base), e il pannello classi della sezione "Allocazione" del **dettaglio portafoglio**, alimentato da `classAllocation(id).classes` (valuta del portafoglio); entrambi i call site passano `onDrill` e aprono il `AllocationDrillPanel` condiviso di pagina |
+| `ClassDonut.svelte` (`lib/components/domain/`) | **ciambella** delle classi di asset (stesso stile radius/palette/etichette di `ExposurePie`): righe `AssetClassSlice[]` (`{class, value, weight}`) mappate con `assetClassLabel` per i nomi localizzati, tooltip con importo (`formatCurrency`) e peso (`formatPercent`), fetta `other` in grigio spento, righe a peso zero scartate, stato vuoto "Nessuna allocazione per classi"; prop `label` opzionale per l'intestazione sopra il grafico; l'opzionale `onDrill?: (classKey) => void` rende le fette cliccabili — al click la invoca con la chiave classe **grezza** (il click arriva dal prop `onclick` del wrapper svelte-echarts, che ri-registra l'handler a ogni re-init `{#key}`) e le fette mostrano il cursore pointer | il pannello classi della card "Allocazione complessiva" della **dashboard**, alimentato da `dashboardAllocation().classes` (patrimonio intero, valuta base), e il pannello classi della sezione "Allocazione" del **dettaglio portafoglio**, alimentato da `classAllocation(id).classes` (valuta del portafoglio); entrambi i call site passano `onDrill` e aprono il `AllocationDrillPanel` condiviso di pagina |
 | `ExposureBarChart.svelte` (`lib/components/domain/`) | **barre orizzontali** riutilizzabili su righe generiche `{name, value, weight}[]` (`ExposureBarRow`): barre ordinate **per valore decrescente** (risortese in modo difensivo nel componente, righe non positive scartate; asse categorie `inverse`, quindi la barra più grande sta in alto), peso % stampato a fine barra, tooltip con importo (`formatCurrency(value, currency)`) e peso (`formatPercent`), asse dei valori nascosto (le barre servono solo a confrontarsi tra loro), altezza del canvas proporzionale al numero di righe, `colorFor?: (name) => string` per colore per-riga (altrimenti palette `resolvePalette` per indice), `labelFor?: (name) => string` per mappare le etichette dell'asse (l'asse mostra il nome leggibile — es. codice ISO → nome completo del paese via `countryDisplayName` — e il tooltip aggiunge il nome grezzo tra parentesi quando differisce, "United States (US)"; la colonna delle etichette si allarga a 140px quando `labelFor` è attivo), `maxVisibleRows?: number` collassa il grafico a quel numero di barre con un pulsante "Mostra tutti" che espande in place (nessun viewport con scorrimento interno — la pagina è l'unico contenitore scrollabile), `label` e `note` (didascalia muted) opzionali, stato vuoto "No data", re-init theme-aware (`{#key}`); l'opzionale `onDrill?: (rawName) => void` rende cliccabili le barre — al click la invoca con il nome **grezzo** della riga (la chiave del bucket, es. `US` / `North America` / `Financials`, anche quando `labelFor` mappa l'etichetta dell'asse) tramite il prop `onclick` del wrapper svelte-echarts, e le barre drillabili mostrano il cursore pointer | i pannelli regioni, settori e paesi della card "Allocazione complessiva" della **dashboard**, alimentati da `dashboardAllocation().regions` / `.sectors` / `.countries`, e gli stessi tre pannelli della sezione "Allocazione" del **dettaglio portafoglio**, alimentati da `geographyAllocation(id).regions` / `sectorAllocation(id).sectors` / `geographyAllocation(id).countries` (in valuta del portafoglio); i chiamanti mappano `RegionAllocation`/`SectorAllocation`/`CountryAllocation` su `ExposureBarRow`; i paesi portano codici ISO alpha-2 renderizzati con `labelFor={countryDisplayName}` e `maxVisibleRows={10}` su entrambe le pagine — si vedono le ~10 barre maggiori e un pulsante "Mostra tutti" rivela le altre; i pannelli regioni e settori non passano nulla: etichette invariate e tutte le righe visibili — le ~10 macro-regioni non hanno mai bisogno del cap; entrambi i call site passano `onDrill` e aprono il `AllocationDrillPanel` condiviso di pagina |
 | `AllocationDrillPanel.svelte` (`lib/components/domain/`) | **pannello drill-down di allocazione** di sola lettura: gli asset contribuenti di un bucket di allocazione, renderizzato come `ui/Drawer` a ≥ `lg` e `ui/Sheet` sotto (via lo store `viewport` — la stessa coppia drawer/sheet del form transazione). Controllato come le due primitive (`open`/`onClose` di props, lo stato `title`/`dim`/`key` resta del chiamante); `fetcher: (dim, key) => Promise<AllocationDrill>` è iniettato per scope (dashboard: `dashboardAllocationDrill`, tab portafoglio: `allocationDrill(id, …)`) e chiamato all'apertura e a ogni cambio di `dim`/`key` a pannello aperto, con request id monotònico che scarta le risposte stale (i quattro stati seguono le convenzioni `ui/AsyncCard`: skeleton / errore su una riga + Retry / vuoto "Nessun asset in questa fetta" / dati). La tabella riusa `ui/Table`/`Th`/`Td` con caption sr-only e sotto `sm` collassa in righe key–value impilate — Asset (ticker che linka a `/assets/{id}` + nome muted su seconda riga), Valore (`formatCurrency` nella valuta del payload), Peso (`formatPercent`, quota dell'asset nel bucket), Contributo (valore × peso/100 nel bucket) e Quota della fetta (contributo ÷ `total`, con guardia a trattino per i bucket vuoti); le righe mantengono l'ordine decrescente di contributo del backend e il pannello non aggiunge nessuna area di scroll annidata (scorre il corpo del drawer/sheet) | montato **una volta per pagina** dalla dashboard (card "Allocazione complessiva") e dal tab Allocazione del portafoglio: ogni `ClassDonut`/`ExposureBarChart` passa lì un `onDrill` che apre il pannello con il bucket cliccato; il `title` del drill è l'etichetta che il grafico mostra (nome classe via `assetClassLabel`, paese esteso via `countryDisplayName`, nome verbatim per regioni/settori) |
 | `InvestmentsTable.svelte` (`lib/components/domain/`) | tabella **active/closed** condivisa (`active: ActiveBreakdown`, `closed: ClosedBreakdown`, `currency`, `title` opzionale): colonne Investito / Valore-Ricavi / Gain-Loss / % / Dividendi, righe Active e Closed, P/L firmato colorato con `pnlColorClass`, importi via `formatCurrency` | il disclosure "Dettaglio" dell'hero nella **dashboard** (valuta base, dentro un `<details>` sotto il numero hero) e la card KPI del **dettaglio portafoglio** (valuta portafoglio) |
@@ -562,7 +563,7 @@ sola forma i cui numeri compaiono già nella card come testo.
   alimentata da `GET /dashboard/allocation`, che espone quattro dimensioni:
   `classes` (`ClassDonut`), `regions`, `sectors` e `countries` (tutti e tre
   `ExposureBarChart`), disposte in una
-  griglia `lg:grid-cols-2` dentro la card. Le classi coprono tutto il vault;
+  griglia `lg:grid-cols-2` dentro la card. Le classi coprono tutto il patrimonio;
   regioni, settori e paesi sono calcolati sull'universo **equity-only**
   (azioni sempre; ETF/fondi solo quando `asset_class` è `equity` o
   `real_estate`); bond, crypto, commodity e fondi non classificati sono
@@ -648,7 +649,7 @@ Poiché i valori sono terne HSL composte con
   scelta per battere sia `:root` sia `.dark`); la classe viene dipinta prima
   del primo paint dallo script di `app.html` e mantenuta in sync da
   `lib/stores/palette.svelte.ts` (stato `palette` con `cvd`, `setCvd()`,
-  storage key `vaultlab-cvd`, listener cross-tab — stesso pattern dello
+  storage key `peculium-cvd`, listener cross-tab — stesso pattern dello
   store del tema). I grafici la ricevono via `lib/chartPalette.ts`
   (`CHART_SEMANTIC_COLORS_CVD` + `chartSemanticColors()` reattiva), e
   l'unico componente che dipinge barre positive/negative —
@@ -662,7 +663,7 @@ Poiché i valori sono terne HSL composte con
   scuro sono temi first-class, progettati allo stesso modo. L'utente può
   sovrascrivere con **Chiaro**, **Scuro** o **Sistema** dal selettore del
   tema nell'header.
-- La scelta è salvata in `localStorage` (`vaultlab-theme`) ed è gestita da
+- La scelta è salvata in `localStorage` (`peculium-theme`) ed è gestita da
   `lib/stores/theme.svelte.ts` (`theme`, `resolved()`, `setThemeMode()`,
   `DEFAULT_MODE = 'system'`); è sincronizzata tra le schede e segue i cambi
   dell'OS in modalità `system`.
@@ -671,7 +672,7 @@ Poiché i valori sono terne HSL composte con
   di valido salvato, così un reload non mostra mai il tema sbagliato (niente
   FOUC). `darkMode: 'class'` nella config di Tailwind fa sì che una sola
   classe cambi tutti i token. Un secondo script inline applica allo stesso
-  modo la classe opzionale `cvd` da `localStorage['vaultlab-cvd']`, così
+  modo la classe opzionale `cvd` da `localStorage['peculium-cvd']`, così
   nemmeno la palette CVD (sopra) mostra mai il verde/rosso; `html.cvd`
   deliberatamente non dipende dal tema dipinto — la coppia ha varianti
   chiara e scura.
@@ -721,7 +722,7 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
 
 - **Desktop (≥ `lg`)** — `AppShell` (radice, `h-dvh` + skip-link)
   rende la `Sidebar` espandibile (240px ⇄ rail di icone da 64px, stato
-  persistito in `localStorage['vaultlab-sidebar']`), l'`AppHeader` sticky con il
+  persistito in `localStorage['peculium-sidebar']`), l'`AppHeader` sticky con il
   toggle di collassamento e il controllo di aggiornamento dei prezzi, e lo
   `UserMenu` nel footer della sidebar.
 - **Tablet (`sm`–`lg`)** — la stessa sidebar forzata a **rail di icone da
@@ -831,7 +832,7 @@ essere visibili su ogni pagina.
   "La shell dell'app" sopra).
 - **App-wide**: `app.html` parte con `lang="it"` (il default dell'i18n —
   vedi la nota lingua sotto — e aggiornato a runtime dal locale
-  persistito), la favicon `/vault.svg`, i meta `theme-color` chiaro/scuro
+  persistito), la favicon `/peculium.svg`, i meta `theme-color` chiaro/scuro
    e il bootstrap del tema pre-paint; background/foreground del body
    arrivano dai token via `app.css`.
 - **Nota sulla lingua (i18n)**: le traduzioni
@@ -839,7 +840,7 @@ essere visibili su ogni pagina.
   `src/lib/i18n/`. Lo store a rune `index.svelte.ts` esporta
   `SUPPORTED_LOCALES` (`['it', 'en']`), `DEFAULT_LOCALE = 'it'`, il
   `locale` reattivo (`locale.current`), `setLocale()` (valida, persiste in
-  `localStorage['vaultlab-locale']`, sincronizza `<html lang>`, listener
+  `localStorage['peculium-locale']`, sincronizza `<html lang>`, listener
   cross-tab — rispecchia lo store del tema) e `t(key, params)` che legge il
   locale reattivo così i componenti si ri-renderizzano al cambio; i
   segnaposto `{name}` sono interpolati da `params`. I dizionari sono
@@ -939,7 +940,7 @@ L'esito è reattivo e a livello di modulo, quindi sopravvive alla navigazione
 SPA: `finished_at` guida il **`PriceRefreshButton`** sempre visibile nell'header
 ("Prezzi alle HH:MM", cliccabile per aggiornare le quotazioni su richiesta),
 mentre l'esito rate-limit / issues / fallimento e i contatori `fx_missing_*`
-della dashboard (rispecchiati nello store `vaultStatus`, seminato dallo shell
+della dashboard (rispecchiati nello store `dashboardStatus`, seminato dallo shell
 così da essere disponibili anche fuori dalla dashboard) alimentano la
 **`DataQualityStrip`**, resa globalmente come sottile banda sticky sotto
 l'header e mostrata solo quando c'è qualcosa da segnalare.
@@ -969,11 +970,11 @@ valore.
 
 - **Header**: titolo "Dashboard" e **`ScopeSwitcher`**
   (`domain/ScopeSwitcher.svelte`): un `<select>` nativo costruito sulla
-  ricetta `ui/Select` che elenca "Tutti i portafogli (Vault)" (valore vuoto,
+  ricetta `ui/Select` che elenca "Tutti i portafogli (Patrimonio)" (valore vuoto,
   la pagina corrente) e una opzione per portafoglio prese dal payload.
   Selezionare un portafoglio **naviga** — `goto()` verso `/portfolios/{id}`,
   la stessa analisi a scope portafoglio — è navigazione di secondo livello,
-  non un filtro sui dati di questa pagina. Renderizzato solo quando il vault
+  non un filtro sui dati di questa pagina. Renderizzato solo quando il patrimonio
   ha portafogli. (La **`DataQualityStrip`** e il controllo di aggiornamento
   dei prezzi non sono locali alla pagina: vivono nello shell/header e sono
   visibili su ogni pagina — vedi "Il refresh prezzi di sessione" sopra.)
@@ -1001,7 +1002,7 @@ valore.
   (ultimi 12 bucket) / `3Y` (ultimi 36) / `TUTTO`; con bucket annuali vale
   solo `TUTTO` e la riga di chip si nasconde da sola. Le opzioni derivano
   dalla `granularity` effettiva del payload (non dallo stato del selettore) e
-  il periodo usato resta in `localStorage['vaultlab-hero-period']`.
+  il periodo usato resta in `localStorage['peculium-hero-period']`.
 - **Zona B — card Performance**: riga di intestazione
   con titolo e `SegmentedControl` ("Monthly" / "Annual") legato allo stato
   `granularity`, e sotto `PerformanceChart` alimentato da
@@ -1017,7 +1018,7 @@ valore.
    `lg:grid-cols-2` di quattro pannelli alimentata da `dashboardAllocation()`
    (`GET /dashboard/allocation`, aggregato nella valuta base dell'utente su
    tutti i portafogli): **Classi di attività**
-  (`ClassDonut` su `classes`, tutto il vault) e le barre orizzontali
+  (`ClassDonut` su `classes`, tutto il patrimonio) e le barre orizzontali
   **Regioni**, **Settori** e **Paesi**, solo equity (`ExposureBarChart`
    su `regions` / `sectors` / `countries`; le righe delle regioni riportano il nome della macro-regione
    invariato; le righe dei paesi portano codici ISO alpha-2
@@ -1080,7 +1081,7 @@ valore.
   badge muted **no price** accanto al ticker il cui tooltip spiega che il P/L
   è 0 perché non c'è prezzo disponibile. Con payload vuoto la card renderizza
   un `EmptyState` tratteggiato ("No invested assets yet").
-- **Vault vuoto**: un vault vuoto mostra la **checklist guidata di primo avvio**
+- **Patrimonio vuoto**: un patrimonio vuoto mostra la **checklist guidata di primo avvio**
    (`domain/FirstRunChecklist.svelte`): un'unica `Card` la cui **lista
   ordinata** accessibile accompagna ① crea un portafoglio → ② aggiungi un
   asset → ③ registra una transazione, ogni passo collegato alla pagina dove
@@ -1090,7 +1091,7 @@ valore.
   (badge accento, ✓, testo sr-only), derivato **solo** dal payload della
   dashboard (portafogli / asset investiti / importi investiti per
   portafoglio — nessuna chiamata extra). La card scompare da sola appena il
-  vault ha portafogli, perché il branch del dashboard normale li richiede.
+  patrimonio ha portafogli, perché il branch del dashboard normale li richiede.
 
 ### `/login` — Sign in / Register (`routes/login/+page.svelte`)
 
@@ -1154,14 +1155,14 @@ negativi che rispecchiano il `px-4 lg:px-6` / `pt-4 lg:pt-6` responsivo di `<mai
   valuta (e descrizione se presente), l'azione primaria `[+ Transazione]`
   (apre il modal, disponibile su ogni tab) e il menu `⋯`: **Esporta**
   (`portfolioApi.exportDoc(id)` → download del file JSON
-   `vault-lab-<nome>.json`), **Importa** ed **Elimina** (dialogo
+   `peculium-<nome>.json`), **Importa** ed **Elimina** (dialogo
    di conferma → API → toast → ritorno alla lista). All'import modal viene
    dato *questo* portafoglio come unico target di sovrascrittura (il picker
    completo resta nella pagina lista) e l'opzione "crea come nuovo" è disponibile.
 - Strip KPI ("valore + P/L sempre visibili"): numero principale
   `summary.active.value` in valuta portafoglio, P/L firmato con due
   `PnlValue` e chip muted investito / realizzato / dividendi — la
-  stessa composizione dell'hero vault, in versione
+  stessa composizione dell'hero del patrimonio, in versione
   portafoglio.
 - Barra `ui/Tabs`: Panoramica / Posizioni / Attività / Allocazione,
   stato attivo derivato dalla route, scorribile orizzontalmente sui
@@ -1564,7 +1565,7 @@ sono tradotte tramite il layer i18n (capitolo 8).
    spiegazione estesa — con una seconda
    `SegmentedControl` collegata allo store della palette (`setCvd` /
    `palette.cvd` — si applica subito, persiste in
-   `localStorage['vaultlab-cvd']`, i grafici si re-inizializzano allo
+   `localStorage['peculium-cvd']`, i grafici si re-inizializzano allo
    switch) e **lingua** dell'interfaccia (Italiano/English, default
    italiano) con una `Select` collegata a `setLocale` in
    `lib/i18n/`. Tutte si applicano subito e persistono in `localStorage`

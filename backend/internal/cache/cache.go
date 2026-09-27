@@ -10,7 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const revKey = "vl:data_rev"
+const revKey = "pc:data_rev"
 
 // Cache wraps a Redis client. With a nil client every operation degrades to a
 // noop so the application keeps working without Redis.

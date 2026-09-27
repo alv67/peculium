@@ -16,13 +16,13 @@
 #   - jq installed; curl available; the test postgres container reachable (only
 #     needed for the optional price seed, not fatal if unavailable).
 #
-# Test stack lifecycle (isolated, project vaultlab-test, DB vaultlab_test, port 8081):
+# Test stack lifecycle (isolated, project peculium-test, DB peculium_test, port 8081):
 #   Start (build + boot):
-#     docker compose -p vaultlab-test -f docker-compose.test.yml up -d --build python-service backend
+#     docker compose -p peculium-test -f docker-compose.test.yml up -d --build python-service backend
 #   Wait until the backend answers:
 #     until curl -s -o /dev/null http://localhost:8081/api/v1/health/prices; do sleep 1; done
 #   Stop and reset (delete the test DB volume):
-#     docker compose -p vaultlab-test -f docker-compose.test.yml down -v
+#     docker compose -p peculium-test -f docker-compose.test.yml down -v
 #   NEVER point this at the dev/prod stack (port 8080): it holds real data.
 #
 # Usage:
@@ -78,9 +78,9 @@ if [ "$_PORT" != "8081" ]; then
   warn "porta != 8081 ($_PORT): assicurati di puntare allo stack TEST isolato"
 fi
 
-printf '\n\033[1mVaultLab — EPIC K: filtri transazioni + drill-down allocazioni\033[0m\n'
+printf '\n\033[1mPeculium — EPIC K: filtri transazioni + drill-down allocazioni\033[0m\n'
 printf 'Base URL: %s\n' "$BASE_URL"
-printf 'Bersaglio: solo stack TEST isolato (vaultlab-test, porta 8081).\n\n'
+printf 'Bersaglio: solo stack TEST isolato (peculium-test, porta 8081).\n\n'
 
 # --- prerequisiti -------------------------------------------------------------
 command -v jq >/dev/null 2>&1 || die "jq non installato"
@@ -194,7 +194,7 @@ SEEDED=0
 if [ "$SEED" -eq 1 ]; then
   note "FASE 4 — Seed prezzi manuale (solo stack test, NON fatale)"
   if [ "$_PORT" = "8081" ]; then
-    SEED_CMD=($COMPOSE -p vaultlab-test -f "$SCRIPT_DIR/../docker-compose.test.yml" exec -T postgres psql -U vaultlab -d vaultlab_test)
+    SEED_CMD=($COMPOSE -p peculium-test -f "$SCRIPT_DIR/../docker-compose.test.yml" exec -T postgres psql -U peculium -d peculium_test)
     if "${SEED_CMD[@]}" < "$SCRIPT_DIR/seed-prices.sql" >/dev/null 2>&1; then
       SEEDED=1
       ok "seed prezzi applicato (SMEA.MI @105, SXR8.DE @310)"

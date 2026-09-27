@@ -12,11 +12,11 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 
-	"github.com/alv67/vault-lab/internal/cache"
-	"github.com/alv67/vault-lab/internal/geo"
-	"github.com/alv67/vault-lab/internal/model"
-	"github.com/alv67/vault-lab/internal/price"
-	"github.com/alv67/vault-lab/internal/repository"
+	"github.com/alv67/peculium/internal/cache"
+	"github.com/alv67/peculium/internal/geo"
+	"github.com/alv67/peculium/internal/model"
+	"github.com/alv67/peculium/internal/price"
+	"github.com/alv67/peculium/internal/repository"
 )
 
 type fakePortfolioRepo struct {

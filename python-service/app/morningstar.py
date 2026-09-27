@@ -23,7 +23,7 @@ resolver instead:
            the website only paginates the client-side table 10 rows at a time.
       * https://www.us-api.morningstar.com/sal/sal-service/etf/portfolio/regionalSector/{sid}/data
         -> official region breakdown ({fundPortfolio.{regionKey: weight}}); the
-           keys map 1:1 to canonical VaultLab region names.
+           keys map 1:1 to canonical Peculium region names.
 
 The cached WAF session can be revoked before the bearer JWT expires, and then
 the APIs answer with an HTML challenge page instead of JSON; every data flow
@@ -171,7 +171,7 @@ _MORNINGSTAR_COUNTRY_NAMES = {
     "unitedArabEmirates": "United Arab Emirates",
 }
 
-# Morningstar regionalSector fundPortfolio key -> canonical VaultLab region name.
+# Morningstar regionalSector fundPortfolio key -> canonical Peculium region name.
 # The backend consumes these names 1:1 (no geo derivation needed); any residual
 # share not covered here is absorbed by the backend into "Other / Not Classified".
 _MORNINGSTAR_REGION_NAMES = {

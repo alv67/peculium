@@ -1,4 +1,4 @@
-module github.com/alv67/vault-lab
+module github.com/alv67/peculium
 
 go 1.23.0
 

@@ -1,6 +1,6 @@
-# VaultLab — Specifica di redesign UX
+# Peculium — Specifica di redesign UX
 
-> Questo documento descrive la specifica di redesign UX/UI di VaultLab:
+> Questo documento descrive la specifica di redesign UX/UI di Peculium:
 > l'architettura delle interfacce, il modello di navigazione, la strategia
 > responsive, i layout per schermata, l'evoluzione del design system, i
 > pattern di interazione e la roadmap di implementazione a fasi (**EPIC K**)
@@ -24,7 +24,7 @@
 
 ## 1. Perimetro e obiettivi
 
-**Scopo.** Definire un'architettura di interfaccia moderna per VaultLab — un
+**Scopo.** Definire un'architettura di interfaccia moderna per Peculium — un
 tracker di investimenti self-hosted, privacy-first e multi-utente per uso
 familiare — utilizzabile su PC, tablet e mobile, e fornire all'agente
 `frontend` una specifica di implementazione non ambigua e a fasi (EPIC K,
@@ -63,7 +63,7 @@ Cosa fa oggi il prodotto, indipendentemente dalle schermate:
 | Dominio | Capacità |
 |---|---|
 | **Identità** | Login + registrazione (pagina singola), JWT con refresh, multi-utente, **valuta base** per utente |
-| **Analytics del vault** | KPI consolidati (attivo vs chiuso: investito, valore, gain/loss, realized, dividendi); bucket di performance TWR (mensili/annuali, barre + linea cumulata); capitale investito vs valore (per bucket); allocazione per **classe / regione / settore / paese** (universo equity-only con nota di copertura); allocazione per portafoglio; posizioni aperte consolidate tra portafogli (`invested_assets`); contabilità degli FX mancanti |
+| **Analytics del patrimonio** | KPI consolidati (attivo vs chiuso: investito, valore, gain/loss, realized, dividendi); bucket di performance TWR (mensili/annuali, barre + linea cumulata); capitale investito vs valore (per bucket); allocazione per **classe / regione / settore / paese** (universo equity-only con nota di copertura); allocazione per portafoglio; posizioni aperte consolidate tra portafogli (`invested_assets`); contabilità degli FX mancanti |
 | **Portafogli** | CRUD; valuta per portafoglio; export/import JSON (nuovo/sovrascrittura); summary (attivo/chiuso); bucket TWR; grafico dello storico valore (portafoglio o singolo asset, con split); tabella posizioni; transazioni paginate (20/pagina) |
 | **Transazioni** | buy/sell/dividend creabili dalla UI (split/fee esistono nelle API, solo visualizzazione/modifica); combobox asset; totale live; modifica/eliminazione con conferma; paginazione; refetch di tutto ciò che è coinvolto dopo una mutazione (E.9) |
 | **Asset** | Libreria condivisa tra portafogli; CRUD; lookup/autocomplete Yahoo; metadati (ticker, ISIN, nome, tipo, valuta, exchange, `asset_class`, `price_source` yahoo/manual/none); grafico prezzi con zoom in-place (1M/3M/1Y/YTD/MAX) + marcatori di split; metriche di quotazione (1G/1S/1M/1Y/YTD); **esposizione a 3 dimensioni** (paesi, regioni allineate a Morningstar, settori GICS) con **provenienza** per dimensione (manuale/JustETF/Morningstar/derivata, persistita e datata); anteprime di prefill non persistenti (JustETF/Morningstar/Yahoo); regioni derivate dai paesi; refresh meta da Yahoo + backfill storico completo |
@@ -80,12 +80,12 @@ benchmark, notifiche/alert, prezzi manuali, undo.
 
 ## 3. Strategia UX e modello mentale
 
-### 3.1 Il modello mentale: un Vault → molti Portafogli → una libreria Asset condivisa → un giornale di Transazioni
+### 3.1 Il modello mentale: un Patrimonio → molti Portafogli → una libreria Asset condivisa → un giornale di Transazioni
 
 ```mermaid
 flowchart LR
     U["👤 Membro della famiglia<br/>(ruolo: owner/admin/editor/viewer)"] --> V
-    subgraph V["VAULT (per utente, valuta base)"]
+    subgraph V["PATRIMONIO (per utente, valuta base)"]
         P1["Portafoglio A (EUR)"]
         P2["Portafoglio B (USD)"]
         P3["Portafoglio C — Pensione (J.8)"]
@@ -98,7 +98,7 @@ flowchart LR
 ```
 
 Ogni schermata deve rendere ovvio lo **scope** corrente dell'utente: *sto
-guardando l'intero vault o un singolo portafoglio?* Oggi la dashboard e il
+guardando l'intero patrimonio o un singolo portafoglio?* Oggi la dashboard e il
 dettaglio portafoglio duplicano ~80% dei componenti analytics
 (`InvestmentsTable`, `PerformanceChart`, `ClassDonut`, `ExposureBarChart`)
 con fonti dati diverse. Quella duplicazione è il segnale più chiaro che
@@ -107,7 +107,7 @@ pagine.
 
 ### 3.2 Filosofie guida
 
-| Filosofia | Cosa significa qui | Perché si adatta a VaultLab |
+| Filosofia | Cosa significa qui | Perché si adatta a Peculium |
 |---|---|---|
 | **Glanceable finance / una metrica hero** (Role–Metric–Density–Action) | Ogni schermata apre con *l'unico numero* per cui l'utente è venuto. Overview → **valore di mercato netto + P/L non realizzato**; portafoglio → il suo valore; asset → ultimo prezzo + variazione | Un tool familiare viene aperto molto più spesso per controlli da 10 secondi ("come stiamo andando?") che per sessioni di analisi. L'hero deve essere inequivocabile e sopra la piega su ogni dispositivo |
 | **Densità progressiva (data story)** | Livello 1: numero hero → Livello 2: grafico di trend + strip KPI → Livello 3: storia dell'allocazione → Livello 4: tabelle/posizioni complete → Livello 5: drill-down grezzi (drawer) | La pratica 2026 ha riabilitato la densità, ma *ordinata*. Il "power user" di famiglia ha bisogno dei livelli 4–5; gli altri si fermano a 1–2. La stessa schermata serve entrambi senza configurazione |
@@ -123,7 +123,7 @@ pagine.
 
 ```mermaid
 flowchart TD
-    J1["Lavoro 1 — SGUARDO<br/>'Come stiamo andando?'"] --> S1["Overview (scope vault)"]
+    J1["Lavoro 1 — SGUARDO<br/>'Come stiamo andando?'"] --> S1["Overview (scope patrimonio)"]
     J1 --> S2["Portafoglio · tab Overview"]
     J2["Lavoro 2 — REGISTRAZIONE<br/>'Registra questo acquisto/dividendo'<br/>'Inserisci il prezzo di questa obbligazione' (J.1)"] --> S3["Quick Add (FAB / ⌘K)<br/>→ sheet Aggiungi transazione"]
     J2 --> S4["Asset → tab Dati<br/>(prezzo manuale, metadati)"]
@@ -143,13 +143,13 @@ flowchart TD
     LOGIN["/login<br/>Accedi · Registrati"] --> SHELL
 
     subgraph SHELL["Shell autenticata (nav tier-1)"]
-        OV["📊 Overview  ·  /<br/>selettore scope: Vault ⇄ Portafoglio"]
+        OV["📊 Overview  ·  /<br/>selettore scope: Patrimonio ⇄ Portafoglio"]
         PFL["💼 Portafogli  ·  /portfolios"]
         AST["🏷️ Asset  ·  /assets"]
         MORE["⋯ Altro (mobile) / footer sidebar (desktop)"]
     end
 
-    OV --> OVV["Scope vault: hero, performance,<br/>sintesi allocazione, card portafogli,<br/>posizioni consolidate, strip qualità dati"]
+    OV --> OVV["Scope patrimonio: hero, performance,<br/>sintesi allocazione, card portafogli,<br/>posizioni consolidate, strip qualità dati"]
     OV --> OVP["Scope portafoglio = /portfolios/:id (tab Overview)"]
 
     PFL --> PNEW["+ Nuovo / Importa portafoglio (sheet)"]
@@ -192,7 +192,7 @@ flowchart TD
 
 1. **Scope switcher = navigazione, non filtro** (decisione D3). Uno
    `ScopeSwitcher` nell'header dell'Overview elenca "Tutti i portafogli
-   (Vault)" più ogni portafoglio (in seguito un gruppo "Condivisi con me").
+   (Patrimonio)" più ogni portafoglio (in seguito un gruppo "Condivisi con me").
    Selezionando un portafoglio **naviga** a `/portfolios/:id` (tab Overview).
    Gli URL restano deep-linkable; i componenti analytics sono unificati dietro
    un unico contratto `AnalyticsScope` (`vault | portfolio`) alimentato dagli
@@ -205,7 +205,7 @@ flowchart TD
    condivisibili/salvabili, caricamento dati per tab, pulsante indietro
    funzionante (cruciale su mobile), header che resta montato al cambio tab.
 3. **"Attività" è promossa a tab** del portafoglio. Il feed consolidato a
-   livello vault (`/activity`) è uno **slot riservato** in "Altro" (rinviato,
+   livello patrimonio (`/activity`) è uno **slot riservato** in "Altro" (rinviato,
    capitolo 12): il backend scope delle transazioni è per-portafoglio, quindi
    l'endpoint consolidato è una piccola aggiunta — una grande vittoria di
    visibilità per la famiglia ("cosa hanno fatto tutti questo mese?").
@@ -224,20 +224,20 @@ flowchart TD
    una 4ª voce tier-1 ("Finanza") o una zona card Obiettivi sull'Overview; lo
    slot "Altro" della bottom nav assorbe la crescita senza ristrutturazioni.
 
-### 4.3 Cambio di contesto vault ↔ portafoglio
+### 4.3 Cambio di contesto patrimonio ↔ portafoglio
 
 ```mermaid
 sequenceDiagram
     participant U as Utente
-    participant OV as Overview (vault)
+    participant OV as Overview (patrimonio)
     participant PD as Dettaglio portafoglio
-    U->>OV: Apre l'app → valore netto, performance vault
+    U->>OV: Apre l'app → valore netto, performance del patrimonio
     U->>OV: ScopeSwitcher → "PAC Famiglia"
     OV->>PD: naviga a /portfolios/7 (tab Overview, header sticky)
     U->>PD: Tab → Attività → tap su riga
     PD->>PD: Sheet di modifica (la lista resta montata)
     U->>PD: Breadcrumb "Tutti i portafogli" / indietro
-    PD->>OV: torna allo scope vault, scroll e filtri preservati
+    PD->>OV: torna allo scope patrimonio, scroll e filtri preservati
 ```
 
 ---
@@ -265,7 +265,7 @@ sintesi sticky su tutte le dimensioni** (si condensa allo scroll).
 ```
 DESKTOP >=1024                         TABLET 640-1023              MOBILE <640
 ┌───────────────┬───────────────────┐  ┌─────┬───────────────────┐  ┌──────────────────────────┐
-│ VaultLab      │ header sticky     │  │     │ header sticky     │  │  header KPI (fisso)      │
+│ Peculium      │ header sticky     │  │     │ header sticky     │  │  header KPI (fisso)      │
 │               │ ScopeSwitcher     │  │     │ strip KPI         │  │  hero -> compatto        │
 ├───────────────┼───────────────────┤  ├─────┼───────────────────┤  ├──────────────────────────┤
 │ Overview      │                   │  │ [O] │                   │  │                          │
@@ -318,7 +318,7 @@ TABLET
 
 ## 6. Proposte di layout per schermata
 
-### 6.1 Overview (scope vault) — `/`
+### 6.1 Overview (scope patrimonio) — `/`
 
 **Obiettivo UX**: rispondere in < 3 secondi a "quanto abbiamo e sta andando
 bene?", poi invitare alla storia (performance → allocazione → posizioni).
@@ -369,7 +369,7 @@ MOBILE <640
 │  bucket: 1Y 3Y ALL         │    - Le card portafoglio guadagnano sparkline (l'   
 │  Performance [M|A]         │      endpoint history per portafoglio esiste).      
 │  Allocazione o -> tutto    │    - La checklist first-run (D8) sostituisce l'     
-│  [O] PAC Family 98k ^8%    │      EmptyState su un vault nuovo.                  
+│  [O] PAC Family 98k ^8%    │      EmptyState su un patrimonio nuovo.                  
 │  [O] Trading   30k v-2%    │                                                     
 │  Holdings (righe card)...  │                                                     
 │ -----------------------    │                                                     
@@ -478,7 +478,7 @@ ricrea è accettabile su scala familiare); il `ConfirmDialog` resta per le
 azioni distruttive irriducibili (elimina portafoglio/asset, import con
 sovra-scrittura) — l'attrito resta dove la posta è alta.
 
-### 6.5 Allocazione e drill-down (vault + portafoglio + asset)
+### 6.5 Allocazione e drill-down (patrimonio + portafoglio + asset)
 
 Una famiglia di componenti, tre scope. Il **drill-down** è la nuova capacità:
 
@@ -512,7 +512,7 @@ IMPOSTAZIONI                                    DATI & SYNC (ex admin/health)
 ```
 
 Sezioni delle impostazioni: **Profilo** (nome, email, valuta base — guida
-tutti i totali del vault) · **Sicurezza** (password; slot riservato
+tutti i totali del patrimonio) · **Sicurezza** (password; slot riservato
 2FA/passkey) · **Preferenze** (tema con default *Sistema* — D9; lingua,
 default IT con fallback EN — D1; toggle palette CVD — D6; visualizzazione %
 vs assoluto; densità — rinviata) · **Valute** (whitelist) · **Membri e
@@ -522,7 +522,7 @@ condivisione** (Fase 3) · **Backup** (export completo, futuro).
 essere spostata in seguito in un menu *Amministrazione* per gli utenti admin.
 
 **Login**: mantenere l'unica card centrata (giusta per un homelab familiare;
-niente pannello marketing split-screen): logo + "VaultLab — il tuo lab
+niente pannello marketing split-screen): logo + "Peculium — il tuo lab
 privato di investimenti", segmented control `Accedi | Registrati` (esiste),
 validazione inline (esiste), toggle mostra/nascondi password (da aggiungere),
 mappatura errori per campo, backdrop sobrio theme-aware. Slot futuro: un
@@ -619,7 +619,7 @@ trovi `sveltekit-i18n`/Paraglide più economico da mantenere.
    stati vuoti = un verbo + spiegazione muted; primo utilizzo = la checklist
    guidata (D8).
 5. **Affordance di qualità dati e provenienza**: una `DataQualityStrip` a
-   livello vault, mostrata solo quando azionabile ("€1,204 esclusi — FX
+   livello patrimonio, mostrata solo quando azionabile ("€1,204 esclusi — FX
    mancante (2 asset)", "3 asset senza settore", "prezzi stale da 26h"), ogni
    chip collegato alla superficie di correzione; un `PriceRefreshButton`
    nell'header ("prezzi al 14:32 ⟳", cliccabile per aggiornare) con la strip
@@ -724,7 +724,7 @@ flowchart LR
 |---|---|---|
 | **K.1 Fondamenta** | Estensioni token (scala di elevazione, scala tipografica, Inter+mono self-hosted — D5, palette grafici CVD-considerate); primitive (DataTable, Drawer/Sheet — D4, Tabs, AsyncCard, KpiStrip, PnlValue — D6, PeriodChips); **layer i18n IT/EN — D1**; **tema default → system — D9** | nessuna |
 | **K.2 Shell adattiva** | BottomNav + FAB + QuickActionSheet (D2), rail @md, header sticky che si condensa, ScopeSwitcher (D3), PriceRefreshButton (header, globale); config nav con la voce **spostabile** "Dati & Sync" (D7) | nessuna |
-| **K.3 Rebuild Overview** | Zona hero, chip periodo bucket-driven (D10), sintesi allocazione, card portafogli con sparkline, DataQualityStrip (globale, shell), checklist primo utilizzo (D8) | *(fast-follow)* serie vault giornaliera per range 1M/3M veri (D10) |
+| **K.3 Rebuild Overview** | Zona hero, chip periodo bucket-driven (D10), sintesi allocazione, card portafogli con sparkline, DataQualityStrip (globale, shell), checklist primo utilizzo (D8) | *(fast-follow)* serie patrimonio giornaliera per range 1M/3M veri (D10) |
 | **K.4 Tab delle entità** | Tab a nested route per portafoglio/asset; filtri Attività (stato URL); form sheet; toast undo (D11); "Dove è detenuto" | holding-per-portafoglio di un asset (derivabile dagli endpoint esistenti; un piccolo endpoint di consolidamento è un nice-to-have) |
 | **K.5 Power layer** | Palette ⌘K, drawer di drill-down, vista tabella dei grafici, toggle palette CVD (D6) | contributi drill allocazione (`dim` + `key` → asset che contribuiscono) |
 | **Integrazione EPIC J** | Form prezzo manuale + storico inserimenti (J.1) con CTA "Inserisci prezzo"; pannello attributi FI (J.2; display metriche J.6); tassonomia tipi con icone incl. `cash`/`certificate` (J.3); pannello rating di credito nella tab Allocazione (J.7) | già nello scope dell'EPIC J |
@@ -758,14 +758,14 @@ user-facing), ed **entrambe le versioni di questa specifica**.
 |---|---|---|---|
 | **D1** | Lingua UI | i18n leggero IT + EN; **default IT**, fallback EN; preferenza per utente in Impostazioni → Preferenze | K.1 |
 | **D2** | Navigazione mobile | **Bottom nav** con 4 destinazioni (Overview, Portafogli, Asset, Altro) + **FAB** + sheet "Altro"; il drawer hamburger è declassato allo sheet Altro | K.2 |
-| **D3** | Scope switcher | **Naviga** tra `/` (vault) e `/portfolios/:id`; non è un filtro su una mega-pagina | K.2 |
+| **D3** | Scope switcher | **Naviga** tra `/` (patrimonio) e `/portfolios/:id`; non è un filtro su una mega-pagina | K.2 |
 | **D4** | Ispezione di riga | **Drawer** laterale destro ≥ `lg`; **bottom sheet** < `lg`; le pagine complete restano solo per la home delle entità (portafoglio, asset) | K.1 primitive / K.4 adozione |
 | **D5** | Font | **Inter** (UI) + un **mono** (ticker/ISIN/codici), self-hosted via `@fontsource` (OFL), no CDN; preload + `font-display: swap` | K.1 |
 | **D6** | Accessibilità P/L | **Sempre** segno + glifo freccia + colore (`PnlValue`), **più** un toggle opzionale di palette CVD (blu ▲ / arancio ▼) in Preferenze | K.1 glifo / K.5 toggle |
 | **D7** | Pagina Health | Rinominata **"Dati & Sync"**, mantenuta come **voce di nav separata** per ora; in futuro si sposta in un **menu Amministrazione** per utenti admin (superficie di debug/logging). La voce è definita una volta nella config nav così da essere spostabile senza rilavorazioni | K.2 (voce) / Fase 3 (spostamento) |
 | **D8** | Primo utilizzo | **Checklist guidata** sull'Overview: crea portafoglio → aggiungi asset → registra transazione; si nasconde automaticamente al completamento | K.3 |
 | **D9** | Tema | **Default = segui il sistema** (supera il dark forzato); chiaro e scuro cittadini uguali; lo scuro resta disponibile ed è il default effettivo sui sistemi impostati scuri | K.1 |
-| **D10** | Range del grafico hero | **Bucket-driven** (mensile/annuale) per ora — chip 1Y/3Y sui bucket mensili, ALL sugli annuali; un **endpoint serie vault giornaliera è un fast-follow** per abilitare 1M/3M veri | K.3 + fast-follow backend |
+| **D10** | Range del grafico hero | **Bucket-driven** (mensile/annuale) per ora — chip 1Y/3Y sui bucket mensili, ALL sugli annuali; un **endpoint serie patrimonio giornaliera è un fast-follow** per abilitare 1M/3M veri | K.3 + fast-follow backend |
 | **D11** | Undo | **Toast undo (5s)** sull'eliminazione di una transazione; il `ConfirmDialog` resta per eliminazione portafoglio/asset e import con sovra-scrittura | K.4 |
 
 Gli elementi rinviati o riservati (deliberatamente **non** decisioni) sono
@@ -788,5 +788,5 @@ elencati nel capitolo 12.
 *Questa specifica è mantenuta insieme al codice: ogni PR dell'EPIC K aggiorna
 i capitoli coinvolti — in entrambe le versioni linguistiche — secondo la
 regola di sincronizzazione dei documenti di AGENTS.md. Preparata dall'esperto
-UX/UI di VaultLab; l'implementazione è delegata al subagent `frontend` fase
+UX/UI di Peculium; l'implementazione è delegata al subagent `frontend` fase
 per fase, con le richieste backend instradate a `backend`.*

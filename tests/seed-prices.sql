@@ -1,5 +1,5 @@
--- VaultLab — manual price seed for the ISOLATED test stack only
--- (project vaultlab-test, DB vaultlab_test, port 8081, Yahoo finance disabled).
+-- Peculium — manual price seed for the ISOLATED test stack only
+-- (project peculium-test, DB peculium_test, port 8081, Yahoo finance disabled).
 --
 -- The test stack exposes no HTTP writer for prices (the only writer,
 -- Price.Create, is used by the Yahoo fetcher which is disabled here), so the
@@ -7,7 +7,7 @@
 --
 -- Run it against the test stack ONLY, NEVER against dev/prod (real data):
 --
---   docker compose -p vaultlab-test -f docker-compose.test.yml exec -T postgres psql -U vaultlab -d vaultlab_test < tests/seed-prices.sql
+--   docker compose -p peculium-test -f docker-compose.test.yml exec -T postgres psql -U peculium -d peculium_test < tests/seed-prices.sql
 --
 -- Idempotent: re-running overwrites the same (asset_id, date) rows via
 -- ON CONFLICT DO UPDATE, so reruns are safe.

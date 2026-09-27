@@ -67,7 +67,7 @@
 - Destructive actions now use an in-app confirmation dialog instead of the browser's native prompt
 - Notifications (toasts) restyled to match the theme and made accessible to screen readers
 - Creating assets/portfolios and importing a portfolio now happen in modal dialogs consistent with the app design
-- Redesigned sign-in / registration screen with the VaultLab logo, a Sign in / Register switch, inline field validation and a password confirmation on registration
+- Redesigned sign-in / registration screen with the Peculium logo, a Sign in / Register switch, inline field validation and a password confirmation on registration
 - Dashboard rebuilt: KPI cards per currency, an allocation donut and clickable portfolio cards
 - The dashboard header shows when prices were last updated
 - Portfolio detail: adding/editing a transaction now happens in a modal with inline validation and a live total, and deletion is confirmed in-app

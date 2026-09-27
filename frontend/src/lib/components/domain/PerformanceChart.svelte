@@ -13,7 +13,7 @@
   import { formatSignedPercent } from '$lib/format'
   import type { PerformanceBucket } from '$lib/services/api'
   import { chartSemanticColors } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { palette } from '$lib/stores/palette.svelte'
   import { resolved } from '$lib/stores/theme.svelte'
   import { pnlColorClass } from '$lib/ui-colors'
@@ -207,7 +207,7 @@
            the CVD toggle (D6, K.5c) repaints the gain/loss bars, which this
            chart is the only consumer of via `semantic.positive/negative`. -->
       {#key `${resolved()}:${palette.cvd ? 'cvd' : 'classic'}`}
-        <Chart {init} {options} theme={VAULTLAB_CHART_THEMES[resolved()]} />
+        <Chart {init} {options} theme={PECULIUM_CHART_THEMES[resolved()]} />
       {/key}
     </div>
   {/if}

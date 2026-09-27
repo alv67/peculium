@@ -227,7 +227,7 @@
         section: 'go',
         label: t('nav.overview'),
         icon: LayoutDashboard,
-        keywords: 'dashboard home vault',
+        keywords: 'dashboard home patrimonio wealth',
         run: () => goto(resolve('/')),
       }),
       row({

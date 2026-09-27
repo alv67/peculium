@@ -20,14 +20,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/alv67/vault-lab/internal/auth"
-	"github.com/alv67/vault-lab/internal/cache"
-	"github.com/alv67/vault-lab/internal/config"
-	"github.com/alv67/vault-lab/internal/handler"
-	"github.com/alv67/vault-lab/internal/price"
-	"github.com/alv67/vault-lab/internal/repository"
-	"github.com/alv67/vault-lab/internal/series"
-	"github.com/alv67/vault-lab/internal/service"
+	"github.com/alv67/peculium/internal/auth"
+	"github.com/alv67/peculium/internal/cache"
+	"github.com/alv67/peculium/internal/config"
+	"github.com/alv67/peculium/internal/handler"
+	"github.com/alv67/peculium/internal/price"
+	"github.com/alv67/peculium/internal/repository"
+	"github.com/alv67/peculium/internal/series"
+	"github.com/alv67/peculium/internal/service"
 )
 
 func main() {
@@ -151,6 +151,12 @@ func runMigrations(cfg *config.Config) {
 }
 
 func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/login", h.Login)

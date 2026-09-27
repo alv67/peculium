@@ -1,5 +1,5 @@
 /**
- * ECharts theme registration for the VaultLab design system (EPIC D / D.1a).
+ * ECharts theme registration for the Peculium design system (EPIC D / D.1a).
  *
  * The canvas renderer cannot resolve CSS custom properties, so the token
  * triples below are a canvas-safe mirror of `:root` / `.dark` in `src/app.css`
@@ -9,7 +9,7 @@
  * No chart component consumes the registered themes yet: wiring happens in
  * the D.1b migration commit. Because svelte-echarts types its `theme` prop as
  * `'light' | 'dark' | object`, components can either pass the matching object
- * from `VAULTLAB_CHART_THEMES[resolved()]` or the registered name through a
+ * from `PECULIUM_CHART_THEMES[resolved()]` or the registered name through a
  * plain `init` (ECharts resolves registered names at runtime).
  */
 import { registerTheme } from 'echarts/core'
@@ -132,20 +132,20 @@ function buildTheme(mode: ResolvedTheme) {
 
 /** Registered theme names, keyed by resolved mode. */
 export const CHART_THEME_NAMES: Record<ResolvedTheme, string> = {
-  light: 'vaultlab-light',
-  dark: 'vaultlab-dark',
+  light: 'peculium-light',
+  dark: 'peculium-dark',
 }
 
 /** Theme option objects (handy for wrappers that only accept an object). */
-export const VAULTLAB_CHART_THEMES: Record<ResolvedTheme, ReturnType<typeof buildTheme>> = {
+export const PECULIUM_CHART_THEMES: Record<ResolvedTheme, ReturnType<typeof buildTheme>> = {
   light: buildTheme('light'),
   dark: buildTheme('dark'),
 }
 
 // Side effect on import: make the themes resolvable by `init(el, themeName)`.
 // registerTheme is idempotent per name, so multiple imports are safe.
-registerTheme(CHART_THEME_NAMES.light, VAULTLAB_CHART_THEMES.light)
-registerTheme(CHART_THEME_NAMES.dark, VAULTLAB_CHART_THEMES.dark)
+registerTheme(CHART_THEME_NAMES.light, PECULIUM_CHART_THEMES.light)
+registerTheme(CHART_THEME_NAMES.dark, PECULIUM_CHART_THEMES.dark)
 
 /** Pick the registered ECharts theme name for the current resolved mode. */
 export function chartThemeName(mode: ResolvedTheme): string {

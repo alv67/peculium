@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/alv67/vault-lab/internal/model"
-	"github.com/alv67/vault-lab/internal/repository"
+	"github.com/alv67/peculium/internal/model"
+	"github.com/alv67/peculium/internal/repository"
 )
 
 const (

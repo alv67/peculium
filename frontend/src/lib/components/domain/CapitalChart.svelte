@@ -13,7 +13,7 @@
   import { formatCurrency } from '$lib/format'
   import type { PerformanceBucket } from '$lib/services/api'
   import { chartSemanticColors } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { resolved } from '$lib/stores/theme.svelte'
   import { cx } from '$lib/components/ui/utils'
   import { t } from '$lib/i18n/index.svelte'
@@ -206,7 +206,7 @@
            object passed below is picked up (svelte-echarts only reads `theme`
            at init time). -->
       {#key resolved()}
-        <Chart {init} {options} theme={VAULTLAB_CHART_THEMES[resolved()]} />
+        <Chart {init} {options} theme={PECULIUM_CHART_THEMES[resolved()]} />
       {/key}
     </div>
   {/if}

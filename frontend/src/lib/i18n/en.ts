@@ -19,6 +19,8 @@ export const en = {
     /** Generic confirm-dialog labels (used e.g. by the portfolio delete). */
     delete: 'Delete',
     cancel: 'Cancel',
+    /** Positive ConfirmDialog fallback (paired with `cancel`). */
+    confirm: 'Confirm',
     /** Close affordance on sheets/dialogs (e.g. the transaction sheet, K.4c). */
     close: 'Close',
     /** Held-asset count line (dashboard portfolio cards, portfolio detail). */
@@ -44,6 +46,10 @@ export const en = {
     rangeEmpty: '0 of {total}',
     /** Progress line shown while a list/table is still loading. */
     loading: 'Loading…',
+    /** Default empty-state title of the generic async card shell. */
+    nothingHere: 'Nothing here yet',
+    /** Retry action on error states (AsyncCard error surface). */
+    retry: 'Retry',
     /** Generic form-button labels shared by the create/edit dialogs. */
     create: 'Create',
     save: 'Save',
@@ -55,6 +61,22 @@ export const en = {
     deleteFailed: 'Delete failed',
     saveFailed: 'Save failed',
     createFailed: 'Create failed',
+    somethingWentWrong: 'Something went wrong',
+  },
+  /**
+   * Accessible names baked into the generic primitives (spinner, modal,
+   * toast, drawer/sheet, tabs). Screen-reader-only copy, never shown.
+   */
+  a11y: {
+    loading: 'Loading',
+    closeDialog: 'Close dialog',
+    dismissNotification: 'Dismiss notification',
+    /** Default ✕ name of the drawer/sheet pair (callers may override). */
+    closePanel: 'Close panel',
+    /** Untitled drawer/sheet fallback. */
+    details: 'Details',
+    /** Tabs strip fallback when the caller passes no accessible name. */
+    sections: 'Sections',
   },
   nav: {
     /** Accessible name of the sidebar/drawer `<nav>` landmark. */
@@ -112,6 +134,38 @@ export const en = {
     signOut: 'Sign out',
     /** Fallback shown when the account has no name/email. */
     fallbackName: 'User',
+  },
+  /**
+   * Login / register screen (single page, mode toggle). The "Peculium"
+   * wordmark is a proper noun and stays as-is; everything else — mode
+   * labels, headings, field labels/hints, validation, toasts — lives here.
+   */
+  login: {
+    tagline: 'Your wealth, self-hosted',
+    /** SegmentedControl mode options, reused verbatim by the submit CTA. */
+    signIn: 'Sign in',
+    register: 'Register',
+    /** Subtitle switching with the mode, under the brand block. */
+    createAccount: 'Create an account',
+    signInToAccount: 'Sign in to your account',
+    /** Accessible name of the mode SegmentedControl. */
+    authMode: 'Authentication mode',
+    /** Field labels. */
+    name: 'Name',
+    email: 'Email',
+    password: 'Password',
+    confirmPassword: 'Confirm password',
+    /** Register-mode hint under the password field. */
+    passwordHint: 'At least 8 characters',
+    /** Inline validation messages. */
+    emailRequired: 'Email is required',
+    emailInvalid: 'Enter a valid email address',
+    passwordRequired: 'Password is required',
+    passwordTooShort: 'Password must be at least 8 characters',
+    passwordMismatch: 'Passwords do not match',
+    nameRequired: 'Name is required',
+    /** Success toast of the register flow (then the form switches to Sign in). */
+    registered: 'Registered! You can now log in.',
   },
   theme: {
     /** Field label on Preferences and group name of the header popup. */
@@ -228,7 +282,7 @@ export const en = {
     loadFailed: 'Failed to load currencies',
   },
   /**
-   * Allocation surfaces (EPIC K bug-fix, progressive D1 sweep): the vault
+   * Allocation surfaces (EPIC K bug-fix, progressive D1 sweep): the wealth
    * "Overall allocation" card on the dashboard, the portfolio Allocation
    * tab and its Overview digest — panel headings, isolated error states and
    * the equity-universe coverage note (`{pct}` carries one decimal).
@@ -245,7 +299,7 @@ export const en = {
     countriesEquity: 'Countries (equity only)',
     /** Equity-universe coverage note shown when non-equity was excluded. */
     equityUniverse: 'Equity universe: {pct}% of the portfolio',
-    /** Dashboard donut: vault value split per portfolio. */
+    /** Dashboard donut: wealth value split per portfolio. */
     byPortfolio: 'Allocation by portfolio',
     mixedCurrencies:
       'Portfolios use different currencies: values are not comparable, shares are indicative.',
@@ -346,7 +400,7 @@ export const en = {
     derivedEtfDesc: 'Regions derived from the countries imported from JustETF',
   },
   /**
-   * Vault Overview hero zone (EPIC K.3a, redesign spec §6.1 zone A). The
+   * Wealth Overview hero zone (EPIC K.3a, redesign spec §6.1 zone A). The
    * `Investments` roll-up heading lives in `investments.title` and the
    * Performance card copy in `performance.*`.
    */
@@ -362,7 +416,7 @@ export const en = {
     invested: 'Invested',
   },
   /**
-   * Performance card (shared by the dashboard vault view and the portfolio
+   * Performance card (shared by the dashboard wealth view and the portfolio
    * detail Overview): the card heading and its Monthly/Annual granularity
    * toggle.
    */
@@ -464,9 +518,9 @@ export const en = {
     statusFailure: 'Failure',
     loadFailed: 'Failed to fetch health data',
   },
-  /** First-run checklist replacing the empty-vault EmptyState (D8). */
+  /** First-run checklist replacing the empty-wealth EmptyState (D8). */
   checklist: {
-    title: 'Set up your vault',
+    title: 'Set up your wealth',
     intro: 'Three steps to start tracking your investments.',
     stepPortfolio: 'Create a portfolio',
     stepPortfolioHint: 'Group investments by goal or account.',
@@ -478,13 +532,13 @@ export const en = {
     current: 'Current step',
     pending: 'Not started',
   },
-  /** Vault ⇄ portfolio scope switcher in the Overview header (D3). */
+  /** Wealth ⇄ portfolio scope switcher in the Overview header (D3). */
   scope: {
     label: 'Scope',
-    all: 'All portfolios (Vault)',
+    all: 'All portfolios (Wealth)',
   },
   /**
-   * Portfolio-card sparklines on the vault Overview (EPIC K.3b, spec §6.1
+   * Portfolio-card sparklines on the wealth Overview (EPIC K.3b, spec §6.1
    * zone C). The shape is supplementary (the card already carries value and
    * P/L), so these are accessible names, not visible copy.
    */
@@ -521,6 +575,10 @@ export const en = {
     /** Accessible names for the bucket charts, which carry no own heading. */
     namePerformance: 'Performance',
     nameCapital: 'Invested vs value',
+    /** Fallback titles of the allocation/exposure donut wrappers when the
+     *  caller passes no `title` (series name, toggle and caption). */
+    nameAllocation: 'Allocation',
+    nameDistribution: 'Distribution',
     /** Empty states of the allocation/exposure chart wrappers. */
     noData: 'No data',
     noDistribution: 'No distribution',
@@ -593,7 +651,7 @@ export const en = {
     /** Import dialog (labels reuse `chartView.colName`, `asset.factCurrency`,
      *  `activity.transactions` and `common.delete/cancel`). */
     importTitle: 'Import portfolio',
-    importHint: 'Choose a VaultLab portfolio export (.json) to import.',
+    importHint: 'Choose a Peculium portfolio export (.json) to import.',
     chooseFile: 'Choose file',
     changeFile: 'Change file',
     dateRange: 'Date range',
@@ -772,6 +830,12 @@ export const en = {
     add: 'Add Asset',
     newTitle: 'New Asset',
     lookupHint: 'Look up a ticker to prefill the details.',
+    /** Asset pickers' built-in copy: the transaction combobox placeholder
+     *  and empty text, the Yahoo lookup placeholder and empty text. */
+    comboboxPlaceholder: 'Select asset',
+    noAssetsFound: 'No assets found',
+    tickerPlaceholder: 'Ticker (e.g. AAPL)',
+    noResultsFound: 'No results found',
     colCountry: 'Country',
     /** Accessible name of the row trash button ({ticker} verbatim). */
     deleteNamed: 'Delete {ticker}',

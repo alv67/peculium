@@ -26,12 +26,12 @@ func (r *lookupRepo) Get(ctx context.Context, query string) ([]byte, error) {
 	if r.rdb == nil {
 		return nil, redis.Nil
 	}
-	return r.rdb.Get(ctx, "vl:lookup:"+query).Bytes()
+	return r.rdb.Get(ctx, "pc:lookup:"+query).Bytes()
 }
 
 func (r *lookupRepo) Set(ctx context.Context, query string, results []byte, ttl time.Duration) error {
 	if r.rdb == nil {
 		return nil
 	}
-	return r.rdb.Set(ctx, "vl:lookup:"+query, results, ttl).Err()
+	return r.rdb.Set(ctx, "pc:lookup:"+query, results, ttl).Err()
 }

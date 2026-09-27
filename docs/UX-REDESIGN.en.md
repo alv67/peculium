@@ -1,6 +1,6 @@
-# VaultLab — UX Redesign Specification
+# Peculium — UX Redesign Specification
 
-> This document describes the UX/UI redesign specification of VaultLab: the
+> This document describes the UX/UI redesign specification of Peculium: the
 > interface architecture, the navigation model, the responsive strategy, the
 > per-screen layouts, the evolution of the design system, the interaction
 > patterns and the phased implementation roadmap (**EPIC K**) for a modern,
@@ -23,7 +23,7 @@
 
 ## 1. Scope and goals
 
-**Purpose.** Define a modern interface architecture for VaultLab — a
+**Purpose.** Define a modern interface architecture for Peculium — a
 self-hosted, privacy-first, multi-user investment tracker for family use —
 usable on PC, tablet and mobile, and give the `frontend` agent an unambiguous,
 phased implementation specification (EPIC K, chapters 10–11).
@@ -60,7 +60,7 @@ What the product does today, independently of the screens:
 | Domain | Capabilities |
 |---|---|
 | **Identity** | Login + registration (single page), JWT with refresh, multi-user, **base currency** per user |
-| **Vault analytics** | Consolidated KPIs (active vs closed: invested, value, gain/loss, realized, dividends); TWR performance buckets (monthly/annual, bars + cumulative line); capital invested vs value (per bucket); allocation by **class / region / sector / country** (equity-only universe with coverage note); allocation per portfolio; consolidated open positions across portfolios (`invested_assets`); FX-missing accounting |
+| **Wealth analytics** | Consolidated KPIs (active vs closed: invested, value, gain/loss, realized, dividends); TWR performance buckets (monthly/annual, bars + cumulative line); capital invested vs value (per bucket); allocation by **class / region / sector / country** (equity-only universe with coverage note); allocation per portfolio; consolidated open positions across portfolios (`invested_assets`); FX-missing accounting |
 | **Portfolios** | CRUD; per-portfolio currency; JSON export/import (new/overwrite); summary (active/closed); TWR buckets; value history chart (portfolio or single asset, with splits); positions table; paginated transactions (20/page) |
 | **Transactions** | buy/sell/dividend can be created from the UI (split/fee exist in the API, display/edit only); asset combobox; live total; edit/delete with confirm; pagination; refetch of everything affected after a mutation (E.9) |
 | **Assets** | Library shared across portfolios; CRUD; Yahoo lookup/autocomplete; metadata (ticker, ISIN, name, type, currency, exchange, `asset_class`, `price_source` yahoo/manual/none); price chart with in-place zoom (1M/3M/1Y/YTD/MAX) + split markers; quote metrics (1D/1W/1M/1Y/YTD); **3-dimensional exposure** (countries, regions aligned to Morningstar, GICS sectors) with per-dimension **provenance** (manual/JustETF/Morningstar/derived, persisted and dated); non-persistent prefill previews (JustETF/Morningstar/Yahoo); regions derived from countries; Yahoo meta refresh + full history backfill |
@@ -77,12 +77,12 @@ notifications/alerts, manual prices, undo.
 
 ## 3. UX strategy and mental model
 
-### 3.1 The mental model: one Vault → many Portfolios → one shared Asset library → a journal of Transactions
+### 3.1 The mental model: one Wealth → many Portfolios → one shared Asset library → a journal of Transactions
 
 ```mermaid
 flowchart LR
     U["👤 Family member<br/>(role: owner/admin/editor/viewer)"] --> V
-    subgraph V["VAULT (per user, base currency)"]
+    subgraph V["WEALTH (per user, base currency)"]
         P1["Portfolio A (EUR)"]
         P2["Portfolio B (USD)"]
         P3["Portfolio C — Pension (J.8)"]
@@ -95,7 +95,7 @@ flowchart LR
 ```
 
 Every screen must make the user's current **scope** obvious: *am I looking at
-the whole vault or at one portfolio?* Today the dashboard and the portfolio
+the whole wealth or at one portfolio?* Today the dashboard and the portfolio
 detail duplicate ~80% of the analytics components (`InvestmentsTable`,
 `PerformanceChart`, `ClassDonut`, `ExposureBarChart`) with different data
 sources. That duplication is the clearest signal that **analytics is one
@@ -103,7 +103,7 @@ surface parameterized by scope**, not two pages.
 
 ### 3.2 Guiding philosophies
 
-| Philosophy | What it means here | Why it fits VaultLab |
+| Philosophy | What it means here | Why it fits Peculium |
 |---|---|---|
 | **Glanceable finance / one hero metric** (Role–Metric–Density–Action) | Every screen opens with the *one number* the user came for. Overview → **net market value + unrealized P/L**; portfolio → its value; asset → last price + change | A family tool is opened much more often for 10-second checks ("how are we doing?") than for analysis sessions. The hero must be unmistakable and above the fold on every device |
 | **Progressive density (data story)** | Layer 1: hero number → Layer 2: trend chart + KPI strip → Layer 3: allocation story → Layer 4: complete tables/holdings → Layer 5: raw drill-down (drawer) | 2026 practice has rehabilitated density, but *ordered*. The family "power user" needs layers 4–5; the other members stop at 1–2. The same screen serves both without configuration |
@@ -119,7 +119,7 @@ surface parameterized by scope**, not two pages.
 
 ```mermaid
 flowchart TD
-    J1["Job 1 — GLANCE<br/>'How are we doing?'"] --> S1["Overview (vault scope)"]
+    J1["Job 1 — GLANCE<br/>'How are we doing?'"] --> S1["Overview (wealth scope)"]
     J1 --> S2["Portfolio · Overview tab"]
     J2["Job 2 — RECORD<br/>'Log this buy/dividend'<br/>'Enter this bond price' (J.1)"] --> S3["Quick Add (FAB / ⌘K)<br/>→ Add Transaction sheet"]
     J2 --> S4["Asset → Data tab<br/>(manual price, metadata)"]
@@ -139,13 +139,13 @@ flowchart TD
     LOGIN["/login<br/>Sign in · Register"] --> SHELL
 
     subgraph SHELL["Authenticated shell (tier-1 nav)"]
-        OV["📊 Overview  ·  /<br/>scope switcher: Vault ⇄ Portfolio"]
+        OV["📊 Overview  ·  /<br/>scope switcher: Wealth ⇄ Portfolio"]
         PFL["💼 Portfolios  ·  /portfolios"]
         AST["🏷️ Assets  ·  /assets"]
         MORE["⋯ More (mobile) / sidebar footer (desktop)"]
     end
 
-    OV --> OVV["Vault scope: hero, performance,<br/>allocation digest, portfolio cards,<br/>consolidated holdings, data-quality strip"]
+    OV --> OVV["Wealth scope: hero, performance,<br/>allocation digest, portfolio cards,<br/>consolidated holdings, data-quality strip"]
     OV --> OVP["Portfolio scope = /portfolios/:id (Overview tab)"]
 
     PFL --> PNEW["+ New / Import portfolio (sheet)"]
@@ -187,7 +187,7 @@ flowchart TD
 ### 4.2 Key IA decisions
 
 1. **Scope switcher = navigation, not a filter** (decision D3). A
-   `ScopeSwitcher` in the Overview header lists "All portfolios (Vault)" plus
+   `ScopeSwitcher` in the Overview header lists "All portfolios (Wealth)" plus
    every portfolio (later a "Shared with me" group). Selecting a portfolio
    **navigates** to `/portfolios/:id` (Overview tab). The URLs stay
    deep-linkable; the analytics components are unified behind a single
@@ -200,7 +200,7 @@ flowchart TD
    renders the sticky header + tab bar). Benefits: shareable/bookmarkable
    tabs, per-tab data loading, working back button (crucial on mobile), the
    header stays mounted while tabs swap.
-3. **"Activity" is promoted to a tab** of the portfolio. The vault-level
+3. **"Activity" is promoted to a tab** of the portfolio. The wealth-level
    consolidated feed (`/activity`) is a **reserved slot** in "More"
    (deferred, chapter 12): the backend scopes transactions per portfolio, so
    the consolidated endpoint is a small addition — a big visibility win for
@@ -218,20 +218,20 @@ flowchart TD
    4th tier-1 item ("Finance") or a Goals card zone on the Overview; the
    bottom nav's "More" slot absorbs growth without restructuring.
 
-### 4.3 Vault ↔ portfolio context switching
+### 4.3 Wealth ↔ portfolio context switching
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant OV as Overview (vault)
+    participant OV as Overview (wealth)
     participant PD as Portfolio detail
-    U->>OV: Opens the app → net value, vault performance
+    U->>OV: Opens the app → net value, wealth performance
     U->>OV: ScopeSwitcher → "PAC Family"
     OV->>PD: navigates to /portfolios/7 (Overview tab, sticky header)
     U->>PD: Tab → Activity → row tap
     PD->>PD: Edit sheet (the list stays mounted)
     U->>PD: Breadcrumb "All portfolios" / back
-    PD->>OV: back to vault scope, scroll & filters preserved
+    PD->>OV: back to wealth scope, scroll & filters preserved
 ```
 
 ---
@@ -259,7 +259,7 @@ on scroll).
 ```
 DESKTOP >=1024                         TABLET 640-1023              MOBILE <640
 ┌───────────────┬───────────────────┐  ┌─────┬───────────────────┐  ┌──────────────────────────┐
-│ VaultLab      │ header (sticky)   │  │     │ header (sticky)   │  │  header KPI (sticky)     │
+│ Peculium      │ header (sticky)   │  │     │ header (sticky)   │  │  header KPI (sticky)     │
 │               │ ScopeSwitcher     │  │     │ KPI strip         │  │  hero -> compact         │
 ├───────────────┼───────────────────┤  ├─────┼───────────────────┤  ├──────────────────────────┤
 │ Overview      │                   │  │ [O] │                   │  │                          │
@@ -311,7 +311,7 @@ TABLET
 
 ## 6. Per-screen layout proposals
 
-### 6.1 Overview (vault scope) — `/`
+### 6.1 Overview (wealth scope) — `/`
 
 **UX goal**: answer in < 3 seconds "how much do we have and is it going
 well?", then invite the story (performance → allocation → holdings). **Above
@@ -357,11 +357,11 @@ MOBILE <640
 │  ^ +12,410 (+9.08%)        │      P/L% visible while scrolling.              
 │  inv 136,520 real +2,140   │    - Period chips BUCKET-DRIVEN (D10): monthly  
 │ -----------------------    │      buckets -> 1Y/3Y; annual -> ALL. True daily
-│  [ value vs invested ]     │      1M/3M need a daily vault-series endpoint.  
+│  [ value vs invested ]     │      1M/3M need a daily wealth-series endpoint.  
 │  buckets: 1Y 3Y ALL        │    - Portfolio cards gain sparklines (the       
 │  Performance [M|A]         │      per-portfolio history endpoint exists).    
 │  Allocation  o -> all      │    - First-run checklist (D8) replaces the plain
-│  [O] PAC Family 98k ^8%    │      EmptyState on a fresh vault.               
+│  [O] PAC Family 98k ^8%    │      EmptyState on a fresh wealth.               
 │  [O] Trading   30k v-2%    │                                                 
 │  Holdings (card rows)...   │                                                 
 │ -----------------------    │                                                 
@@ -467,7 +467,7 @@ desktop; infinite scroll optional on mobile only. **Undo over confirm
 irreducible destructive actions (delete portfolio/asset, import overwrite) —
 friction stays where the stakes are.
 
-### 6.5 Allocation and drill-downs (vault + portfolio + asset)
+### 6.5 Allocation and drill-downs (wealth + portfolio + asset)
 
 One component family, three scopes. The **drill-down** is the new capability:
 
@@ -499,7 +499,7 @@ SETTINGS                                        DATA & SYNC (ex /admin/health)
 └─────────────┴─────────────────────────────┘                                     
 ```
 
-Settings sections: **Profile** (name, email, base currency — drives all vault
+Settings sections: **Profile** (name, email, base currency — drives all wealth
 totals) · **Security** (password; 2FA/passkey reserved slot) · **Preferences**
 (theme with *System* default — D9; language, IT default with EN fallback —
 D1; CVD palette toggle — D6; % vs absolute display; density — deferred) ·
@@ -510,7 +510,7 @@ D1; CVD palette toggle — D6; % vs absolute display; density — deferred) ·
 relocated into an *Administration* menu for admin users later.
 
 **Login**: keep the single centered card (right for a family homelab; no
-split-screen marketing panel): brand mark + "VaultLab — your private
+split-screen marketing panel): brand mark + "Peculium — your private
 investment lab", `Sign in | Register` segmented control (exists), inline
 validation (exists), show/hide password toggle (add), per-field error
 mapping, subtle theme-aware backdrop. Future slot: a passkey button under the
@@ -601,7 +601,7 @@ maintain.
    error state = one-line cause + Retry, isolated (never blank the page —
    today's per-endpoint isolation is right, give it a face); empty states =
    one verb + muted explanation; first run = the guided checklist (D8).
-5. **Data-quality & provenance affordances**: a vault-level
+5. **Data-quality & provenance affordances**: a wealth-level
    `DataQualityStrip`, shown only when actionable ("€1,204 excluded — missing
    FX (2 assets)", "3 assets without sector", "prices stale 26h"), each chip
    linking to the fixing surface; a `PriceRefreshButton` in the app header
@@ -698,7 +698,7 @@ flowchart LR
 |---|---|---|
 | **K.1 Foundations** | Token extensions (elevation ladder, type scale, Inter+mono self-hosted — D5, CVD-considerate chart palette); primitives (DataTable, Drawer/Sheet — D4, Tabs, AsyncCard, KpiStrip, PnlValue — D6, PeriodChips); **i18n layer IT/EN — D1**; **theme default → system — D9** | none |
 | **K.2 Adaptive shell** | BottomNav + FAB + QuickActionSheet (D2), rail @md, condensing sticky header, ScopeSwitcher (D3), PriceRefreshButton (header, global); nav config with the **relocatable** "Data & Sync" entry (D7) | none |
-| **K.3 Overview rebuild** | Hero zone, bucket-driven period chips (D10), allocation digest, sparkline portfolio cards, DataQualityStrip (global, shell), first-run checklist (D8) | *(fast-follow)* daily vault series for true 1M/3M ranges (D10) |
+| **K.3 Overview rebuild** | Hero zone, bucket-driven period chips (D10), allocation digest, sparkline portfolio cards, DataQualityStrip (global, shell), first-run checklist (D8) | *(fast-follow)* daily wealth series for true 1M/3M ranges (D10) |
 | **K.4 Entity tabs** | Nested-route tabs for portfolio/asset; Activity filters (URL state); sheet forms; undo toast (D11); "Where held" | holdings-by-portfolio for an asset (derivable from existing endpoints; a small consolidation endpoint is a nice-to-have) |
 | **K.5 Power layer** | ⌘K palette, drill-down drawers, charts view-as-table, CVD palette toggle (D6) | allocation drill contributions (`dim` + `key` → contributing assets) |
 | **EPIC J integration** | Manual price form + entry history (J.1) with "Enter price" CTAs; FI attributes panel (J.2; J.6 metrics display); type taxonomy with icons incl. `cash`/`certificate` (J.3); credit-rating panel in the Allocation tab (J.7) | already scoped in EPIC J |
@@ -731,14 +731,14 @@ lines), and **both versions of this specification**.
 |---|---|---|---|
 | **D1** | UI language | Lightweight i18n IT + EN; **default IT**, EN fallback; per-user preference in Settings → Preferences | K.1 |
 | **D2** | Mobile navigation | **Bottom nav** with 4 destinations (Overview, Portfolios, Assets, More) + **FAB** + "More" sheet; the hamburger drawer is demoted to the More sheet | K.2 |
-| **D3** | Scope switcher | **Navigates** between `/` (vault) and `/portfolios/:id`; it is not a filter on one mega-page | K.2 |
+| **D3** | Scope switcher | **Navigates** between `/` (wealth) and `/portfolios/:id`; it is not a filter on one mega-page | K.2 |
 | **D4** | Row inspection | Right-side **drawer** ≥ `lg`; **bottom sheet** < `lg`; full pages remain only for the entities' homes (portfolio, asset) | K.1 primitives / K.4 adoption |
 | **D5** | Fonts | **Inter** (UI) + a **mono** (tickers/ISINs/codes), self-hosted via `@fontsource` (OFL), no CDN; preload + `font-display: swap` | K.1 |
 | **D6** | P/L accessibility | **Always** sign + arrow glyph + color (`PnlValue`), **plus** an optional CVD palette toggle (blue ▲ / orange ▼) in Preferences | K.1 glyph / K.5 toggle |
 | **D7** | Health page | Renamed **"Data & Sync"**, kept as a **separate nav entry** for now; in the future it moves into an **Administration menu** for admin users (debug/logging surface). The entry is defined once in the nav config so it can be relocated without rework | K.2 (entry) / Phase 3 (relocation) |
 | **D8** | First run | **Guided checklist** on the Overview: create portfolio → add asset → record transaction; auto-hides when complete | K.3 |
 | **D9** | Theme | **Default = follow system** (supersedes dark-forced); light and dark are equal citizens; dark remains available and is the effective default on systems set to dark | K.1 |
-| **D10** | Hero chart ranges | **Bucket-driven** (monthly/annual) for now — chips 1Y/3Y on monthly buckets, ALL on annual; a **daily vault-series endpoint is a fast-follow** to enable true 1M/3M | K.3 + backend fast-follow |
+| **D10** | Hero chart ranges | **Bucket-driven** (monthly/annual) for now — chips 1Y/3Y on monthly buckets, ALL on annual; a **daily wealth-series endpoint is a fast-follow** to enable true 1M/3M | K.3 + backend fast-follow |
 | **D11** | Undo | **Undo toast (5s)** on transaction delete; `ConfirmDialog` remains for portfolio/asset deletes and import-overwrite | K.4 |
 
 Deferred or reserved items (deliberately **not** decisions) are listed in
@@ -760,6 +760,6 @@ chapter 12.
 
 *This specification is maintained alongside the code: every EPIC K PR updates
 the affected chapters — in both language versions — per the AGENTS.md
-documentation-sync rule. Prepared by the VaultLab UX/UI design expert;
+documentation-sync rule. Prepared by the Peculium UX/UI design expert;
 implementation is delegated to the `frontend` subagent phase by phase, with
 backend asks routed to `backend`.*

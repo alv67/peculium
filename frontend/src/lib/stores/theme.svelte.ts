@@ -3,7 +3,11 @@ import { browser } from '$app/environment'
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
 
-export const THEME_STORAGE_KEY = 'vaultlab-theme'
+export const THEME_STORAGE_KEY = 'peculium-theme'
+
+/** Legacy storage key: when the new key is absent, the value stored here is
+ *  adopted and written forward once, so no saved preference is lost. */
+export const LEGACY_THEME_STORAGE_KEY = 'vaultlab-theme'
 
 /**
  * Theme used when nothing valid is persisted in localStorage.
@@ -22,7 +26,15 @@ function isThemeMode(value: unknown): value is ThemeMode {
 function readStoredMode(): ThemeMode {
   if (!browser) return DEFAULT_MODE
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    let stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (stored === null) {
+      // One-time migration: adopt the legacy value and write it forward.
+      const legacy = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY)
+      if (legacy !== null) {
+        window.localStorage.setItem(THEME_STORAGE_KEY, legacy)
+        stored = legacy
+      }
+    }
     return isThemeMode(stored) ? stored : DEFAULT_MODE
   } catch {
     // Storage unavailable (e.g. private mode): fall back to the default.

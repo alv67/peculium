@@ -1,4 +1,4 @@
-# Appunti — Modelli OpenCode Go per gli agenti di VaultLab
+# Appunti — Modelli OpenCode Go per gli agenti di Peculium
 
 > Note personali per la futura personalizzazione degli agenti (`.opencode/agents/`
 > e `opencode.json`). Fonte: docs ufficiali OpenCode Go + benchmark web (giu-set 2026).

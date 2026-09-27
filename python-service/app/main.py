@@ -5,7 +5,7 @@ from . import morningstar, scraper
 from .morningstar import MorningstarDataError
 from .schemas import EtfSearchResult, Exposure, Holdings
 
-app = FastAPI(title="VaultLab ETF metadata service", version="1.0.0")
+app = FastAPI(title="Peculium ETF metadata service", version="1.0.0")
 
 
 @app.get("/healthz")

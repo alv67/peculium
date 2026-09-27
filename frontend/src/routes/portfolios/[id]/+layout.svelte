@@ -381,7 +381,7 @@
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `vault-lab-${doc.portfolio.name.toLowerCase().replace(/\s+/g, '-') || 'portfolio'}.json`
+      a.download = `peculium-${doc.portfolio.name.toLowerCase().replace(/\s+/g, '-') || 'portfolio'}.json`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err: unknown) {

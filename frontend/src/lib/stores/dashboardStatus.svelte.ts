@@ -8,7 +8,7 @@ import type { Dashboard } from '$lib/services/api'
  * (deep links never mount the dashboard), and the dashboard payload keeps it
  * fresh on every visit/refetch through `applyDashboardStatus`.
  */
-export const vaultStatus = $state({
+export const dashboardStatus = $state({
   /** The counters below reflect at least one dashboard payload. */
   loaded: false,
   /** Base currency the excluded FX value is expressed in. */
@@ -19,8 +19,8 @@ export const vaultStatus = $state({
 
 /** Mirror the vault-wide data-quality fields of a dashboard payload. */
 export function applyDashboardStatus(dash: Dashboard): void {
-  vaultStatus.currency = dash.base_currency
-  vaultStatus.fxMissingCount = dash.summary?.fx_missing_count ?? 0
-  vaultStatus.fxMissingValue = dash.summary?.fx_missing_value ?? '0'
-  vaultStatus.loaded = true
+  dashboardStatus.currency = dash.base_currency
+  dashboardStatus.fxMissingCount = dash.summary?.fx_missing_count ?? 0
+  dashboardStatus.fxMissingValue = dash.summary?.fx_missing_value ?? '0'
+  dashboardStatus.loaded = true
 }

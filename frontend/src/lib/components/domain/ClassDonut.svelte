@@ -8,7 +8,7 @@
   import { assetClassLabel, formatCurrency, formatPercent } from '$lib/format'
   import type { AssetClassSlice } from '$lib/services/api'
   import { chartSemanticColors, resolvePalette } from '$lib/chartPalette'
-  import { VAULTLAB_CHART_THEMES } from '$lib/chartTheme'
+  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
   import { dismissTooltipOutside } from '$lib/chartTooltip'
   import { resolved } from '$lib/stores/theme.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -98,7 +98,7 @@
   // Pie labels do not inherit the ECharts theme textStyle: without an explicit
   // color they keep the default dark fill + white text border, which is
   // unreadable on a dark card ("outlined in white").
-  const labelColor = $derived(VAULTLAB_CHART_THEMES[resolved()].textStyle.color)
+  const labelColor = $derived(PECULIUM_CHART_THEMES[resolved()].textStyle.color)
 
   const options = $derived.by((): EChartsOption => ({
     color: palette,
@@ -211,7 +211,7 @@
       <Chart
         {init}
         {options}
-        theme={VAULTLAB_CHART_THEMES[resolved()]}
+        theme={PECULIUM_CHART_THEMES[resolved()]}
         onclick={handleSliceClick}
         bind:chart={chartInstance}
       />

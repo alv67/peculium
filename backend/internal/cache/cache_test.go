@@ -13,10 +13,10 @@ func TestNoopClientDegrades(t *testing.T) {
 	ctx := context.Background()
 
 	var v map[string]any
-	if hit, err := c.GetJSON(ctx, "vl:nope", &v); err != nil || hit {
+	if hit, err := c.GetJSON(ctx, "pc:nope", &v); err != nil || hit {
 		t.Fatalf("expected miss without error, got hit=%v err=%v", hit, err)
 	}
-	if err := c.SetJSON(ctx, "vl:nope", map[string]any{"a": 1}, time.Minute); err != nil {
+	if err := c.SetJSON(ctx, "pc:nope", map[string]any{"a": 1}, time.Minute); err != nil {
 		t.Fatalf("expected noop set, got err=%v", err)
 	}
 	if rev, err := c.Rev(ctx); err != nil || rev != 0 {
@@ -36,7 +36,7 @@ func TestRedisRoundTrip(t *testing.T) {
 	defer rdb.Close()
 
 	c := New(rdb)
-	key := "vl:test:roundtrip"
+	key := "pc:test:roundtrip"
 	rdb.Del(ctx, key, revKey)
 	defer rdb.Del(ctx, key)
 

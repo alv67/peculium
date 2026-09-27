@@ -4,7 +4,7 @@
   import { portfolioApi } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
-  import { applyDashboardStatus, vaultStatus } from '$lib/stores/vaultStatus.svelte'
+  import { applyDashboardStatus, dashboardStatus } from '$lib/stores/dashboardStatus.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import DataQualityStrip from '../domain/DataQualityStrip.svelte'
   import AppHeader from './AppHeader.svelte'
@@ -32,7 +32,7 @@
    *   header with the collapse toggle, user menu in the sidebar footer.
    *
    * State owned here and pushed down:
-   * - `collapsed` — persisted under `vaultlab-sidebar` so the rail survives
+   * - `collapsed` — persisted under `peculium-sidebar` so the rail survives
    *   reloads (the app is SPA-only: `export const ssr = false`, so reading
    *   localStorage at init never runs on the server);
     * - `moreOpen` — the phone More sheet (the drawer handles its own
@@ -44,7 +44,10 @@
     * - `paletteOpen` — the K.5a command palette (⌘K/Ctrl+K chord, the header
     *   search trigger and Esc all share this one bindable state).
     */
-  const SIDEBAR_STORAGE_KEY = 'vaultlab-sidebar'
+  const SIDEBAR_STORAGE_KEY = 'peculium-sidebar'
+  // Legacy storage key: when the new key is absent, the value stored here is
+  // adopted and written forward once, so no saved preference is lost.
+  const LEGACY_SIDEBAR_STORAGE_KEY = 'vaultlab-sidebar'
 
   /** Scroll distance (px) after which the sticky header condenses. */
   const CONDENSE_THRESHOLD = 16
@@ -53,7 +56,16 @@
 
   function readCollapsed(): boolean {
     try {
-      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+      let stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+      if (stored === null) {
+        // One-time migration: adopt the legacy value and write it forward.
+        const legacy = localStorage.getItem(LEGACY_SIDEBAR_STORAGE_KEY)
+        if (legacy !== null) {
+          localStorage.setItem(SIDEBAR_STORAGE_KEY, legacy)
+          stored = legacy
+        }
+      }
+      return stored === 'true'
     } catch {
       // Storage unavailable (e.g. private mode): always start expanded.
       return false
@@ -107,7 +119,7 @@
   // dashboard page keeps them fresh afterwards via `applyDashboardStatus`).
   onMount(() => {
     if (!priceRefresh.started) void refreshPrices({ announceSuccess: false, announceError: false })
-    if (!vaultStatus.loaded) {
+    if (!dashboardStatus.loaded) {
       portfolioApi
         .dashboard()
         .then(applyDashboardStatus)
@@ -150,12 +162,12 @@
          band under the condensing header, rendered only when at least one
          vault counter or refresh outcome has something to report, so the
          warnings travel with the user on every page. -->
-    {#if vaultStatus.fxMissingCount > 0 || priceRefresh.rateLimited || priceRefresh.issueCount > 0 || priceRefresh.failed}
+    {#if dashboardStatus.fxMissingCount > 0 || priceRefresh.rateLimited || priceRefresh.issueCount > 0 || priceRefresh.failed}
       <div class="sticky top-[var(--app-header-h)] z-10 border-b border-border bg-background px-4 py-2 lg:px-6">
         <DataQualityStrip
-          currency={vaultStatus.currency}
-          fxMissingCount={vaultStatus.fxMissingCount}
-          fxMissingValue={vaultStatus.fxMissingValue}
+          currency={dashboardStatus.currency}
+          fxMissingCount={dashboardStatus.fxMissingCount}
+          fxMissingValue={dashboardStatus.fxMissingValue}
           rateLimited={priceRefresh.rateLimited}
           issueCount={priceRefresh.issueCount}
           refreshFailed={priceRefresh.failed}

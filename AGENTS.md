@@ -7,10 +7,10 @@
 - After changes, restart the stack with `make down` and `make up` to test
   (force-recreating containers is not always sufficient).
 - Run e2e/smoke tests ONLY against the isolated test stack: `make test-e2e`
-  (`docker-compose.test.yml`, project `vaultlab-test`, separate DB `vaultlab_test`,
-  ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev/prod
-  stack (`docker-compose.yml` / `make up`, DB `vaultlab`, port 8080): it holds real
-  data and must stay clean.
+  (`docker-compose.test.yml`, project `peculium-test`, separate DB `peculium_test`,
+  ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev stack
+  (`docker-compose.dev.yml` / `make up`, DB `peculium`, port 8080) or the release
+  stack (`docker-compose.yml`): they hold real data and must stay clean.
 - Delegate implementation to the dedicated subagents whenever the work fits
   their scope: `backend` for Go/Postgres/Redis/API, `frontend` for SvelteKit/
   TypeScript/Tailwind, `python` for the `python-service/` ETF metadata microservice
@@ -27,6 +27,9 @@
   project documents first (AGENTS.md, PLAN.md, STATUS.md, `docs/` guides en/it)
   and update them together with the code. A PR must NOT be closed until its
   related documentation (endpoints, behavior, UI, status tables) is updated.
+- **Screenshots for docs/website**: capture every UI screenshot in **both
+  locales** (Italian and English), from the isolated test stack, and embed the
+  one that matches the language of the page that uses it.
 - **The guides are a snapshot of the current version**: `docs/FRONTEND-GUIDE`,
   `docs/BACKEND-GUIDE` and `docs/DATABASE-GUIDE` (both `.en.md` and `.it.md`)
   describe **how the app works right now**, as if written against the latest

@@ -1,9 +1,14 @@
 # Dependencies
 frontend/node_modules/
+website/node_modules/
 
 # SvelteKit
 frontend/build/
 frontend/.svelte-kit/
+
+# Astro website
+website/dist/
+website/.astro/
 
 # Environment
 .env

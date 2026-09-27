@@ -67,7 +67,7 @@
 - Le azioni distruttive ora usano una finestra di conferma dell'app invece del prompt nativo del browser
 - Le notifiche (toast) sono state ridisegnate in linea col tema e rese accessibili agli screen reader
 - La creazione di asset/portafogli e l'import di un portafoglio ora avvengono in finestre modali coerenti con il design dell'app
-- Ridisegnata la schermata di accesso/registrazione con il logo VaultLab, lo switch Sign in / Register, la validazione inline dei campi e la conferma password in registrazione
+- Ridisegnata la schermata di accesso/registrazione con il logo Peculium, lo switch Sign in / Register, la validazione inline dei campi e la conferma password in registrazione
 - Dashboard ridisegnata: card KPI per valuta, donut dell'allocazione e card dei portafogli cliccabili
 - L'header della dashboard mostra quando i prezzi sono stati aggiornati l'ultima volta
 - Dettaglio portafoglio: aggiungere/modificare una transazione ora avviene in una finestra con validazione inline e totale live, e l'eliminazione è confermata nell'app

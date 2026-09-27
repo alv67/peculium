@@ -20,13 +20,13 @@
 #     is available and the test postgres container is reachable (required for
 #     the SQL seed of prices and FX history).
 #
-# Test stack lifecycle (isolated, project vaultlab-test, DB vaultlab_test, port 8081):
+# Test stack lifecycle (isolated, project peculium-test, DB peculium_test, port 8081):
 #   Start (build + boot):
-#     docker compose -p vaultlab-test -f docker-compose.test.yml up -d --build
+#     docker compose -p peculium-test -f docker-compose.test.yml up -d --build
 #   Wait until the backend answers:
 #     until curl -s -o /dev/null http://localhost:8081/api/v1/health/prices; do sleep 1; done
 #   Stop and reset (delete the test DB volume):
-#     docker compose -p vaultlab-test -f docker-compose.test.yml down -v
+#     docker compose -p peculium-test -f docker-compose.test.yml down -v
 #   NEVER point this at the dev/prod stack (port 8080): it holds real data.
 #
 # Usage:
@@ -90,9 +90,9 @@ if [ "$_PORT" != "8081" ]; then
   warn "port != 8081 ($_PORT): make sure you target the isolated TEST stack"
 fi
 
-printf '\n\033[1mVaultLab — EPIC B.9: per-date FX history (series distortion)\033[0m\n'
+printf '\n\033[1mPeculium — EPIC B.9: per-date FX history (series distortion)\033[0m\n'
 printf 'Base URL: %s\n' "$BASE_URL"
-printf 'Target:  isolated TEST stack only (vaultlab-test, port 8081).\n\n'
+printf 'Target:  isolated TEST stack only (peculium-test, port 8081).\n\n'
 
 # --- prerequisites --------------------------------------------------------------
 command -v jq >/dev/null 2>&1 || die "jq is not installed"
@@ -197,7 +197,7 @@ pause
 # --- FASE 5: SQL seed (prices + FX history) on the test stack -----------------------------
 note "FASE 5 — SQL seed: stable EUR price + USD->EUR history (0.90 / 1.10)"
 if [ "$_PORT" = "8081" ]; then
-  SEED_CMD=(docker compose -p vaultlab-test -f "$SCRIPT_DIR/../docker-compose.test.yml" exec -T postgres psql -U vaultlab -d vaultlab_test)
+  SEED_CMD=(docker compose -p peculium-test -f "$SCRIPT_DIR/../docker-compose.test.yml" exec -T postgres psql -U peculium -d peculium_test)
   if "${SEED_CMD[@]}" < "$SCRIPT_DIR/seed-fx-history.sql" >/dev/null 2>&1; then
     ok "FX history seed applied (price 100 both dates; USD->EUR 0.90 / 1.10)"
   else
