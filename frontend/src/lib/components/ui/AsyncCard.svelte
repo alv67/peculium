@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { AlertTriangle } from 'lucide-svelte'
+  import { t } from '$lib/i18n/index.svelte'
   import Button from './Button.svelte'
   import EmptyState from './EmptyState.svelte'
   import Skeleton from './Skeleton.svelte'
@@ -19,16 +20,16 @@
    * `emptyContent` snippets override them once a phase needs final-geometry
    * placeholders (zero-CLS rule).
    *
-   * `retryLabel` exists so D1 i18n can translate the control without
-   * replacing the default visuals; the other built-in strings follow the
-   * pre-i18n primitives and move through the dictionary at adoption time.
-   */
+    * The built-in retry and empty-state strings resolve through the i18n
+    * dictionary; `retryLabel` and `emptyContent` override them per call site
+    * without replacing the default visuals.
+    */
   let {
     loading = false,
     error = null,
     empty = false,
     onRetry = undefined,
-    retryLabel = 'Retry',
+    retryLabel = t('common.retry'),
     class: className = '',
     children = undefined,
     emptyContent = undefined,
@@ -96,5 +97,5 @@
 {/snippet}
 
 {#snippet defaultEmpty()}
-  <EmptyState title="Nothing here yet" />
+  <EmptyState title={t('common.nothingHere')} />
 {/snippet}

@@ -9,10 +9,12 @@
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-  const modeItems = [
-    { value: 'signin', label: 'Sign in' },
-    { value: 'register', label: 'Register' },
-  ]
+  // Reactive so switching language re-renders the mode pills (and the CTA,
+  // which reuses the same labels) in place.
+  const modeItems = $derived([
+    { value: 'signin', label: t('login.signIn') },
+    { value: 'register', label: t('login.register') },
+  ])
 
   let mode = $state('signin')
   let email = $state('')
@@ -42,26 +44,26 @@
   function validate(): boolean {
     let valid = true
     if (!email.trim()) {
-      emailError = 'Email is required'
+      emailError = t('login.emailRequired')
       valid = false
     } else if (!EMAIL_REGEX.test(email)) {
-      emailError = 'Enter a valid email address'
+      emailError = t('login.emailInvalid')
       valid = false
     }
     // Length is only enforced on register: legacy accounts may have shorter passwords.
     if (!password) {
-      passwordError = 'Password is required'
+      passwordError = t('login.passwordRequired')
       valid = false
     } else if (isRegister && password.length < 8) {
-      passwordError = 'Password must be at least 8 characters'
+      passwordError = t('login.passwordTooShort')
       valid = false
     }
     if (isRegister && (!confirmPassword || confirmPassword !== password)) {
-      confirmError = 'Passwords do not match'
+      confirmError = t('login.passwordMismatch')
       valid = false
     }
     if (isRegister && !name.trim()) {
-      nameError = 'Name is required'
+      nameError = t('login.nameRequired')
       valid = false
     }
     return valid
@@ -74,13 +76,13 @@
     try {
       if (isRegister) {
         await register(email, name, password)
-        toast.success('Registered! You can now log in.')
+        toast.success(t('login.registered'))
         mode = 'signin'
       } else {
         await login(email, password)
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message = err instanceof Error ? err.message : t('common.somethingWentWrong')
       toast.error(message)
     } finally {
       submitting = false
@@ -96,13 +98,13 @@
       <p class="text-center text-sm text-muted-foreground">{t('login.tagline')}</p>
     </div>
     <p class="mb-6 text-center text-sm text-muted-foreground">
-      {isRegister ? 'Create an account' : 'Sign in to your account'}
+      {isRegister ? t('login.createAccount') : t('login.signInToAccount')}
     </p>
-    <SegmentedControl items={modeItems} bind:value={mode} ariaLabel="Authentication mode" class="mb-6 w-full" />
+    <SegmentedControl items={modeItems} bind:value={mode} ariaLabel={t('login.authMode')} class="mb-6 w-full" />
     <!-- `novalidate` keeps the submit on our inline validation; `required` stays for a11y. -->
     <form onsubmit={handleSubmit} class="space-y-4" novalidate>
       {#if isRegister}
-        <Field label="Name" error={nameError}>
+        <Field label={t('login.name')} error={nameError}>
           <Input
             bind:value={name}
             type="text"
@@ -113,7 +115,7 @@
           />
         </Field>
       {/if}
-      <Field label="Email" error={emailError}>
+      <Field label={t('login.email')} error={emailError}>
         <Input
           bind:value={email}
           type="email"
@@ -123,7 +125,11 @@
           oninput={() => (emailError = undefined)}
         />
       </Field>
-      <Field label="Password" error={passwordError} hint={isRegister ? 'At least 8 characters' : undefined}>
+      <Field
+        label={t('login.password')}
+        error={passwordError}
+        hint={isRegister ? t('login.passwordHint') : undefined}
+      >
         <Input
           bind:value={password}
           type="password"
@@ -134,7 +140,7 @@
         />
       </Field>
       {#if isRegister}
-        <Field label="Confirm password" error={confirmError}>
+        <Field label={t('login.confirmPassword')} error={confirmError}>
           <Input
             bind:value={confirmPassword}
             type="password"
@@ -146,7 +152,7 @@
         </Field>
       {/if}
       <Button type="submit" class="w-full" loading={submitting}>
-        {isRegister ? 'Register' : 'Sign in'}
+        {isRegister ? t('login.register') : t('login.signIn')}
       </Button>
     </form>
   </div>

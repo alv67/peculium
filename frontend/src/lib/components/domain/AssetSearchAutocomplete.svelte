@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Search } from 'lucide-svelte'
   import { assetApi, type AssetLookupResult } from '$lib/services/api'
+  import { t } from '$lib/i18n/index.svelte'
   import Input from '$lib/components/ui/Input.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
 
@@ -12,7 +13,7 @@
     ticker = $bindable(''),
     onselect,
     disabled = false,
-    placeholder = 'Ticker (e.g. AAPL)',
+    placeholder = t('asset.tickerPlaceholder'),
     inputId = undefined,
   }: {
     ticker?: string
@@ -125,7 +126,7 @@
       <div
         class="absolute z-10 mt-1 w-full rounded-card border border-border bg-surface p-3 text-center text-sm text-muted-foreground shadow-raised"
       >
-        No results found
+        {t('asset.noResultsFound')}
       </div>
     {/if}
   {/if}

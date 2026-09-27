@@ -40,7 +40,7 @@
   let {
     data = [] as AllocationDatum[],
     currency = 'USD',
-    title = 'Allocation',
+    title = t('chartView.nameAllocation'),
     showLegend = false,
     showValue = true,
     showTableToggle = true,

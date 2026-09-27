@@ -43,7 +43,7 @@
 
   let {
     data = [] as ExposureRow[],
-    title = 'Distribuzione',
+    title = t('chartView.nameDistribution'),
     showLegend = false,
     mute = false,
     // When false the donut is rendered "open": if the passed rows sum below 100
