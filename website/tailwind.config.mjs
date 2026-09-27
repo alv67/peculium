@@ -11,6 +11,10 @@ export default {
           dark: '#34d399',
         },
       },
+      boxShadow: {
+        // Matches the app's `shadow-card` resting elevation.
+        card: '0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.1)',
+      },
     },
   },
   plugins: [],

@@ -1,18 +1,22 @@
 ---
 import Base from '../../layouts/Base.astro';
 import LatestReleaseCard from '../../components/LatestReleaseCard.astro';
+import ReleaseNotes from '../../components/ReleaseNotes.astro';
 import { UI } from '../../lib/i18n';
-import { readLatestRelease } from '../../lib/releases';
+import { readLatestRelease, readReleaseNotes, GITHUB_RELEASES_URL } from '../../lib/releases';
 
 const t = UI.it;
-const release = readLatestRelease();
+const release = readLatestRelease('it');
+// Le note complete arrivano da docs/RELEASE-NOTES.it.md al momento della
+// build — unica fonte di verità. La sezione `## Unreleased` non viene pubblicata.
+const notes = readReleaseNotes('it');
 ---
 
 <Base
   locale="it"
   path="/it/releases"
   title={`${t.navLabel.releases} · Peculium`}
-  description="Ogni release di Peculium con le note di rilascio per l’utente finale."
+  description="Ogni versione di Peculium con le sue note di rilascio per l’utente finale."
 >
   <div class="mx-auto max-w-3xl px-4 py-16">
     <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.releases}</h1>
@@ -21,14 +25,22 @@ const release = readLatestRelease();
       <LatestReleaseCard locale="it" {release} />
     </div>
 
-    <p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
-      {t.comingSoon}
+    <h2 class="mt-12 text-2xl font-bold tracking-tight">Note di rilascio</h2>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Pubblicate a ogni versione, direttamente dal repository — la storia completa è anche su
+      <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">GitHub Releases</a>.
     </p>
 
-    <p class="mt-6 leading-relaxed text-slate-600 dark:text-slate-300">
-      Questa pagina elencherà ogni versione pubblicata con le note di rilascio complete per
-      l’utente finale, generate direttamente dal repository al momento della build: GitHub Releases
-      e le note nel repository restano l’unica fonte di verità, senza duplicazioni manuali.
-    </p>
+    {notes.length > 0 ? (
+      <ReleaseNotes entries={notes} />
+    ) : (
+      <p class="mt-6 text-sm text-slate-500 dark:text-slate-400">
+        {t.releasesError.text}{' '}
+        <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">
+          {t.releasesError.linkText}
+        </a>
+        .
+      </p>
+    )}
   </div>
 </Base>

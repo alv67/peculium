@@ -1,11 +1,15 @@
 ---
 import Base from '../layouts/Base.astro';
 import LatestReleaseCard from '../components/LatestReleaseCard.astro';
+import ReleaseNotes from '../components/ReleaseNotes.astro';
 import { UI } from '../lib/i18n';
-import { readLatestRelease } from '../lib/releases';
+import { readLatestRelease, readReleaseNotes, GITHUB_RELEASES_URL } from '../lib/releases';
 
 const t = UI.en;
-const release = readLatestRelease();
+const release = readLatestRelease('en');
+// Full notes come straight from docs/RELEASE-NOTES.en.md at build time —
+// the single source of truth. `## Unreleased` sections are not published.
+const notes = readReleaseNotes('en');
 ---
 
 <Base
@@ -21,14 +25,23 @@ const release = readLatestRelease();
       <LatestReleaseCard locale="en" {release} />
     </div>
 
-    <p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
-      {t.comingSoon}
+    <h2 class="mt-12 text-2xl font-bold tracking-tight">Release notes</h2>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Published here with every version, straight from the repository notes — the full history is
+      also on
+      <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">GitHub Releases</a>.
     </p>
 
-    <p class="mt-6 leading-relaxed text-slate-600 dark:text-slate-300">
-      This page will list every published version with its full end-user release notes, generated
-      straight from the repository at build time — GitHub Releases and the in-repo notes stay the
-      single source of truth, and nothing is duplicated by hand.
-    </p>
+    {notes.length > 0 ? (
+      <ReleaseNotes entries={notes} />
+    ) : (
+      <p class="mt-6 text-sm text-slate-500 dark:text-slate-400">
+        {t.releasesError.text}{' '}
+        <a href={GITHUB_RELEASES_URL} rel="noopener" class="font-semibold text-brand hover:underline dark:text-brand-dark">
+          {t.releasesError.linkText}
+        </a>
+        .
+      </p>
+    )}
   </div>
 </Base>
