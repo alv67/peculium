@@ -243,7 +243,10 @@
       <EmptyState dashed title={t('admin.empty')} />
     {:else}
       <div class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
-        <div class="overflow-x-auto">
+        <!-- Inner padding follows the health card's table wrapper: the table
+             must not hug the card edges (its header row carries no top pad
+             here, unlike the health card's section header). -->
+        <div class="overflow-x-auto px-6 py-4">
           <Table aria-label={t('nav.users')}>
             <THead>
               <Tr>
