@@ -1,5 +1,12 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- New **Admin area** for admin accounts: a **Users** page to review every account with its role and status, approve pending registrations, disable and re-enable accounts, change roles, and set a new password for a user who lost theirs; plus a **Server settings** page. On a brand-new server the first registered account becomes the administrator
+- New server setting **Auto-approve new registrations** (on by default): when it is off, new sign-ups stay pending until an administrator approves them
+- The login page now explains exactly what is going on when an account is still awaiting approval or has been disabled, instead of a generic error, and a finished registration immediately tells you if an administrator's approval is required first
+
 ## v0.6.1 — 23 Sep 2026
 
 ### Features

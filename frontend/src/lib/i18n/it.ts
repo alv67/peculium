@@ -81,6 +81,9 @@ export const it = {
     more: 'Altro',
     bottomNav: 'Navigazione principale',
     dataSync: 'Dati e sincronizzazione',
+    /** Voci dell'area Admin (#57 Fase A): renderizzate solo per amministratori. */
+    users: 'Utenti',
+    serverSettings: 'Impostazioni server',
     settings: 'Impostazioni',
     sectionAdmin: 'Admin',
     sectionSettings: 'Impostazioni',
@@ -145,6 +148,14 @@ export const it = {
     nameRequired: 'Il nome è obbligatorio',
     /** Toast di esito della registrazione (poi il form torna al login). */
     registered: 'Registrazione completata! Ora puoi accedere.',
+    /** Toast di registrazione quando serve l'approvazione (auto-approvazione
+     *  off, #57 Fase A). */
+    registeredPending:
+      'Registrazione completata! Un amministratore deve approvare il tuo account prima di accedere.',
+    /** Accesso negato su account non attivo (403 del backend, #57 Fase A). */
+    accountPending:
+      'Il tuo account è in attesa di approvazione. Un amministratore deve approvarlo prima che tu possa accedere.',
+    accountDisabled: 'Il tuo account è stato disattivato. Contatta un amministratore per riattivarlo.',
   },
   theme: {
     group: 'Tema',
@@ -480,6 +491,73 @@ export const it = {
     statusRateLimited: 'Richieste limitate',
     statusFailure: 'Errore',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
+  },
+  /**
+   * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti
+   * (badge di ruolo/statuse, azioni di riga, dialoghi e toast) e pagina delle
+   * impostazioni server. Le etichette dei badge localizzano gli enum backend;
+   * i valori inattesi mostrano la stringa grezza al punto d'uso.
+   */
+  admin: {
+    /** Stato vuoto condiviso su ogni rotta `/admin/*` protetta. */
+    forbiddenTitle: 'Solo amministratori',
+    forbiddenHint: 'Non hai accesso a quest\'area.',
+    /** Pagina Utenti (titolo che riusa `nav.users`, intestazioni `login.email`,
+     *  `chartView.colName`, `positions.colStatus`, `common.colActions`). */
+    usersSubtitle: 'Approva le registrazioni, gestisci i ruoli e reimposta le password.',
+    colRole: 'Ruolo',
+    colCreated: 'Creato il',
+    /** Etichette badge/selettore di ruolo (`owner` è legacy: mostrato, mai
+     *  assegnabile). */
+    roleOwner: 'Proprietario',
+    roleAdmin: 'Amministratore',
+    roleEditor: 'Editor',
+    roleViewer: 'Visualizzatore',
+    /** Etichette badge di stato. */
+    statusActive: 'Attivo',
+    statusPending: 'In approvazione',
+    statusDisabled: 'Disattivato',
+    /** Tooltip delle azioni di riga; le chiavi `*Named` sono i nomi accessibili. */
+    approve: 'Approva',
+    disable: 'Disattiva',
+    enable: 'Riattiva',
+    resetPassword: 'Reimposta password',
+    approveNamed: 'Approva {email}',
+    disableNamed: 'Disattiva {email}',
+    enableNamed: 'Riattiva {email}',
+    resetNamed: 'Reimposta la password di {email}',
+    roleNamed: 'Ruolo di {email}',
+    /** Nota sotto la tabella sul ruolo legacy. */
+    ownerNote: 'Il ruolo legacy Proprietario equivale ad Amministratore e non può essere assegnato a nuovi account.',
+    /** Toast degli esiti delle azioni di riga. */
+    approved: 'Utente approvato',
+    userEnabled: 'Utente riattivato',
+    userDisabled: 'Utente disattivato',
+    roleUpdated: 'Ruolo aggiornato',
+    passwordReset: 'Password reimpostata',
+    /** Fallback di errore e codici API mappati (409/404). */
+    loadFailed: 'Caricamento utenti non riuscito',
+    loadFailedHint: 'Verifica la connessione e riprova.',
+    empty: 'Nessun utente trovato.',
+    updateFailed: 'Aggiornamento non riuscito',
+    resetFailed: 'Reimposta password non riuscita',
+    lastAdmin: 'Il server deve mantenere almeno un amministratore attivo.',
+    userNotFound: 'Utente non trovato.',
+    /** Dialogo di conferma disattivazione. */
+    disableTitle: 'Disattiva utente',
+    disableConfirm: 'Disattivare {email}? Non potrà accedere finché non sarà riattivato.',
+    /** Dialogo di reimposta password (label/hint del campo riusano `password.*`). */
+    resetTitle: 'Reimposta la password di {email}',
+    resetHint: "Imposta una nuova password per questo account; l'utente dovrà cambiarla dopo l'accesso.",
+    /** Pagina impostazioni server (titolo che riusa `nav.serverSettings`). */
+    settingsSubtitle: 'Preferenze dell\'intero server, applicate subito.',
+    autoApprove: 'Approvazione automatica delle nuove registrazioni',
+    autoApproveHint:
+      'Se attiva, i nuovi account possono accedere subito. Se disattiva, un amministratore deve approvarli dalla pagina Utenti.',
+    lastUpdated: 'Ultimo aggiornamento: {time}',
+    settingSaved: 'Impostazione salvata',
+    settingSaveFailed: 'Salvataggio impostazione non riuscito',
+    settingsLoadFailed: 'Caricamento impostazioni server non riuscito',
   },
   checklist: {
     title: 'Configura il tuo patrimonio',

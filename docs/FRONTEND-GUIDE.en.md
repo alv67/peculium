@@ -192,7 +192,9 @@ frontend/
         │   ├── tx-filters.ts       #   Activity filter model + URL query codec
         │   └── allocation/         #   Allocation tab
         ├── settings/       # profile, password, currency whitelist
-        └── admin/health/   # price-sync health dashboard — "Data & Sync"
+        └── admin/          # "Admin" area: health/ (price-sync dashboard,
+                            #   "Data & Sync", open to every user) plus
+                            #   users/ + settings/ (admin accounts only)
 ```
 
 > There is **no separate `/register` page**: the login page contains a
@@ -277,6 +279,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 | `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns the `RefreshReport`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
+| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings` (all admin-only: 403 for non-admin roles) |
 | `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -648,8 +651,11 @@ Reusable components live in `src/lib/components/ui/`: `Button` (variants
 primary/secondary/outline/ghost/danger/link, sizes, loading), `Input`,
 `Textarea`, `Select`, `Field`, `Card` (+ `CardHeader`/`CardContent`), `Badge`,
 `Modal`, `ConfirmDialog`, `Spinner`, `Skeleton`, `EmptyState`, the `Table`
-primitives (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl` and
-`StatCard`. Pages and the shell reuse them instead of duplicating markup.
+primitives (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl`,
+`Switch` (a `role="switch"` toggle: the boolean stays owned by the caller via
+the `checked` prop and `onchange` receives the next value, so a settings page
+can roll an optimistic write back on failure) and `StatCard`. Pages and the
+shell reuse them instead of duplicating markup.
 `SegmentedControl` is overflow-safe by design: its pill row is
 `max-w-full flex-wrap` with content-based `flex-auto` segments, so long labels
 wrap inside the container at phone widths instead of pushing a horizontal
@@ -710,9 +716,14 @@ JS state and CSS never disagree.
   headers on the portfolio/asset detail shells stack at
   `top-[var(--app-header-h)]` (with a matched `transition-[top]`) so they stay
   flush with the bar while it condenses. The default lives in `app.css` `:root`.
-- The Admin entry is labelled **"Data & Sync"** (`nav.dataSync`).
-  It lives in a single `adminItems` config point in `SidebarNav` (route
-  `/admin/health`).
+- The sidebar's **Admin** section renders from a single `adminItems` config
+  point in `SidebarNav`: **"Data & Sync"** (`nav.dataSync`, route
+  `/admin/health`) is open to every user, while the management entries
+  **Users** (`/admin/users`, `nav.users`) and **Server settings**
+  (`/admin/settings`, `nav.serverSettings`) render only for admin accounts —
+  `isAdmin()` (from `lib/stores/auth.svelte.ts`) treats the session `role`
+  `owner`/`admin` as admin-equivalent. `/admin` itself redirects to
+  `/admin/users`, and every `/admin/*` page content is wrapped in `AdminGate`.
 - **Command palette** — `layout/CommandPalette.svelte`
   mounts once in `AppShell` on the modal tier (z-40, under the z-50 toasts).
   The ⌘K/Ctrl+K chord is a `<svelte:window>` handler inside the component
@@ -727,7 +738,8 @@ JS state and CSS never disagree.
   deliberately non-focusable APG `role="option"` rows) over a grouped
   `role="listbox"` with three `role="group"` sections rendered only when
   non-empty: **Go to** (Overview, Portfolios, Assets, Data & Sync, Settings +
-  its four sub-sections, then every portfolio from `portfolioApi.list()`),
+  its four sub-sections, plus Users and Server settings for admin accounts,
+  then every portfolio from `portfolioApi.list()`),
   **Assets** (registered assets from `assetApi.list()` — name plus ticker
   hint — followed by a live "Search Yahoo for …" row fed by a 300 ms-debounced
   `assetApi.lookup()` from 2 characters; selecting it just navigates to
@@ -808,7 +820,8 @@ visible on every page.
   (Overview/Positions/Activity and their tables), the portfolios and assets
   lists, the asset detail tabs, every modal (create portfolio/asset, import
   portfolio, add transaction, exposure editing), the Settings pages, the Price
-  Sync Health page and the allocation/exposure surfaces (`allocation.*`,
+  Sync Health page, the admin Users and Server settings pages and the
+  allocation/exposure surfaces (`allocation.*`,
   `exposure.*`, the drill-down `drill.*`, the chart series and empty states
   `chartView.*`, the `ProvenanceBadge` `provenance.*`) — plus the asset
   type/class/price-source labels, which `lib/format.ts` exposes as localized
@@ -833,9 +846,16 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
 - `login(email, password)` — `POST /auth/login`, saves the **pair** in
   `localStorage`, sets `auth.user`, then
   `window.location.replace('/')` (a full reload, deliberate).
-- `register(...)` — `POST /auth/register`. It does **not** log the user in:
-  the login page shows "Registered! You can now log in." and switches back to
-  the sign-in form.
+- `register(...)` — `POST /auth/register`, returning the created user. It
+  does **not** log the user in: the login page shows "Registered! You can now
+  log in." (or, when the account is created `pending`, the pending-approval
+  variant) and switches back to the sign-in form.
+- `auth.user` carries the session `role` (`owner`/`admin`/`editor`/`viewer`)
+  and `status` (`active`/`pending`/`disabled`); `isAdmin()` is the single
+  client-side admin check (`owner`/`admin` are admin-equivalent). The shell
+  chrome hides the admin entries when it is false, the `/admin/*` pages re-check
+  it through `AdminGate`, and the backend enforces the same rule again on every
+  `/admin/*` request (403).
 - `logout()` — clears both tokens, `auth.user = null` and
   `window.location.replace('/login')`.
 - `updateProfile(name, email, baseCurrency?)` — `PATCH /users/me` and
@@ -1044,7 +1064,11 @@ portfolio card carries a value-history sparkline strip.
 A single centered card toggling between **Sign in** and **Register**
 (`isRegister`). Register asks for name + email + password and, on success,
 shows a toast and switches back to Sign in; login calls `store.login()` which
-hard-redirects to `/`.
+hard-redirects to `/`. When server settings keep auto-approval off the
+register toast tells the new user an administrator must approve the account
+first; signing in on a non-active account is refused by the backend (403) and
+the form maps the two cases (pending approval / disabled) to clear localized
+messages instead of the raw error.
 
 ### `/portfolios` — Portfolios (`routes/portfolios/+page.svelte`)
 
@@ -1512,3 +1536,56 @@ restart). It shows 4 summary cards (Success Rate, Total Successes, Total
 Failures, Rate Limited) and a paginated table of the recent events (timestamp,
 type, status badge, code, message, duration; page size 50 with Previous/Next
 and a range label), with a "Refresh Now" button.
+
+### Admin area (`routes/admin/…`)
+
+The management home for admin accounts, linked from the sidebar's Admin
+section, the phone More sheet and the command palette — all of which render
+its entries (`Users`, `Server settings`) only when `isAdmin()`. `/admin`
+(`routes/admin/+page.svelte`) is a redirect to `/admin/users` (`replaceState`,
+so it never stays in history). Page content is wrapped in `AdminGate`
+(`lib/components/domain/AdminGate.svelte`): anyone whose session role is not
+admin-equivalent and lands on the route (e.g. by typing the URL) gets an
+"Admins only" forbidden empty state instead of the page; the backend answers
+403 on every `/admin/*` request regardless, so this is presentation-only
+gating.
+
+### `/admin/users` — User management (`routes/admin/users/+page.svelte`)
+
+Calls `adminApi.listUsers()`, `adminApi.updateUser()`,
+`adminApi.resetPassword()`. A table of every account (Email, Name, Role,
+Status, Created, Actions) with a `Badge` per role (`owner`/`admin` accent,
+others neutral) and per status (active positive, pending warning, disabled
+negative; enum labels localized from `admin.*`, unknown values rendered as
+the raw string). Row actions are icon buttons with the target email in the
+accessible name, and the row's controls lock while a request for it is in
+flight:
+
+- **Approve** (`UserCheck`, pending signups) and **Re-enable** (`Check`,
+  disabled accounts) PATCH `status: active` directly; **Disable** (`Ban`)
+  PATCHes `status: disabled` behind a danger `ConfirmDialog`;
+- a per-row role `Select` — assignable values are `admin`/`editor`/`viewer`;
+  the legacy `owner` appears on the row still carrying it (so a change away
+  is possible without silently renaming it) and a footnote under the table
+  states it cannot be assigned to new accounts; the selection is optimistic
+  and rolls back on failure;
+- **Reset password** (`KeyRound`) opens a `Modal` asking a new password
+  (minimum 8 characters, inline validation via `password.*` keys) and POSTs
+  `/admin/users/{id}/reset-password`.
+
+Each successful PATCH splices the returned record into the list in place (no
+refetch) and, when the edited row is the signed-in account, syncs `auth.user`
+too — so a self-demotion live reveals the `AdminGate` forbidden state. Errors
+map to localized toasts: 409 (the change would leave the server without an
+active admin) and 404 (unknown user) have dedicated messages; anything else
+shows the generic update/reset failure. Raw backend strings never reach the UI.
+
+### `/admin/settings` — Server settings (`routes/admin/settings/+page.svelte`)
+
+Calls `adminApi.getSettings()` / `adminApi.updateSettings()`. A single card
+with a `ui/Switch` for the one server-wide setting, **Auto-approve new
+registrations** (`auto_approve_registrations`): when on, new accounts can sign
+in immediately; when off, signups are created `pending` and an admin approves
+them from the Users page. The toggle applies immediately (optimistic PATCH on
+change, rolled back with an error toast on failure) and a "Last updated"
+stamp sits under the label.

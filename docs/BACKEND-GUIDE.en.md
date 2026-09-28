@@ -158,9 +158,11 @@ The server startup sequence is:
    and common behaviors are added to all requests: logging, error recovery,
    an ID to trace every request, a 30-second timeout and CORS handling (the
    rules that allow the frontend to call the API).
-5. **Routes** — the endpoints are connected to the functions that handle
-   them. Some endpoints are public (`/auth/*`), the others require
-   authentication (see the chapter on authentication). Outside `/api/v1`,
+ 5. **Routes** — the endpoints are connected to the functions that handle
+    them. Some endpoints are public (`/auth/*`), the others require
+    authentication with a valid token belonging to an active account (see the
+    chapter on authentication), and the `/api/v1/admin/*` ones also require an
+    admin role. Outside `/api/v1`,
    `GET /healthz` is a public liveness probe: it answers
    `{"status":"ok"}` with HTTP 200 and does not touch the database or
    Redis.
@@ -220,11 +222,11 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 ## 6. The database
 
 The migrations (`backend/migrations/`, files numbered from `000001` to
-`000018`) build the schema. The main tables:
+`000019`) build the schema. The main tables:
 
 | Table | Contains | Explanation |
 |---|---|---|
-| `users` | the users | email, name, password hash, role, base currency (`base_currency`, default EUR) |
+| `users` | the users | email, name, password hash, role, account status (`active`, `pending`, `disabled`), base currency (`base_currency`, default EUR) |
 | `assets` | the securities | ticker, name, type (stock, ETF, crypto...), investment class, price source, currency, exchange, sector, industry |
 | `portfolios` | the portfolios | a portfolio belongs to a user and has a currency |
 | `portfolio_shares` | the sharing | who else can see a portfolio (and with what role) |
@@ -240,6 +242,7 @@ The migrations (`backend/migrations/`, files numbered from `000001` to
 | `portfolio_series` | per-portfolio series | portfolio value and cost for each day |
 | `asset_series` | per-security series | value and cost of each security for each day |
 | `health_events` | the price-health events | records of stale/failed price updates on the health page |
+| `server_settings` | the server options | a single row: registration auto-approval (chapter 14) |
 
 Two fundamental ideas about the database:
 
@@ -909,6 +912,47 @@ Passwords are stored as **bcrypt hashes** (not in plain text).
 > password is recomputed and compared with the stored one. So even if someone
 > steals the database, they cannot read the passwords.
 
+### Account status and registration approval
+
+Every account carries a **status** — `active`, `pending` (waiting for
+approval) or `disabled` — and the status travels with the user object
+returned by register, login and `GET /users/me`.
+
+- The **first registrant** on an empty server becomes the active `admin`
+  automatically. This happens inside one transaction that first locks the
+  settings row, so two simultaneous signups can never both be treated as the
+  first user.
+- Following registrants get the `viewer` role. With the server setting
+  `auto_approve_registrations` **on** (the default) they are `active` right
+  away; with it **off** they are `pending`. Registration always succeeds —
+  the status in the response is what tells the UI to show "waiting for
+  approval".
+- Login accepts only `active` accounts: a `pending` one is rejected with 403
+  "account pending approval", a `disabled` one with 403 "account disabled"
+  (the same rules apply to refreshing a token pair).
+
+After the JWT check, a second middleware loads the account behind the token
+id on **every** protected request and lets it through only while the stored
+status is `active`: an unknown or deleted user gets 401, a non-active one
+403. Approving or disabling an account therefore takes effect immediately,
+even for tokens issued before the change.
+
+### Admin area
+
+Roles `owner` and `admin` are the administrator roles (an `owner` — the role
+default of the schema — counts as admin everywhere); `editor` and `viewer`
+are normal users. The admin endpoints sit under `/api/v1/admin`, behind the
+JWT middleware, the active-status middleware and an admin gate that answers
+403 for non-admins:
+
+| Endpoint | Does |
+|---|---|
+| `GET /admin/users` | lists every account: id, email, name, role, status, created_at (the password hash is never exposed) |
+| `PATCH /admin/users/{id}` | sets `role` and/or `status` (validated against the enums); refuses to demote or disable the **last active admin** with 409 |
+| `POST /admin/users/{id}/reset-password` | sets a new password for the account (minimum 8 characters, no current password needed) |
+| `GET /admin/settings` | reads the server settings (`auto_approve_registrations`, `updated_at`) |
+| `PATCH /admin/settings` | updates `auto_approve_registrations` |
+
 ---
 
 ## 15. Atomic operations — `WithTx`
@@ -1026,15 +1070,16 @@ backend/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
 │   ├── geo/geo.go          # macro-regions, GICS sectors, canonical ISO countries, country→region mapping
-│   ├── handler/            # HTTP layer (auth.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # HTTP layer (auth.go, admin.go, portfolio.go, settings.go, ...)
+│   ├── middleware/         # per-request account checks: active status + admin gate
 │   ├── model/              # data structures with JSON tags
 │   ├── position/           # AVCO engine (State, Apply, Walk)
 │   ├── price/              # Yahoo client (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + JustETF/Morningstar fetchers
-│   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
-│   └── service/            # business logic (service.go)
-├── migrations/             # versioned SQL (000001..000018)
+│   └── service/            # business logic (service.go, admin.go)
+├── migrations/             # versioned SQL (000001..000019)
 └── go.mod
 ```
 

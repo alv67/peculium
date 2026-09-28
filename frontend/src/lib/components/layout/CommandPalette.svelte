@@ -14,10 +14,12 @@
     PanelLeft,
     RefreshCw,
     Search,
+    ServerCog,
     Settings,
     SlidersHorizontal,
     Sun,
     User,
+    Users,
   } from 'lucide-svelte'
   import { fade } from 'svelte/transition'
   import { afterNavigate, goto } from '$app/navigation'
@@ -31,6 +33,7 @@
     type Portfolio,
   } from '$lib/services/api'
   import { palette, setCvd } from '$lib/stores/palette.svelte'
+  import { isAdmin } from '$lib/stores/auth.svelte'
   import { refreshPrices } from '$lib/stores/priceRefresh.svelte'
   import { setThemeMode, theme, type ThemeMode } from '$lib/stores/theme.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
@@ -47,9 +50,10 @@
    * shell (and the `AppHeader` search trigger) can drive it too.
    *
    * Sections, rendered in this order and only when non-empty:
-   * - *Go to*: the static destinations (Overview, Portfolios, Assets,
-   *   Data & Sync, Settings and its four sub-sections) plus every portfolio
-   *   from `portfolioApi.list()`;
+    * - *Go to*: the static destinations (Overview, Portfolios, Assets,
+    *   Data & Sync, Settings and its four sub-sections, plus Users and
+    *   Server settings for admin accounts) plus every portfolio from
+    *   `portfolioApi.list()`;
    * - *Assets*: registered assets from `assetApi.list()`, plus a live
    *   "Search Yahoo for …" row fed by a debounced `assetApi.lookup()` —
    *   selecting it navigates to `/assets` (creating assets stays out of
@@ -297,6 +301,30 @@
         keywords: 'fx exchange rates',
         run: () => goto(resolve('/settings/currencies')),
       }),
+      // Admin destinations mirror the sidebar's Admin section: only offered
+      // to admin-equivalent accounts (#57 Phase A).
+      ...(isAdmin()
+        ? [
+            row({
+              id: 'go-admin-users',
+              section: 'go',
+              label: t('nav.users'),
+              hint: t('nav.sectionAdmin'),
+              icon: Users,
+              keywords: 'admin accounts roles approve disable reset password',
+              run: () => goto(resolve('/admin/users')),
+            }),
+            row({
+              id: 'go-admin-settings',
+              section: 'go',
+              label: t('nav.serverSettings'),
+              hint: t('nav.sectionAdmin'),
+              icon: ServerCog,
+              keywords: 'admin auto approve registrations server settings',
+              run: () => goto(resolve('/admin/settings')),
+            }),
+          ]
+        : []),
       ...portfolioSource.map((p) =>
         row({
           id: `go-portfolio-${p.id}`,

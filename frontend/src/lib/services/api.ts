@@ -36,10 +36,32 @@ export interface User {
   id: string
   email: string
   name: string
+  /** `owner` | `admin` | `editor` | `viewer`; `owner`/`admin` are admin-equivalent. */
   role: string
+  /** `active` | `pending` | `disabled`; non-active accounts cannot sign in. */
+  status: string
   /** User's base currency for consolidated views (EPIC I.1, default "EUR"). */
   base_currency: string
   created_at: string
+}
+
+/** One row of `GET /admin/users`: the full account record as stored,
+ * including the admin-managed `role`/`status` and both timestamps. */
+export interface AdminUser {
+  id: string
+  email: string
+  name: string
+  role: string
+  status: string
+  base_currency: string
+  created_at: string
+  updated_at: string
+}
+
+/** Singleton server settings row (`GET/PATCH /admin/settings`). */
+export interface ServerSettings {
+  auto_approve_registrations: boolean
+  updated_at: string
 }
 
 export interface Portfolio {
@@ -815,4 +837,23 @@ export const settingsApi = {
     request<Currency>('/settings/currencies', { method: 'POST', body: { code, name } }),
   deleteCurrency: (code: string) =>
     request<void>(`/settings/currencies/${encodeURIComponent(code)}`, { method: 'DELETE' }),
+}
+
+/** Admin-area endpoints (`/api/v1/admin/*`), gated server-side to the
+ * `owner`/`admin` roles (403 "admin access required" for everyone else). */
+export const adminApi = {
+  listUsers: () => request<AdminUser[]>('/admin/users'),
+  // PATCH body: at least one of role/status (role ∈ owner|admin|editor|viewer,
+  // status ∈ active|pending|disabled). 409 when the change would leave the
+  // server without an active admin.
+  updateUser: (id: string, patch: { role?: string; status?: string }) =>
+    request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body: patch }),
+  resetPassword: (id: string, password: string) =>
+    request<void>(`/admin/users/${id}/reset-password`, { method: 'POST', body: { password } }),
+  getSettings: () => request<ServerSettings>('/admin/settings'),
+  updateSettings: (autoApproveRegistrations: boolean) =>
+    request<ServerSettings>('/admin/settings', {
+      method: 'PATCH',
+      body: { auto_approve_registrations: autoApproveRegistrations },
+    }),
 }
