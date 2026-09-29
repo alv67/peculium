@@ -4,6 +4,7 @@
     Banknote,
     Briefcase,
     CircleDollarSign,
+    Download,
     Eye,
     FolderClosed,
     HandCoins,
@@ -50,10 +51,10 @@
    * shell (and the `AppHeader` search trigger) can drive it too.
    *
    * Sections, rendered in this order and only when non-empty:
-    * - *Go to*: the static destinations (Overview, Portfolios, Assets,
-    *   Data & Sync, Settings and its four sub-sections, plus Users and
-    *   Server settings for admin accounts) plus every portfolio from
-    *   `portfolioApi.list()`;
+   * - *Go to*: the static destinations (Overview, Portfolios, Assets,
+   *   Data & Sync, Settings and its five sub-sections, plus Users and
+   *   Server settings for admin accounts) plus every portfolio from
+   *   `portfolioApi.list()`;
    * - *Assets*: registered assets from `assetApi.list()`, plus a live
    *   "Search Yahoo for …" row fed by a debounced `assetApi.lookup()` —
    *   selecting it navigates to `/assets` (creating assets stays out of
@@ -300,6 +301,15 @@
         icon: CircleDollarSign,
         keywords: 'fx exchange rates',
         run: () => goto(resolve('/settings/currencies')),
+      }),
+      row({
+        id: 'go-settings-backup',
+        section: 'go',
+        label: t('settingsTabs.backup'),
+        hint: t('nav.settings'),
+        icon: Download,
+        keywords: 'backup restore download export import data json',
+        run: () => goto(resolve('/settings/backup')),
       }),
       // Admin destinations mirror the sidebar's Admin section: only offered
       // to admin-equivalent accounts (#57 Phase A).

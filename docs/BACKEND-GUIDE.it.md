@@ -1013,6 +1013,62 @@ anche in questo caso si ripiega su `yahoo`. Un documento con `version` più
 recente di quella supportata dall'importer viene rifiutato con un 400 chiaro
 (`unsupported export version N`) invece di un errore generico.
 
+### Backup e ripristino per utente (`GET /backup`, `POST /backup/restore`)
+
+`GET /backup` restituisce tutti i dati dell'utente autenticato come un
+unico bundle JSON scaricabile (`peculium-backup-<email>-<data>.json`). Come
+l'export del portafoglio, il documento è **versionato** (campo `version`,
+attualmente `1`) e **additivo**: i campi opzionali possono mancare all'import,
+e un bundle più recente di quello che il server capisce viene rifiutato con
+un 400 (`unsupported backup version N`). Il bundle contiene:
+
+- `user` — email e nome dell'account da cui il bundle proviene
+  (informativi) e la sua **valuta base**, l'unica impostazione utente che
+  il ripristino riapplica;
+- `currencies` — le voci di valute supportate in uso: la valuta base e
+  tutte le valute di portafogli e asset;
+- `portfolios` — un normale documento di export del portafoglio per
+  ciascun portafoglio **posseduto** dall'utente (i portafogli condivisi in
+  ingresso non vengono duplicati); ogni voce è autonoma e importabile anche
+  da sola attraverso l'endpoint di import del portafoglio;
+- `assets` — i dati per-asset che nessun provider può rifornire, indicizzati
+  per ticker: i metadati identificativi, l'**esposizione** (righe paesi,
+  regioni e settori con, nei campi `*_source`, la provenienza di ogni
+  dimensione salvata) e le **righe dei prezzi manuali**.
+
+I prezzi Yahoo, la cronologia FX e gli eventi health sono esclusi di
+proposito: sono dati dei provider, che fetcher e worker rigenerano sul
+server ripristinato.
+
+`POST /backup/restore?mode=add|replace` riscrive il bundle sull'account
+autenticato — lo scenario previsto è un server reinizializzato da zero, dove
+l'utente ha ricreato l'account a mano. Il body è il JSON del bundle stesso.
+La modalità decide cosa succede ai dati esistenti:
+
+- `add` (default quando `mode` è omesso) è non distruttivo: ogni
+  portafoglio del bundle viene importato come nuovo e i dati esistenti
+  restano intatti;
+- `replace` elimina prima i portafogli posseduti dall'utente — CASCADE
+  porta via le loro transazioni — e poi importa il bundle. Non esiste una
+  conferma lato server per `replace`: è la UI client a confermare prima
+  della chiamata.
+
+Gli asset sono globali e condivisi tra utenti, quindi il ripristino **non
+ne elimina mai nessuno**: un ticker già presente viene riusato così com'è —
+i suoi metadati identificativi condivisi non vengono sovrascritti — e uno
+assente viene creato dal bundle con gli stessi default dell'importatore del
+portafoglio. L'esposizione viene ripristinata solo per le dimensioni che
+hanno effettivamente righe (una dimensione assente dal bundle lascia
+invariata quella salvata), e i prezzi manuali fanno upsert su
+`(asset, data)`. Le voci delle valute aggiungono alla whitelist globale i
+codici mancanti e non modificano mai quelli esistenti. Tutta la scrittura
+avviene in un'unica transazione e, dopo il commit, le serie di ogni
+portafoglio creato vengono ricalcolate.
+
+La risposta è il riepilogo dell'operazione: la `mode` effettivamente
+applicata e i contatori `portfolios_created`, `transactions_created`,
+`assets_created` e `assets_reused`.
+
 ---
 
 ## 16. Il ciclo dei dati completo
@@ -1084,7 +1140,7 @@ backend/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
 │   ├── geo/geo.go          # macro-regioni, settori GICS, paesi ISO canonici, mappatura paese→regione
-│   ├── handler/            # livello HTTP (auth.go, admin.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # livello HTTP (auth.go, admin.go, backup.go, portfolio.go, settings.go, ...)
 │   ├── middleware/         # controlli d'account per richiesta: stato attivo + cancello admin
 │   ├── model/              # strutture dati con tag JSON
 │   ├── position/           # motore AVCO (State, Apply, Walk)
@@ -1092,7 +1148,7 @@ backend/
 │   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
-│   └── service/            # logica di business (service.go, admin.go)
+│   └── service/            # logica di business (service.go, admin.go, backup.go)
 ├── migrations/             # SQL versionato (000001..000019)
 └── go.mod
 ```

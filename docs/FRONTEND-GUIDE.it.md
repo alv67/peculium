@@ -200,7 +200,8 @@ frontend/
         │   │                       #   + filtri persistiti nell'URL)
         │   ├── tx-filters.ts       #   modello filtri Attività + codec query URL
         │   └── allocation/         #   tab Allocazione
-        ├── settings/       # profilo, password, whitelist valute
+        ├── settings/       # profilo, password, preferenze, valute,
+        │                   #   backup e ripristino
         └── admin/          # area "Admin": health/ (dashboard prezzi,
                             #   "Dati e sincronizzazione", aperta a tutti)
                             #   più users/ + settings/ (solo amministratori)
@@ -291,6 +292,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce il `RefreshReport`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
+| `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings` (tutti riservati agli amministratori: 403 per gli altri ruoli) |
 | `api` (generico) | get/post/put/patch/delete | il client grezzo, usato dalla pagina health per `GET /health/prices` |
 
@@ -483,7 +485,7 @@ scuro contornato di bianco).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | combobox filtrabile sugli asset già registrati (ticker/nome, max 8 righe); emette l'id dell'asset selezionato | la modale transazione. La ricerca ticker Yahoo per creare asset vive in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | tabella transazioni (Data/Asset/Type badge/Qty/Price/Total/Azioni) con azione di modifica allineata a destra | la card Transactions del **dettaglio portafoglio**; la pagina le passa una pagina da 20 righe alla volta e mostra i pulsanti Previous/Next con l'intervallo sotto di essa |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | form di aggiunta/modifica/eliminazione transazione: combobox asset, tipo (buy/sell/dividend), quantità/prezzo o importo, data, commissioni, note; validazione inline e totale live; gestisce chiamate API e toast. Si presenta come `ui/Modal` da `sm` in su e come `ui/Sheet` (bottom sheet) sui telefoni (store `viewport`), condividendo un'unica coppia di snippet form/piè; Elimina rimuove la riga subito e mostra un toast **undo** da 5 s invece del `ConfirmDialog` — l'undo re-INVIA il payload catturato, con nuovo id | la pagina **dettaglio portafoglio**, aperta da "Add Transaction" e dall'azione di modifica della tabella |
-| `SettingsTabs.svelte` (`lib/components/domain/`) | barra di tab basata su link per le subroute delle Impostazioni (Profilo / Password / Preferenze / Valute), tab attivo marcato con `aria-current="page"`; il contenitore delle pill `max-w-full flex-wrap` mantiene tutte e quattro le tab raggiungibili a larghezza telefono | tutte e quattro le pagine **Settings** |
+| `SettingsTabs.svelte` (`lib/components/domain/`) | barra di tab basata su link per le subroute delle Impostazioni (Profilo / Password / Preferenze / Valute / Backup e ripristino), tab attivo marcato con `aria-current="page"`; il contenitore delle pill `max-w-full flex-wrap` mantiene tutte e cinque le tab raggiungibili a larghezza telefono | tutte e cinque le pagine **Settings** |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | disclosure segmentata **Grafico ⇄ Tabella** condivisa: wrapper sottile di `SegmentedControl` legato allo stato `view` interno (`'chart' \| 'table'`, `$bindable`) del grafico che lo ospita, con etichette `Chart`/`Table` da `chartView.*`; il nome accessibile della tablist interpola il titolo proprio del grafico, se ce l'ha (`chartView.ariaNamed`, altrimenti il generico `chartView.aria`) | incorporato da `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` e `AllocationDonut` (vedi la nota "Vedi come tabella" qui sotto); i chiamanti lo nascondono con `showTableToggle={false}` dove sotto al grafico è già presente un elenco delle stesse righe |
 
 I tooltip formattano i valori monetari con `formatCurrency` (capitolo 6), le
@@ -784,7 +786,7 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   l'unico tab stop; le opzioni sono righe `role="option"` deliberatamente non
   focusabili, pattern APG) su una `role="listbox"` raggruppata con tre sezioni
   `role="group"` rese solo se non vuote: **Vai a** (Panoramica, Portafogli,
-  Asset, Dati e sincronizzazione, Impostazioni + le quattro sottosezioni, più
+  Asset, Dati e sincronizzazione, Impostazioni + le cinque sottosezioni, più
   Utenti e Impostazioni server per gli account amministratore, poi
   ogni portafoglio da `portfolioApi.list()`), **Asset** (gli asset registrati
   da `assetApi.list()` — nome più hint col ticker — seguiti da una riga live
@@ -1568,8 +1570,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 ### `/settings` — Impostazioni (`routes/settings/+page.svelte`)
 
 Endpoint chiamati: `settingsApi.listCurrencies()`, `updateProfile()`,
-`authApi.changePassword()`. La barra `SettingsTabs` naviga le quattro
-sezioni (Profilo · Password · **Preferenze** · Valute) e le sue etichette
+`authApi.changePassword()`, `backupApi.download()`, `backupApi.restore()`.
+La barra `SettingsTabs` naviga le cinque
+sezioni (Profilo · Password · **Preferenze** · Valute · Backup e ripristino) e le sue etichette
 sono tradotte tramite il layer i18n (capitolo 8).
 
 - **Profile** (nome/email/**valuta base**) e **Change password**
@@ -1602,6 +1605,28 @@ sono tradotte tramite il layer i18n (capitolo 8).
   USD→codice e il frontend mostra un messaggio dedicato; 409 = già presente),
   elimina con conferma (409 = in uso o protetta). I simboli sono renderizzati
   con `currencySymbol()`.
+- **Backup e ripristino** (`routes/settings/backup/+page.svelte`): export/import
+  dei dati del singolo utente come un unico bundle JSON versionato. Il
+  **Download** chiama `backupApi.download()` — deliberatamente una fetch
+  autenticata grezza invece di `request`, perché il bundle deve arrivare come
+  `Blob` e il nome suggerito arriva dall'`Content-Disposition` della risposta —
+  e lo salva con la stessa danza `URL.createObjectURL` + ancora usata
+  dall'export del portafoglio. Il **Ripristino** prima legge il file scelto
+  lato client (JSON non parsabile → messaggio file non valido; forma o
+  `version !== 1` non supportati → messaggio bundle non valido, senza toccare
+  l'API), poi sceglie la strategia: **add** ("Aggiungi ai dati attuali",
+  default non distruttivo, selezionato per ogni nuovo file scelto) o
+  **replace** ("Sostituisci i dati attuali" — distruttivo: cancella i
+  portafogli dell'account prima di importare; con questa opzione attiva il
+  pulsante Ripristina prende la variante `danger` e la richiesta parte solo
+  dopo un `ConfirmDialog` esplicito). `POST /backup/restore?mode=…` risponde
+  il riepilogo dei conteggi (`portfolios_created`, `transactions_created`,
+  `assets_created`, `assets_reused`): toast di successo e conteggi lasciati
+  visibili in una griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`);
+  un 400 del backend (formato/versione non supportati) mappa sul messaggio
+  localizzato bundle non valido, tutto il resto sul fallback di ripristino
+  fallito. Gli asset sono globali e nessuna modalità li elimina: i ticker
+  esistenti vengono riusati, i mancanti ricreati.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 

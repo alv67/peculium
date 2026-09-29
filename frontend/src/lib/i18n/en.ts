@@ -194,6 +194,8 @@ export const en = {
     password: 'Password',
     preferences: 'Preferences',
     currencies: 'Currencies',
+    /** Backup & restore section (issue #56). */
+    backup: 'Backup & restore',
   },
   /**
    * Global command palette (EPIC K.5a, spec §8.1). Destination/action labels
@@ -290,6 +292,50 @@ export const en = {
     deleteTitle: 'Delete currency',
     deleteConfirm: 'Delete currency {code}?',
     loadFailed: 'Failed to load currencies',
+  },
+  /**
+   * Settings → Backup & restore (issue #56): the download card, the restore
+   * flow (file picker, add/replace modes, destructive confirmation, counts
+   * summary) and their toasts. 400s from the restore endpoint map to
+   * `invalidBundle`; raw server strings never reach the UI.
+   */
+  backup: {
+    /** Download card. */
+    downloadTitle: 'Download your data',
+    downloadHint:
+      'Exports every portfolio with its transactions, the referenced assets (metadata, exposure, manual prices) and the currencies in use as a single JSON file. Provider data (Yahoo prices, FX history) is excluded — it is refetched after a restore.',
+    downloadAction: 'Download backup',
+    downloaded: 'Backup downloaded',
+    downloadFailed: 'Backup download failed',
+    /** Restore card. */
+    restoreTitle: 'Restore from a backup',
+    restoreHint:
+      'Pick a backup file created by this app. Assets are global: existing ones are reused, missing ones are recreated.',
+    chooseFile: 'Choose backup file',
+    chooseAnotherFile: 'Choose another file',
+    restorePickHint: 'Select a backup JSON file to choose how it should be imported.',
+    selectedFile: 'Selected file:',
+    /** Import-strategy radios. */
+    modeAdd: 'Add to current data',
+    modeAddHint: 'Portfolios are imported as new ones; nothing you already have is touched.',
+    modeReplace: 'Replace current data',
+    modeReplaceHint:
+      'Deletes your existing portfolios and their transactions first, then imports. Assets are never deleted.',
+    restoreAction: 'Restore',
+    done: 'Backup restored',
+    restoreFailed: 'Restore failed',
+    invalidFile: 'That file is not a valid JSON document.',
+    invalidBundle: 'The file is not a supported backup bundle (check its format or version).',
+    /** Inline counts summary after a successful restore. */
+    resultTitle: 'Import result',
+    resultPortfolios: 'Portfolios created',
+    resultTransactions: 'Transactions created',
+    resultAssetsCreated: 'Assets created',
+    resultAssetsReused: 'Assets reused',
+    /** Replace-mode confirmation dialog. */
+    confirmTitle: 'Replace current data?',
+    confirmMessage:
+      'This deletes your existing portfolios and their transactions before importing the backup. This cannot be undone.',
   },
   /**
    * Allocation surfaces (EPIC K bug-fix, progressive D1 sweep): the wealth

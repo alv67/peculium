@@ -171,6 +171,8 @@ export const it = {
     password: 'Password',
     preferences: 'Preferenze',
     currencies: 'Valute',
+    /** Sezione backup e ripristino (issue #56). */
+    backup: 'Backup e ripristino',
   },
   /**
    * Pannello comandi globale (EPIC K.5a, spec §8.1). Le etichette di
@@ -262,6 +264,51 @@ export const it = {
     deleteTitle: 'Elimina valuta',
     deleteConfirm: 'Eliminare la valuta {code}?',
     loadFailed: 'Caricamento delle valute non riuscito',
+  },
+  /**
+   * Impostazioni → Backup e ripristino (issue #56): la card di download, il
+   * flusso di ripristino (selettore di file, modalità aggiungi/sostituisci,
+   * conferma distruttiva, riepilogo dei conteggi) e i loro toast. I 400 del
+   * ripristino mappano su `invalidBundle`; le stringhe grezze del backend non
+   * arrivano mai alla UI.
+   */
+  backup: {
+    /** Card di download. */
+    downloadTitle: 'Scarica i tuoi dati',
+    downloadHint:
+      'Esporta ogni portafoglio con le sue transazioni, gli asset correlati (metadati, esposizione, prezzi manuali) e le valute in uso in un unico file JSON. I dati dei provider (prezzi Yahoo, storico FX) sono esclusi: vengono ricaricati dopo il ripristino.',
+    downloadAction: 'Scarica backup',
+    downloaded: 'Backup scaricato',
+    downloadFailed: 'Download del backup non riuscito',
+    /** Card di ripristino. */
+    restoreTitle: 'Ripristina da un backup',
+    restoreHint:
+      'Scegli un file di backup creato da questa app. Gli asset sono globali: quelli esistenti vengono riusati, quelli mancanti ricreati.',
+    chooseFile: 'Scegli file di backup',
+    chooseAnotherFile: 'Scegli un altro file',
+    restorePickHint: 'Seleziona un file JSON di backup per scegliere come importarlo.',
+    selectedFile: 'File selezionato:',
+    /** Radio della strategia di importazione. */
+    modeAdd: 'Aggiungi ai dati attuali',
+    modeAddHint: 'I portafogli vengono importati come nuovi; nulla di ciò che hai già viene toccato.',
+    modeReplace: 'Sostituisci i dati attuali',
+    modeReplaceHint:
+      'Elimina prima i tuoi portafogli esistenti e le loro transazioni, poi importa. Gli asset non vengono mai eliminati.',
+    restoreAction: 'Ripristina',
+    done: 'Backup ripristinato',
+    restoreFailed: 'Ripristino non riuscito',
+    invalidFile: 'Il file non è un documento JSON valido.',
+    invalidBundle: 'Il file non è un backup supportato (verifica formato o versione).',
+    /** Riepilogo dei conteggi inline dopo un ripristino riuscito. */
+    resultTitle: "Risultato dell'importazione",
+    resultPortfolios: 'Portafogli creati',
+    resultTransactions: 'Transazioni create',
+    resultAssetsCreated: 'Asset creati',
+    resultAssetsReused: 'Asset riusati',
+    /** Dialogo di conferma della modalità sostituisci. */
+    confirmTitle: 'Sostituire i dati attuali?',
+    confirmMessage:
+      "Questa operazione elimina i tuoi portafogli esistenti e le loro transazioni prima di importare il backup. Non è reversibile.",
   },
   /**
    * Superfici di allocazione (bug-fix EPIC K, sweep progressivo D1): la card

@@ -2496,55 +2496,19 @@ func (s *Service) ImportPortfolio(ctx context.Context, userID uuid.UUID, doc *mo
 		}
 
 		assetByTicker := map[string]*model.Asset{}
-		// The defaults below keep documents exported by older app versions
-		// importable: those files predate fields like price_source/asset_class
-		// and may omit any optional value, so every missing piece is filled
-		// with a constraint-satisfying default instead of failing the insert.
-		// An unknown or absent price_source falls back to "yahoo" rather than
-		// erroring, the same default Service.CreateAsset applies.
+		exportMetaByTicker := map[string]*model.ExportAsset{}
+		for i := range doc.Assets {
+			key := strings.ToLower(strings.TrimSpace(doc.Assets[i].Ticker))
+			if _, ok := exportMetaByTicker[key]; !ok {
+				exportMetaByTicker[key] = &doc.Assets[i]
+			}
+		}
+		// Asset resolution (reuse by ticker, create from the exported
+		// metadata with importer defaults for anything missing) is shared
+		// with the user-bundle restore: see importBackupAsset.
 		createAsset := func(ticker string) (*model.Asset, error) {
-			if a, ok := assetByTicker[ticker]; ok {
-				return a, nil
-			}
-			a, err := rx.Asset.FindByTicker(ctx, ticker)
-			if err != nil {
-				return nil, err
-			}
-			if a == nil {
-				a = &model.Asset{Ticker: ticker, Name: ticker, Type: model.AssetTypeStock, Currency: "USD", PriceSource: "yahoo"}
-				for i := range doc.Assets {
-					ea := doc.Assets[i]
-					if !strings.EqualFold(ea.Ticker, ticker) {
-						continue
-					}
-					if ea.Name != "" {
-						a.Name = ea.Name
-					}
-					a.ISIN = ea.ISIN
-					if ea.Type != "" {
-						a.Type = ea.Type
-					}
-					if ea.Currency != "" {
-						a.Currency = ea.Currency
-					}
-					if ea.AssetClass != "" {
-						a.AssetClass = ea.AssetClass
-					}
-					if priceSources[ea.PriceSource] {
-						a.PriceSource = ea.PriceSource
-					}
-					break
-				}
-				if a.AssetClass == "" {
-					a.AssetClass = defaultAssetClassForType(a.Type)
-				}
-				a, err = rx.Asset.Create(ctx, a)
-				if err != nil {
-					return nil, err
-				}
-			}
-			assetByTicker[ticker] = a
-			return a, nil
+			a, _, err := importBackupAsset(ctx, rx, assetByTicker, exportMetaByTicker, ticker)
+			return a, err
 		}
 		for _, ea := range doc.Assets {
 			if _, err := createAsset(strings.TrimSpace(ea.Ticker)); err != nil {
