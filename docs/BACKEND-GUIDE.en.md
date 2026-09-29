@@ -958,6 +958,60 @@ it also falls back to `yahoo`. A document whose `version` is newer than what
 the importer understands is rejected with a clear 400
 (`unsupported export version N`) instead of a generic failure.
 
+### Per-user backup and restore (`GET /backup`, `POST /backup/restore`)
+
+`GET /backup` streams the whole data of the authenticated user as a single
+downloadable JSON bundle (`peculium-backup-<email>-<date>.json`). Like the
+portfolio export, the document is **versioned** (the `version` field,
+currently `1`) and **additive**: optional fields may be missing on import,
+and a bundle newer than what the server understands is rejected with a 400
+(`unsupported backup version N`). The bundle carries:
+
+- `user` — the email and name of the account it came from (informational)
+  plus its **base currency**, the one user setting restore applies;
+- `currencies` — the supported-currency entries in use: the base currency
+  and every portfolio and asset currency;
+- `portfolios` — one standard portfolio-export document per portfolio the
+  user **owns** (portfolios shared into the account are not duplicated);
+  each entry is self-contained and also importable on its own through the
+  portfolio import endpoint;
+- `assets` — the per-asset data no provider can refetch, keyed by ticker:
+  the identity metadata, the **exposure** (country, region and sector rows
+  plus, in the `*_source` fields, the provenance of every saved dimension)
+  and the **manual price rows**.
+
+Yahoo prices, FX history and health events are deliberately excluded: they
+are provider data, refilled by the fetcher and the worker on the restored
+server.
+
+`POST /backup/restore?mode=add|replace` writes the bundle back onto the
+authenticated account — the intended scenario is a server re-initialized
+from scratch, where the user has recreated the account by hand. The body is
+the bundle JSON itself. The mode decides what happens to existing data:
+
+- `add` (the default when `mode` is omitted) is non-destructive: every
+  portfolio of the bundle is imported as a new one and existing data is
+  left untouched;
+- `replace` first deletes the portfolios the user owns — CASCADE removes
+  their transactions with them — and then imports the bundle. There is no
+  server-side confirmation for `replace`: the client UI confirms before
+  calling.
+
+Assets are global and shared between users, so restore **never deletes**
+any: an already-stored ticker is reused as-is — its shared identity
+metadata is not overwritten — and a missing one is created from the bundle
+with the same importer defaults the portfolio import applies. Exposure is
+restored only for dimensions that actually carry rows (a dimension absent
+from the bundle leaves the stored one untouched), and manual prices upsert
+on `(asset, date)`. Currency entries add missing codes to the global
+whitelist and never modify existing ones. The whole restore runs in a
+single transaction, and once it commits the series of every created
+portfolio is recomputed.
+
+The response is a summary of the operation: the `mode` applied and the
+counts `portfolios_created`, `transactions_created`, `assets_created` and
+`assets_reused`.
+
 ---
 
 ## 16. The complete data flow
@@ -1026,14 +1080,14 @@ backend/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
 │   ├── geo/geo.go          # macro-regions, GICS sectors, canonical ISO countries, country→region mapping
-│   ├── handler/            # HTTP layer (auth.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # HTTP layer (auth.go, portfolio.go, settings.go, backup.go, ...)
 │   ├── model/              # data structures with JSON tags
 │   ├── position/           # AVCO engine (State, Apply, Walk)
 │   ├── price/              # Yahoo client (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + JustETF/Morningstar fetchers
 │   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
 │   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
-│   └── service/            # business logic (service.go)
+│   └── service/            # business logic (service.go, backup.go)
 ├── migrations/             # versioned SQL (000001..000018)
 └── go.mod
 ```

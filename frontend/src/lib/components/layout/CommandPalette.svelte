@@ -4,6 +4,7 @@
     Banknote,
     Briefcase,
     CircleDollarSign,
+    Download,
     Eye,
     FolderClosed,
     HandCoins,
@@ -48,7 +49,7 @@
    *
    * Sections, rendered in this order and only when non-empty:
    * - *Go to*: the static destinations (Overview, Portfolios, Assets,
-   *   Data & Sync, Settings and its four sub-sections) plus every portfolio
+   *   Data & Sync, Settings and its five sub-sections) plus every portfolio
    *   from `portfolioApi.list()`;
    * - *Assets*: registered assets from `assetApi.list()`, plus a live
    *   "Search Yahoo for …" row fed by a debounced `assetApi.lookup()` —
@@ -296,6 +297,15 @@
         icon: CircleDollarSign,
         keywords: 'fx exchange rates',
         run: () => goto(resolve('/settings/currencies')),
+      }),
+      row({
+        id: 'go-settings-backup',
+        section: 'go',
+        label: t('settingsTabs.backup'),
+        hint: t('nav.settings'),
+        icon: Download,
+        keywords: 'backup restore download export import data json',
+        run: () => goto(resolve('/settings/backup')),
       }),
       ...portfolioSource.map((p) =>
         row({

@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- New Settings → Backup & restore page: download all of your data — portfolios, transactions, assets with their exposure and manual prices — as a single JSON file, and restore it choosing whether to **add** it to your current data or **replace** it (replace asks for an explicit confirmation first, and your assets are never deleted)
+
 ## v0.6.1 — 23 Sep 2026
 
 ### Features

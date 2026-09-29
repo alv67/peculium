@@ -107,6 +107,15 @@ func (f *fakeExposureRepo) FindProvenance(ctx context.Context, assetID uuid.UUID
 	}
 	return f.provenance[assetID.String()], nil
 }
+func (f *fakeExposureRepo) FindProvenanceByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[string]map[string]model.ExposureProvenance, error) {
+	out := map[string]map[string]model.ExposureProvenance{}
+	for _, id := range assetIDs {
+		if prov := f.provenance[id.String()]; len(prov) > 0 {
+			out[id.String()] = prov
+		}
+	}
+	return out, nil
+}
 func (f *fakeExposureRepo) SetProvenance(ctx context.Context, assetID uuid.UUID, dimension, source string) error {
 	f.setProvenanceCalls++
 	if f.provenance == nil {

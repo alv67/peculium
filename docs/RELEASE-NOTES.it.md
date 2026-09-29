@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Nuove funzionalità
+- Nuova pagina Impostazioni → Backup e ripristino: scarica tutti i tuoi dati — portafogli, transazioni, asset con esposizione e prezzi manuali — in un unico file JSON, e ripristinali scegliendo se **aggiungerli** ai dati attuali o **sostituirli** (la sostituzione chiede una conferma esplicita, e i tuoi asset non vengono mai eliminati)
+
 ## v0.6.1 — 23 Set 2026
 
 ### Nuove funzionalità

@@ -191,7 +191,8 @@ frontend/
         │   │                       #   + URL-persisted filters)
         │   ├── tx-filters.ts       #   Activity filter model + URL query codec
         │   └── allocation/         #   Allocation tab
-        ├── settings/       # profile, password, currency whitelist
+        ├── settings/       # profile, password, preferences, currencies,
+        │                   #   backup & restore
         └── admin/health/   # price-sync health dashboard — "Data & Sync"
 ```
 
@@ -277,6 +278,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 | `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns the `RefreshReport`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
+| `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
 | `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -462,7 +464,7 @@ in white).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | filterable combobox over the already-registered assets (ticker/name, max 8 rows); emits the selected asset id | the transaction modal. The Yahoo ticker lookup for creating assets lives in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | transactions table (Date/Asset/Type badge/Qty/Price/Total/Actions) with a right-aligned edit action | the **portfolio detail** Transactions card; the page feeds it one 20-row page at a time and renders the Previous/Next footer under it |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | add/edit/delete transaction form: asset combobox, type (buy/sell/dividend), quantity/price or amount, date, fees, notes; inline validation and a live total; owns the API calls and toasts. It renders as the `ui/Modal` at ≥ `sm` and as a `ui/Sheet` (bottom sheet) on phones (via the `viewport` store), sharing one form/footer snippet pair; Delete removes the row immediately and shows a 5 s **undo** toast instead of a `ConfirmDialog` — the undo re-POSTs the captured payload, which yields a new id | the **portfolio detail** page, opened by "Add Transaction" and by the transaction table edit action |
-| `SettingsTabs.svelte` (`lib/components/domain/`) | link-based tab bar for the Settings subroutes (Profile / Password / Preferences / Currencies), active tab marked with `aria-current="page"`; the pill container is `max-w-full flex-wrap` so all four tabs stay reachable at phone widths | all four **Settings** pages |
+| `SettingsTabs.svelte` (`lib/components/domain/`) | link-based tab bar for the Settings subroutes (Profile / Password / Preferences / Currencies / Backup & restore), active tab marked with `aria-current="page"`; the pill container is `max-w-full flex-wrap` so all five tabs stay reachable at phone widths | all five **Settings** pages |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | shared **Chart ⇄ Table** segmented disclosure: a thin wrapper over `SegmentedControl` bound to the owning chart's internal `view` state (`'chart' \| 'table'`, `$bindable`), labeled `Chart`/`Table` through `chartView.*`; the tablist accessible name interpolates the chart's own heading when it has one (`chartView.ariaNamed`, generic `chartView.aria` otherwise) | embedded by `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` and `AllocationDonut` (see the "View as table" note below); callers hide it with `showTableToggle={false}` where a list of the same rows already sits directly under the chart |
 
 Tooltips format monetary values with `formatCurrency` (chapter 6), dates with
@@ -727,7 +729,7 @@ JS state and CSS never disagree.
   deliberately non-focusable APG `role="option"` rows) over a grouped
   `role="listbox"` with three `role="group"` sections rendered only when
   non-empty: **Go to** (Overview, Portfolios, Assets, Data & Sync, Settings +
-  its four sub-sections, then every portfolio from `portfolioApi.list()`),
+  its five sub-sections, then every portfolio from `portfolioApi.list()`),
   **Assets** (registered assets from `assetApi.list()` — name plus ticker
   hint — followed by a live "Search Yahoo for …" row fed by a 300 ms-debounced
   `assetApi.lookup()` from 2 characters; selecting it just navigates to
@@ -1470,8 +1472,9 @@ TAB **Exposure** — the geo/sector distribution widgets:
 ### `/settings` — Settings (`routes/settings/+page.svelte`)
 
 Called endpoints: `settingsApi.listCurrencies()`, `updateProfile()`,
-`authApi.changePassword()`. The `SettingsTabs` bar navigates the four
-sections (Profile · Password · **Preferences** · Currencies) and its labels
+`authApi.changePassword()`, `backupApi.download()`, `backupApi.restore()`.
+The `SettingsTabs` bar navigates the five
+sections (Profile · Password · **Preferences** · Currencies · Backup & restore) and its labels
 are translated through the i18n layer (chapter 8).
 
 - **Profile** (name/email/**base currency**) and **Change password**
@@ -1501,6 +1504,26 @@ are translated through the i18n layer (chapter 8).
   422 from the backend means Yahoo has no USD→code conversion and the frontend
   shows a specific message; 409 means already present), delete with confirm
   (409 = in use or protected). Symbols rendered with `currencySymbol()`.
+- **Backup & restore** (`routes/settings/backup/+page.svelte`): per-user data
+  export/import as a single versioned JSON bundle. **Download** calls
+  `backupApi.download()` — deliberately a raw authenticated fetch instead of
+  `request`, because the bundle must arrive as a `Blob` and the suggested name
+  comes from the response's `Content-Disposition` — and saves it through the
+  same `URL.createObjectURL` anchor dance as the portfolio export. **Restore**
+  first reads the chosen file client-side (unparseable JSON → invalid-file
+  message; object shape or `version !== 1` → invalid-bundle message, neither
+  touching the API), then picks the strategy: **add** ("Add to current data",
+  the non-destructive default, selected for every freshly chosen file) or
+  **replace** ("Replace current data" — destructive: it wipes the account's
+  portfolios before importing, the Restore button takes the `danger` variant
+  while it is selected and the request only goes out after an explicit
+  `ConfirmDialog`). `POST /backup/restore?mode=…` answers the counts summary
+  (`portfolios_created`, `transactions_created`, `assets_created`,
+  `assets_reused`): success toasts and the counts stay visible as an inline
+  `<dl>` grid (2 columns on phones, 4 from `sm`); a server 400 (unsupported
+  format/version) maps to the localized invalid-bundle message, everything
+  else to the generic restore-failure one. Assets are global and never
+  deleted by any mode: existing tickers are reused, missing ones recreated.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 

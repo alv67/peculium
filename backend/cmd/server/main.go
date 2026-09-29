@@ -218,6 +218,9 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
 			r.Get("/dashboard/allocation/drill", h.GetDashboardAllocationDrill)
 			r.Get("/dashboard/performance", h.GetDashboardPerformance)
 
+			r.Get("/backup", h.DownloadBackup)
+			r.Post("/backup/restore", h.RestoreUserBackup)
+
 			r.Get("/settings/currencies", h.ListCurrencies)
 			r.Post("/settings/currencies", h.CreateCurrency)
 			r.Delete("/settings/currencies/{code}", h.DeleteCurrency)

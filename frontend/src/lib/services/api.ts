@@ -580,6 +580,53 @@ function buildUrl(path: string, params?: Record<string, string>): string {
   return url.toString()
 }
 
+/**
+ * Shared 401 → refresh → retry step: on success stores the rotated token
+ * pair, updates the `Authorization` header in place and returns `true` (the
+ * caller re-runs its request). A refused or failed refresh clears the
+ * session and hard-redirects to `/login` — exactly what `request` used to do
+ * inline — and returns `false`, leaving the original response to be handled
+ * by the caller.
+ */
+async function tryRefreshToken(headers: Record<string, string>): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refresh_token')
+  if (!refreshToken) return false
+  try {
+    const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (refreshRes.ok) {
+      const data = await refreshRes.json()
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      headers.Authorization = `Bearer ${data.access_token}`
+      return true
+    }
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    window.location.replace('/login')
+  } catch {
+    window.location.replace('/login')
+  }
+  return false
+}
+
+/** Build the `Error` for a failed response: the backend `{"error": …}` body
+ * when present (never the raw body of a non-JSON failure), plus the HTTP
+ * status on the error object so pages can map specific codes. */
+async function errorFrom(res: Response): Promise<Error> {
+  let message = 'Something went wrong'
+  try {
+    const data = await res.json()
+    if (data?.error) message = data.error
+  } catch {
+    // keep default message
+  }
+  return Object.assign(new Error(message), { status: res.status })
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET'
   const url = buildUrl(path, options.params)
@@ -616,41 +663,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   let res = await fetch(url, init())
 
   if (res.status === 401 && !path.includes('/auth/')) {
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        })
-        if (refreshRes.ok) {
-          const data = await refreshRes.json()
-          localStorage.setItem('access_token', data.access_token)
-          localStorage.setItem('refresh_token', data.refresh_token)
-          headers.Authorization = `Bearer ${data.access_token}`
-          res = await fetch(url, init())
-        } else {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.replace('/login')
-        }
-      } catch {
-        window.location.replace('/login')
-      }
+    if (await tryRefreshToken(headers)) {
+      res = await fetch(url, init())
     }
   }
 
   if (!res.ok) {
     // Do not cache failures (4xx/5xx): the normal throw/retry flow applies.
-    let message = 'Something went wrong'
-    try {
-      const data = await res.json()
-      if (data?.error) message = data.error
-    } catch {
-      // keep default message
-    }
-    throw Object.assign(new Error(message), { status: res.status })
+    throw await errorFrom(res)
   }
 
   if (res.status === 204) return undefined as T
@@ -815,4 +835,57 @@ export const settingsApi = {
     request<Currency>('/settings/currencies', { method: 'POST', body: { code, name } }),
   deleteCurrency: (code: string) =>
     request<void>(`/settings/currencies/${encodeURIComponent(code)}`, { method: 'DELETE' }),
+}
+
+/** Restore strategy (`#56`): `add` imports portfolios as new (non-destructive,
+ * the backend default); `replace` deletes the user's portfolios first. */
+export type BackupRestoreMode = 'add' | 'replace'
+
+/** Summary returned by `POST /backup/restore` (`mode` echoes what was applied;
+ * extra fields are tolerated by the structural type). */
+export interface BackupRestoreSummary {
+  mode: string
+  portfolios_created: number
+  transactions_created: number
+  assets_created: number
+  assets_reused: number
+}
+
+/** Raw bytes of `GET /backup` plus the server-suggested file name parsed
+ * from `Content-Disposition` (`null` when the header is absent). */
+export interface BackupDownload {
+  blob: Blob
+  filename: string | null
+}
+
+/**
+ * Per-user backup & restore (`/api/v1/backup`). `download` deliberately
+ * bypasses `request` — that helper JSON-parses its body, while here the
+ * bundle must arrive as a `Blob` and the server filename lives in a response
+ * header — but shares its auth header, its 401 → refresh → retry flow and
+ * its error shape. `restore` POSTs the bundle object read from the chosen
+ * file: the server owns format/version validation (400 for anything it does
+ * not understand) and answers with the counts summary.
+ */
+export const backupApi = {
+  download: async (): Promise<BackupDownload> => {
+    const url = buildUrl('/backup')
+    const headers: Record<string, string> = {}
+    const token = localStorage.getItem('access_token')
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    let res = await fetch(url, { method: 'GET', headers })
+    if (res.status === 401 && (await tryRefreshToken(headers))) {
+      res = await fetch(url, { method: 'GET', headers })
+    }
+    if (!res.ok) throw await errorFrom(res)
+
+    // Same charset/quote handling as the backend's `backupFilename`:
+    // `attachment; filename="peculium-backup-<email>-<date>.json"`.
+    const disposition = res.headers.get('Content-Disposition') ?? ''
+    const match = /filename="?([^";]+)"?/.exec(disposition)
+    return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
+  },
+  restore: (bundle: unknown, mode: BackupRestoreMode) =>
+    request<BackupRestoreSummary>('/backup/restore', { method: 'POST', params: { mode }, body: bundle }),
 }
