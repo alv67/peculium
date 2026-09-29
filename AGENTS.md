@@ -11,6 +11,11 @@
   ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev stack
   (`docker-compose.dev.yml` / `make up`, DB `peculium`, port 8080) or the release
   stack (`docker-compose.yml`): they hold real data and must stay clean.
+- **Never run schema migrations on the shared dev stack**: a change that adds or
+  edits a migration must be exercised on the isolated test stack
+  (`make test-e2e` / `docker-compose.test.yml`), never via `make up` on the dev
+  DB. Migrating the real dev DB ahead of `develop` leaves the dev backend
+  crash-looping on the migration-version mismatch until the code catches up.
 - Delegate implementation to the dedicated subagents whenever the work fits
   their scope: `backend` for Go/Postgres/Redis/API, `frontend` for SvelteKit/
   TypeScript/Tailwind, `python` for the `python-service/` ETF metadata microservice
