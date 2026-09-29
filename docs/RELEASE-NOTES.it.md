@@ -4,6 +4,9 @@
 
 ### Nuove funzionalità
 - Nuova pagina Impostazioni → Backup e ripristino: scarica tutti i tuoi dati — portafogli, transazioni, asset con esposizione e prezzi manuali — in un unico file JSON, e ripristinali scegliendo se **aggiungerli** ai dati attuali o **sostituirli** (la sostituzione chiede una conferma esplicita, e i tuoi asset non vengono mai eliminati)
+- Nuova **area Admin** per gli account amministratore: una pagina **Utenti** per vedere ogni account con ruolo e stato, approvare le registrazioni in sospeso, disattivare e riattivare account, cambiare i ruoli e impostare una nuova password a chi ha perso la propria; più una pagina **Impostazioni server**. Su un server appena installato il primo account registrato diventa amministratore
+- Nuova impostazione server **Approvazione automatica delle nuove registrazioni** (attiva per impostazione predefinita): quando è spenta, le nuove registrazioni restano in approvazione finché un amministratore non le approva
+- La pagina di accesso ora spiega esattamente cosa sta succedendo quando un account è ancora in approvazione o è stato disattivato, invece di un errore generico, e una registrazione appena conclusa dice subito se serve prima l'approvazione di un amministratore
 
 ## v0.6.1 — 23 Set 2026
 

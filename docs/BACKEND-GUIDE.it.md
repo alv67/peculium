@@ -152,10 +152,12 @@ La sequenza di avvio del server è:
    log, recupero dagli errori, un ID per tracciare ogni richiesta, un timeout
    di 30 secondi e la gestione CORS (le regole che permettono al frontend di
    chiamare l'API).
-5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
-   Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
-   autenticati (controlla il capitolo sull'autenticazione). Fuori da
-   `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
+ 5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
+    Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
+    autenticati con un token valido appartenente a un account attivo
+    (controlla il capitolo sull'autenticazione), e quelli sotto
+    `/api/v1/admin/*` richiedono anche il ruolo admin. Fuori da
+    `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
    `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
@@ -211,12 +213,12 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 
 ## 6. Il database
 
-Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000018`)
+Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000019`)
 costruiscono lo schema. Le tabelle principali:
 
 | Tabella | Contiene | Spiegazione |
 |---|---|---|
-| `users` | gli utenti | email, nome, hash della password, ruolo, valuta base (`base_currency`, default EUR) |
+| `users` | gli utenti | email, nome, hash della password, ruolo, stato dell'account (`active`, `pending`, `disabled`), valuta base (`base_currency`, default EUR) |
 | `assets` | i titoli | ticker, nome, tipo (azione, ETF, crypto...), classe di investimento, fonte prezzi, valuta, exchange, settore, industria |
 | `portfolios` | i portafogli | un portafoglio appartiene a un utente e ha una valuta |
 | `portfolio_shares` | la condivisione | chi altro può vedere un portafoglio (con che ruolo) |
@@ -232,6 +234,7 @@ costruiscono lo schema. Le tabelle principali:
 | `portfolio_series` | serie per portafoglio | valore e costo del portafoglio per ogni giorno |
 | `asset_series` | serie per titolo | valore e costo di ogni titolo per ogni giorno |
 | `health_events` | gli eventi di health dei prezzi | registrazioni di aggiornamenti prezzi vecchi/falliti nella pagina health |
+| `server_settings` | le opzioni del server | una sola riga: auto-approvazione delle registrazioni (capitolo 14) |
 
 Due idee fondamentali del database:
 
@@ -921,6 +924,47 @@ Le password sono salvate come **hash bcrypt** (non in chiaro).
 > l'impronta della password inserita e la si confronta con quella salvata.
 > Così, anche se qualcuno ruba il database, non può leggere le password.
 
+### Stato dell'account e approvazione delle registrazioni
+
+Ogni account porta con sé uno **stato** — `active`, `pending` (in attesa di
+approvazione) o `disabled` — e lo stato viaggia nell'oggetto utente restituito
+da register, login e `GET /users/me`.
+
+- Il **primo registrato** su un server vuoto diventa automaticamente l'`admin`
+  attivo. Tutto avviene in una sola transazione che prima blocca la riga delle
+  impostazioni, così due iscrizioni simultanee non possono essere trattate
+  entrambe come la prima.
+- I registrati successivi ricevono il ruolo `viewer`. Con l'impostazione di
+  server `auto_approve_registrations` **attiva** (il default) sono subito
+  `active`; con **disattiva** sono `pending`. La registrazione riesce sempre —
+  è lo stato nella risposta a indicare al frontend di mostrare "in attesa di
+  approvazione".
+- Il login accetta solo account `active`: uno `pending` viene rifiutato con 403
+  "account pending approval", uno `disabled` con 403 "account disabled" (le
+  stesse regole valgono per il refresh di una coppia di token).
+
+Dopo il controllo JWT, un secondo middleware carica l'account dietro il token
+**a ogni** richiesta protetta e lo lascia passare solo mentre lo stato
+salvato è `active`: un utente sconosciuto o cancellato riceve 401, uno non
+attivo 403. Approvare o disabilitare un account ha quindi effetto immediato,
+anche sui token emessi prima della modifica.
+
+### Area admin
+
+I ruoli `owner` e `admin` sono i ruoli da amministratore (un `owner` — il
+ruolo di default dello schema — conta come admin ovunque); `editor` e
+`viewer` sono utenti normali. Gli endpoint admin stanno sotto
+`/api/v1/admin`, dietro il middleware JWT, il middleware dello stato attivo
+e un cancello admin che risponde 403 ai non-admin:
+
+| Endpoint | Cosa fa |
+|---|---|
+| `GET /admin/users` | elenca tutti gli account: id, email, nome, ruolo, stato, created_at (l'hash della password non è mai esposto) |
+| `PATCH /admin/users/{id}` | imposta `role` e/o `status` (validati contro gli enum); rifiuta con 409 di degradare o disabilitare **l'ultimo admin attivo** |
+| `POST /admin/users/{id}/reset-password` | imposta una nuova password per l'account (minimo 8 caratteri, senza chiedere la corrente) |
+| `GET /admin/settings` | legge le impostazioni di server (`auto_approve_registrations`, `updated_at`) |
+| `PATCH /admin/settings` | aggiorna `auto_approve_registrations` |
+
 ---
 
 ## 15. Operazioni atomiche — `WithTx`
@@ -1096,15 +1140,16 @@ backend/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
 │   ├── geo/geo.go          # macro-regioni, settori GICS, paesi ISO canonici, mappatura paese→regione
-│   ├── handler/            # livello HTTP (auth.go, portfolio.go, settings.go, backup.go, ...)
+│   ├── handler/            # livello HTTP (auth.go, admin.go, backup.go, portfolio.go, settings.go, ...)
+│   ├── middleware/         # controlli d'account per richiesta: stato attivo + cancello admin
 │   ├── model/              # strutture dati con tag JSON
 │   ├── position/           # motore AVCO (State, Apply, Walk)
 │   ├── price/              # client Yahoo (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + fetcher JustETF/Morningstar
-│   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
-│   └── service/            # logica di business (service.go, backup.go)
-├── migrations/             # SQL versionato (000001..000018)
+│   └── service/            # logica di business (service.go, admin.go, backup.go)
+├── migrations/             # SQL versionato (000001..000019)
 └── go.mod
 ```
 
