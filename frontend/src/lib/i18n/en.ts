@@ -96,6 +96,9 @@ export const en = {
      * label included — can be relocated to an Administration menu later.
      */
     dataSync: 'Data & Sync',
+    /** Admin-area entries (#57 Phase A): rendered only for admin accounts. */
+    users: 'Users',
+    serverSettings: 'Server settings',
     settings: 'Settings',
     /** Sidebar section headers (visible only when the sidebar is expanded). */
     sectionAdmin: 'Admin',
@@ -166,6 +169,13 @@ export const en = {
     nameRequired: 'Name is required',
     /** Success toast of the register flow (then the form switches to Sign in). */
     registered: 'Registered! You can now log in.',
+    /** Register toast when the account needs approval (auto-approve off, #57). */
+    registeredPending:
+      'Registered! An administrator must approve your account before you can sign in.',
+    /** Sign-in refused on a non-active account (backend 403, #57 Phase A). */
+    accountPending:
+      'Your account is waiting for approval. An administrator needs to approve it before you can sign in.',
+    accountDisabled: 'Your account has been disabled. Contact an administrator to restore access.',
   },
   theme: {
     /** Field label on Preferences and group name of the header popup. */
@@ -517,6 +527,72 @@ export const en = {
     statusRateLimited: 'Rate limited',
     statusFailure: 'Failure',
     loadFailed: 'Failed to fetch health data',
+  },
+  /**
+   * Admin area (issue #57 Phase A): the shared gate state, the Users page
+   * (role/status badges, row actions, dialogs and toasts) and the server
+   * settings page. Badge labels localize the raw backend enums; unexpected
+   * values fall back to the raw string at the call site.
+   */
+  admin: {
+    /** Forbidden empty state on every gated `/admin/*` route. */
+    forbiddenTitle: 'Admins only',
+    forbiddenHint: 'You do not have access to this area.',
+    /** Users page (title reuses `nav.users`, headers `login.email`,
+     *  `chartView.colName`, `positions.colStatus`, `common.colActions`). */
+    usersSubtitle: 'Approve registrations, manage roles and reset passwords.',
+    colRole: 'Role',
+    colCreated: 'Created',
+    /** Role badge/select labels (`owner` is legacy: shown, never assignable). */
+    roleOwner: 'Owner',
+    roleAdmin: 'Admin',
+    roleEditor: 'Editor',
+    roleViewer: 'Viewer',
+    /** Status badge labels. */
+    statusActive: 'Active',
+    statusPending: 'Pending',
+    statusDisabled: 'Disabled',
+    /** Row-action tooltips; the `*Named` keys are the accessible names. */
+    approve: 'Approve',
+    disable: 'Disable',
+    enable: 'Re-enable',
+    resetPassword: 'Reset password',
+    approveNamed: 'Approve {email}',
+    disableNamed: 'Disable {email}',
+    enableNamed: 'Re-enable {email}',
+    resetNamed: 'Reset password for {email}',
+    roleNamed: 'Role for {email}',
+    /** Footnote under the table explaining the legacy role. */
+    ownerNote: 'The legacy Owner role behaves like Admin and cannot be assigned to new accounts.',
+    /** Row-action outcome toasts. */
+    approved: 'User approved',
+    userEnabled: 'User enabled',
+    userDisabled: 'User disabled',
+    roleUpdated: 'Role updated',
+    passwordReset: 'Password reset',
+    /** Failure fallbacks and mapped API errors (409/404). */
+    loadFailed: 'Failed to load users',
+    loadFailedHint: 'Check the connection and try again.',
+    empty: 'No users found.',
+    updateFailed: 'Update failed',
+    resetFailed: 'Password reset failed',
+    lastAdmin: 'The server must keep at least one active admin.',
+    userNotFound: 'User not found.',
+    /** Disable confirmation dialog. */
+    disableTitle: 'Disable user',
+    disableConfirm: 'Disable {email}? They will not be able to sign in until re-enabled.',
+    /** Password-reset dialog (field label/hint reuse `password.*`). */
+    resetTitle: 'Reset password for {email}',
+    resetHint: "Sets a new password for this account; the user should change it after signing in.",
+    /** Server settings page (title reuses `nav.serverSettings`). */
+    settingsSubtitle: 'Server-wide preferences, applied immediately.',
+    autoApprove: 'Auto-approve new registrations',
+    autoApproveHint:
+      'When on, new accounts can sign in immediately. When off, an admin must approve them from the Users page.',
+    lastUpdated: 'Last updated {time}',
+    settingSaved: 'Setting saved',
+    settingSaveFailed: 'Could not save the setting',
+    settingsLoadFailed: 'Failed to load server settings',
   },
   /** First-run checklist replacing the empty-wealth EmptyState (D8). */
   checklist: {

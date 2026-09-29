@@ -64,7 +64,7 @@
 - [ ] Redesign UX/UI completo (navigazione, layout, design system) per PC/tablet/mobile — **EPIC K**, branch isolato `feat/K-ux-redesign`: fondazioni (K.1), shell adattiva (K.2), Overview (K.3), pagine entità a tab (K.4), power layer (K.5). Spec in `docs/UX-REDESIGN.en.md` / `.it.md`
 
 ### FASE 3 — Multi-tenancy & Family Sharing
-- [ ] Gestione permessi: utenti con ruoli (viewer, editor, admin)
+- [x] Ruoli utente e area admin: primo utente = `admin`, approvazione registrazioni, gestione utenti (approva/disabilita, cambio ruolo, reset password) — **#57 (fase A)**. I permessi per-utente sugli asset sono tracciati in #141.
 - [ ] Condivisione portafogli tra familiari
 - [ ] Viste aggregate famiglia
 

@@ -2831,14 +2831,24 @@ func TestBackfillAssetHistory_SkipsNonYahooAssets(t *testing.T) {
 // fakeUserRepo is a single-user stand-in for repository.UserRepository:
 // FindByID serves the stored record whatever the requested id (the service
 // tests always pass the id the fake owns) and Update persists a snapshot so
-// the refresh-after-write flow is observable.
+// the refresh-after-write flow is observable. The admin-facing methods record
+// their inputs and serve canned counts for the tests that need them.
 type fakeUserRepo struct {
-	user        *model.User
-	updateCalls int
+	user         *model.User
+	updateCalls  int
+	count        int64
+	users        []*model.User
+	created      []*model.User
+	activeAdmins int64
+	roleWrites   []model.Role
+	statusWrites []model.Status
+	passwordHash string
 }
 
-func (f *fakeUserRepo) Create(ctx context.Context, email, name, password string) (*model.User, error) {
-	return f.user, nil
+func (f *fakeUserRepo) Create(ctx context.Context, email, name, password string, role model.Role, status model.Status) (*model.User, error) {
+	u := &model.User{ID: uuid.New(), Email: email, Name: name, Role: role, Status: status}
+	f.created = append(f.created, u)
+	return u, nil
 }
 func (f *fakeUserRepo) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	if f.user == nil || f.user.Email != email {
@@ -2861,7 +2871,29 @@ func (f *fakeUserRepo) Update(ctx context.Context, user *model.User) error {
 	return nil
 }
 func (f *fakeUserRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	f.passwordHash = passwordHash
 	return nil
+}
+func (f *fakeUserRepo) Count(ctx context.Context) (int64, error) { return f.count, nil }
+func (f *fakeUserRepo) List(ctx context.Context) ([]*model.User, error) {
+	return f.users, nil
+}
+func (f *fakeUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role model.Role) error {
+	f.roleWrites = append(f.roleWrites, role)
+	if f.user != nil && f.user.ID == id {
+		f.user.Role = role
+	}
+	return nil
+}
+func (f *fakeUserRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status model.Status) error {
+	f.statusWrites = append(f.statusWrites, status)
+	if f.user != nil && f.user.ID == id {
+		f.user.Status = status
+	}
+	return nil
+}
+func (f *fakeUserRepo) CountActiveAdmins(ctx context.Context, excluding uuid.UUID) (int64, error) {
+	return f.activeAdmins, nil
 }
 
 // fakeCurrencyRepo is an in-memory whitelist stand-in for

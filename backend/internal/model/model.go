@@ -16,15 +16,35 @@ const (
 	RoleViewer Role = "viewer"
 )
 
+// IsAdmin reports whether a role grants administrator privileges. The legacy
+// owner role of pre-admin installs is admin-equivalent.
+func (r Role) IsAdmin() bool { return r == RoleOwner || r == RoleAdmin }
+
+type Status string
+
+const (
+	StatusActive   Status = "active"
+	StatusPending  Status = "pending"
+	StatusDisabled Status = "disabled"
+)
+
 type User struct {
 	ID           uuid.UUID `json:"id"`
 	Email        string    `json:"email"`
 	Name         string    `json:"name"`
 	PasswordHash string    `json:"-"`
 	Role         Role      `json:"role"`
+	Status       Status    `json:"status"`
 	BaseCurrency string    `json:"base_currency"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// ServerSettings is the singleton row (id = 1) of server-wide options edited
+// from the admin area.
+type ServerSettings struct {
+	AutoApproveRegistrations bool      `json:"auto_approve_registrations"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 type Portfolio struct {

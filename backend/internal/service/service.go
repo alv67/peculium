@@ -44,6 +44,9 @@ var (
 	ErrInvalidPriceSource = errors.New("invalid price source")
 	ErrNotETF             = errors.New("asset is not an ETF")
 	ErrAssetExists        = errors.New("asset with this ticker already exists")
+	ErrAccountPending     = errors.New("account pending approval")
+	ErrAccountDisabled    = errors.New("account disabled")
+	ErrLastAdmin          = errors.New("cannot demote or disable the last active admin")
 )
 
 // AssetExistsError reports a duplicate ticker during creation and carries
@@ -191,12 +194,56 @@ func (s *Service) bumpRev(ctx context.Context) {
 	}
 }
 
-func (s *Service) Register(ctx context.Context, email, name, password string) (*model.User, error) {
-	existing, _ := s.repos.User.FindByEmail(ctx, email)
-	if existing != nil {
-		return nil, ErrEmailExists
+// withTx runs fn inside a database transaction so multi-statement writes stay
+// atomic. When the service is wired without a connection pool (in-memory
+// repository fakes in unit tests) it runs fn against the same repositories
+// directly, which is all the fakes need.
+func (s *Service) withTx(ctx context.Context, fn func(tx *repository.Repository) error) error {
+	if s.repos == nil || s.repos.DB == nil {
+		return fn(s.repos)
 	}
-	return s.repos.User.Create(ctx, email, name, password)
+	return s.repos.WithTx(ctx, fn)
+}
+
+// Register creates the account for a new user. On an empty server the first
+// registrant becomes the active admin; later registrants are active when the
+// auto-approve setting is on and pending otherwise. The whole decision runs in
+// one transaction that first locks the settings row, so concurrent signups
+// cannot both be treated as the first user.
+func (s *Service) Register(ctx context.Context, email, name, password string) (*model.User, error) {
+	var created *model.User
+	err := s.withTx(ctx, func(tx *repository.Repository) error {
+		settings, err := tx.Settings.GetForUpdate(ctx)
+		if err != nil {
+			return err
+		}
+		n, err := tx.User.Count(ctx)
+		if err != nil {
+			return err
+		}
+		if existing, _ := tx.User.FindByEmail(ctx, email); existing != nil {
+			return ErrEmailExists
+		}
+
+		role, status := model.RoleViewer, model.StatusActive
+		switch {
+		case n == 0:
+			role, status = model.RoleAdmin, model.StatusActive
+		case !settings.AutoApproveRegistrations:
+			status = model.StatusPending
+		}
+
+		user, err := tx.User.Create(ctx, email, name, password, role, status)
+		if err != nil {
+			return err
+		}
+		created = user
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*model.User, string, string, error) {
@@ -207,6 +254,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*model.Use
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, "", "", ErrInvalidCredentials
+	}
+
+	if user.Status != model.StatusActive {
+		return nil, "", "", statusLoginError(user.Status)
 	}
 
 	accessToken, err := s.jwtAuth.GenerateAccessToken(user.ID, user.Email, string(user.Role))
@@ -222,6 +273,15 @@ func (s *Service) Login(ctx context.Context, email, password string) (*model.Use
 	return user, accessToken, refreshToken, nil
 }
 
+// statusLoginError maps a non-active account status to the login/refresh
+// rejection reason.
+func statusLoginError(status model.Status) error {
+	if status == model.StatusPending {
+		return ErrAccountPending
+	}
+	return ErrAccountDisabled
+}
+
 func (s *Service) RefreshToken(ctx context.Context, tokenString string) (string, string, error) {
 	claims, err := s.jwtAuth.ValidateToken(tokenString)
 	if err != nil {
@@ -234,6 +294,9 @@ func (s *Service) RefreshToken(ctx context.Context, tokenString string) (string,
 	user, err := s.repos.User.FindByID(ctx, claims.UserID)
 	if err != nil {
 		return "", "", ErrNotFound
+	}
+	if user.Status != model.StatusActive {
+		return "", "", statusLoginError(user.Status)
 	}
 
 	accessToken, err := s.jwtAuth.GenerateAccessToken(user.ID, user.Email, string(user.Role))
