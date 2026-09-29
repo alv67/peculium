@@ -255,7 +255,7 @@ func newTestService(t *testing.T, p *fakePortfolioRepo, e *fakeExposureRepo, f *
 		Exposure:  e,
 		FX:        f,
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 func newTestServiceWithAsset(t *testing.T, a *fakeAssetRepo) *Service {
@@ -266,7 +266,7 @@ func newTestServiceWithAsset(t *testing.T, a *fakeAssetRepo) *Service {
 		Exposure:  &fakeExposureRepo{},
 		FX:        &fakeFXRepo{},
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 // fakeYahooFetcher stubs the yahooFetcher seam; only the profile calls carry
@@ -367,7 +367,7 @@ func newFetchTestService(t *testing.T, a *fakeAssetRepo, e *fakeExposureRepo, lk
 		FX:        &fakeFXRepo{},
 		Lookup:    lk,
 	}
-	return New(repos, nil, yf, etf, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, yf, etf, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 // fakeTransactionRepo is a minimal TransactionRepository stand-in for the
@@ -465,7 +465,7 @@ func newSyncTestService(t *testing.T, a *fakeAssetRepo, tx *fakeTransactionRepo,
 		FX:          &fakeFXRepo{},
 		Lookup:      &fakeLookupRepo{},
 	}
-	return New(repos, nil, yf, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, yf, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 func holding(id, currency, country, sector string, typ model.AssetType, qty, lastClose decimal.Decimal) *model.Holding {
@@ -2978,7 +2978,7 @@ func newDashboardTestServiceWithTxs(t *testing.T, p *fakePortfolioRepo, fx *fake
 		Series:      &fakeSeriesRepo{assets: assets},
 		Transaction: txs,
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 func newProfileTestService(t *testing.T, u *fakeUserRepo, c *fakeCurrencyRepo) *Service {
@@ -2987,7 +2987,7 @@ func newProfileTestService(t *testing.T, u *fakeUserRepo, c *fakeCurrencyRepo) *
 		User:     u,
 		Currency: c,
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 // dashboardHolding is a full holding fixture for the base-currency summary:
@@ -4250,7 +4250,7 @@ func newPortfolioPerfTestService(t *testing.T, p *fakePortfolioRepo, fx *fakeFXR
 		Series:      &fakeSeriesRepo{assets: assets},
 		Transaction: txs,
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 // perfPortfolio is the owner-scoped portfolio fixture the buckets methods
@@ -4642,7 +4642,7 @@ func newTransactionPageTestService(t *testing.T, p *fakePortfolioRepo, txs *fake
 		FX:          &fakeFXRepo{},
 		Lookup:      &fakeLookupRepo{},
 	}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 // pagedTxLedger builds n transactions in the order the SQL would return them

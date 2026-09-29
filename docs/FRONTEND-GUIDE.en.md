@@ -195,7 +195,7 @@ frontend/
         │                   #   backup & restore
         └── admin/          # "Admin" area: health/ (price-sync dashboard,
                             #   "Data & Sync", open to every user) plus
-                            #   users/ + settings/ (admin accounts only)
+                            #   users/ + settings/ + backup/ (admin only)
 ```
 
 > There is **no separate `/register` page**: the login page contains a
@@ -281,7 +281,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
-| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings` (all admin-only: 403 for non-admin roles) |
+| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (streamed `.dump` attachment), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (all admin-only: 403 for non-admin roles) |
 | `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -721,8 +721,9 @@ JS state and CSS never disagree.
 - The sidebar's **Admin** section renders from a single `adminItems` config
   point in `SidebarNav`: **"Data & Sync"** (`nav.dataSync`, route
   `/admin/health`) is open to every user, while the management entries
-  **Users** (`/admin/users`, `nav.users`) and **Server settings**
-  (`/admin/settings`, `nav.serverSettings`) render only for admin accounts —
+  **Users** (`/admin/users`, `nav.users`), **Server settings**
+  (`/admin/settings`, `nav.serverSettings`) and **Server backup**
+  (`/admin/backup`, `nav.serverBackup`) render only for admin accounts —
   `isAdmin()` (from `lib/stores/auth.svelte.ts`) treats the session `role`
   `owner`/`admin` as admin-equivalent. `/admin` itself redirects to
   `/admin/users`, and every `/admin/*` page content is wrapped in `AdminGate`.
@@ -740,7 +741,8 @@ JS state and CSS never disagree.
   deliberately non-focusable APG `role="option"` rows) over a grouped
   `role="listbox"` with three `role="group"` sections rendered only when
   non-empty: **Go to** (Overview, Portfolios, Assets, Data & Sync, Settings +
-  its five sub-sections, plus Users and Server settings for admin accounts,
+  its five sub-sections, plus Users, Server settings and Server backup for
+  admin accounts,
   then every portfolio from `portfolioApi.list()`),
   **Assets** (registered assets from `assetApi.list()` — name plus ticker
   hint — followed by a live "Search Yahoo for …" row fed by a 300 ms-debounced
@@ -822,7 +824,7 @@ visible on every page.
   (Overview/Positions/Activity and their tables), the portfolios and assets
   lists, the asset detail tabs, every modal (create portfolio/asset, import
   portfolio, add transaction, exposure editing), the Settings pages, the Price
-  Sync Health page, the admin Users and Server settings pages and the
+  Sync Health page, the admin Users, Server settings and Server backup pages and the
   allocation/exposure surfaces (`allocation.*`,
   `exposure.*`, the drill-down `drill.*`, the chart series and empty states
   `chartView.*`, the `ProvenanceBadge` `provenance.*`) — plus the asset
@@ -1564,7 +1566,7 @@ and a range label), with a "Refresh Now" button.
 
 The management home for admin accounts, linked from the sidebar's Admin
 section, the phone More sheet and the command palette — all of which render
-its entries (`Users`, `Server settings`) only when `isAdmin()`. `/admin`
+its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`. `/admin`
 (`routes/admin/+page.svelte`) is a redirect to `/admin/users` (`replaceState`,
 so it never stays in history). Page content is wrapped in `AdminGate`
 (`lib/components/domain/AdminGate.svelte`): anyone whose session role is not
@@ -1612,3 +1614,30 @@ in immediately; when off, signups are created `pending` and an admin approves
 them from the Users page. The toggle applies immediately (optimistic PATCH on
 change, rolled back with an error toast on failure) and a "Last updated"
 stamp sits under the label.
+
+### `/admin/backup` — Server backup (`routes/admin/backup/+page.svelte`)
+
+Server-wide database dump and restore (`adminApi.dbBackup` / `adminApi.dbRestore`,
+admin-only endpoints and an `AdminGate`d page). The **Download** card streams a
+full `pg_dump` (custom format) through `GET /admin/db/backup`
+(`application/octet-stream`, attachment `peculium-db-<date>.dump`) using the
+same raw authenticated blob path as the per-user backup — the server's
+`Content-Disposition` names the saved file. The **Restore** card picks a
+`.dump` file (the client never inspects the binary; the server validates it)
+and gates the request behind a typed confirmation: a danger
+`Modal` (`admin.dbConfirmWarning` carries the full warning — every table
+rewritten, users included, sessions possibly invalidated) whose confirm
+button only enables once the admin types the exact confirmation phrase
+(`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per locale). The upload is
+`POST /admin/db/restore` as `multipart/form-data` with the archive in the
+`dump` file field and the literal `confirm=replace` as a form field
+(`Content-Type` deliberately left unset so the browser derives it with the
+boundary). Success answers `{status, mode, dump_bytes, message}`: a toast
+plus an inline panel with the restored archive size and a persistent
+re-login notice, since the users table is part of the archive and the
+current session may no longer match the restored data. Failures surface the
+backend message on purpose (400 for a missing confirmation/file, 500 with
+the sanitized `pg_restore` stderr — a partially applied restore must be
+readable in the UI); only status-less network errors fall back to the
+localized generic. Both operations bound to the server's 30-minute window:
+the buttons spin and the page shows a "keep this page open" hint.

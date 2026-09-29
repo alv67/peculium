@@ -4,6 +4,7 @@
     Banknote,
     Briefcase,
     CircleDollarSign,
+    DatabaseBackup,
     Download,
     Eye,
     FolderClosed,
@@ -52,9 +53,9 @@
    *
    * Sections, rendered in this order and only when non-empty:
    * - *Go to*: the static destinations (Overview, Portfolios, Assets,
-   *   Data & Sync, Settings and its five sub-sections, plus Users and
-   *   Server settings for admin accounts) plus every portfolio from
-   *   `portfolioApi.list()`;
+   *   Data & Sync, Settings and its five sub-sections, plus Users,
+   *   Server settings and Server backup for admin accounts) plus every
+   *   portfolio from `portfolioApi.list()`;
    * - *Assets*: registered assets from `assetApi.list()`, plus a live
    *   "Search Yahoo for …" row fed by a debounced `assetApi.lookup()` —
    *   selecting it navigates to `/assets` (creating assets stays out of
@@ -312,7 +313,7 @@
         run: () => goto(resolve('/settings/backup')),
       }),
       // Admin destinations mirror the sidebar's Admin section: only offered
-      // to admin-equivalent accounts (#57 Phase A).
+      // to admin-equivalent accounts (#57).
       ...(isAdmin()
         ? [
             row({
@@ -332,6 +333,15 @@
               icon: ServerCog,
               keywords: 'admin auto approve registrations server settings',
               run: () => goto(resolve('/admin/settings')),
+            }),
+            row({
+              id: 'go-admin-db-backup',
+              section: 'go',
+              label: t('nav.serverBackup'),
+              hint: t('nav.sectionAdmin'),
+              icon: DatabaseBackup,
+              keywords: 'admin database dump restore pg_dump pg_restore server backup',
+              run: () => goto(resolve('/admin/backup')),
             }),
           ]
         : []),

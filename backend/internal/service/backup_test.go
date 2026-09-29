@@ -179,7 +179,7 @@ func dec(s string) decimal.Decimal {
 
 type backupUserRepo backupStore
 
-func (r *backupUserRepo) Create(ctx context.Context, email, name, password string) (*model.User, error) {
+func (r *backupUserRepo) Create(ctx context.Context, email, name, password string, role model.Role, status model.Status) (*model.User, error) {
 	return nil, nil
 }
 func (r *backupUserRepo) FindByEmail(ctx context.Context, email string) (*model.User, error) {
@@ -199,6 +199,25 @@ func (r *backupUserRepo) Update(ctx context.Context, user *model.User) error {
 }
 func (r *backupUserRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	return nil
+}
+func (r *backupUserRepo) Count(ctx context.Context) (int64, error) {
+	return int64(len(r.users)), nil
+}
+func (r *backupUserRepo) List(ctx context.Context) ([]*model.User, error) {
+	out := make([]*model.User, 0, len(r.users))
+	for _, u := range r.users {
+		out = append(out, u)
+	}
+	return out, nil
+}
+func (r *backupUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role model.Role) error {
+	return nil
+}
+func (r *backupUserRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status model.Status) error {
+	return nil
+}
+func (r *backupUserRepo) CountActiveAdmins(ctx context.Context, excluding uuid.UUID) (int64, error) {
+	return 0, nil
 }
 
 // backupPortfolioRepo implements repository.PortfolioRepository over backupStore.

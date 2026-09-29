@@ -76,7 +76,15 @@ func main() {
 		price.WithRateBudget(budget),
 		price.WithHealthRecorder(healthSvc),
 	)
-	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc)
+	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc,
+		service.NewExecDBMaintainer(service.DBConnection{
+			Host:     cfg.DBHost,
+			Port:     cfg.DBPort,
+			User:     cfg.DBUser,
+			Name:     cfg.DBName,
+			Password: cfg.DBPassword,
+			SSLMode:  cfg.DBSSLMode,
+		}))
 
 	h := handler.New(svc, jwtAuth)
 
@@ -174,6 +182,8 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users 
 				r.Post("/users/{id}/reset-password", h.AdminResetPassword)
 				r.Get("/settings", h.GetAdminSettings)
 				r.Patch("/settings", h.UpdateAdminSettings)
+				r.Get("/db/backup", h.AdminDBBackup)
+				r.Post("/db/restore", h.AdminDBRestore)
 			})
 
 			r.Get("/users/me", h.GetCurrentUser)
