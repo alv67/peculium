@@ -1,96 +1,109 @@
-# Peculium — Piano di Sviluppo
+# Peculium — Development Plan
 
-## 1. Vision & Architettura
+## 1. Vision & Architecture
 
-**Peculium** è una webapp self-hosted pensata per homelab, multi-utente, per il tracciamento di investimenti e finanze personali.
+**Peculium** is a self-hosted, multi-user web app for homelabs to track investments
+and personal finances.
 
-### Stack tecnologico
+### Tech stack
 
-| Livello | Tecnologia | Motivazione |
-|---------|-----------|-------------|
-| **Backend** | Go 1.23 (con Chi) | Performance, binary singolo, container minimale, ideale per homelab |
-| **Frontend** | SvelteKit 2 + Svelte 5 + TypeScript + Vite | SPA moderna, runes API, routing basato su file |
-| **Database** | PostgreSQL 16 | Dati finanziari relazionali, CTE per statistiche |
-| **Cache/Jobs** | Redis 7 | Rate-limiting Yahoo, caching prezzi |
+| Layer | Technology | Rationale |
+|-------|-----------|-----------|
+| **Backend** | Go 1.25 (with Chi) | Performance, single binary, minimal container — ideal for a homelab |
+| **Frontend** | SvelteKit 2 + Svelte 5 + TypeScript + Vite | Modern SPA, runes API, file-based routing |
+| **Database** | PostgreSQL 16 | Relational financial data, CTEs for statistics |
+| **Cache/Jobs** | Redis 7 | Yahoo rate limiting, price caching |
 | **Container** | Docker/Podman + Compose | Homelab standard |
-| **Auth** | JWT + refresh token | Self-hosted, no dipendenze esterne |
-| **Grafici** | ECharts 5 | ROI, trend, distribuzione |
-| **API Design** | RESTful | |
+| **Auth** | JWT + refresh token | Self-hosted, no external dependencies |
+| **Charts** | ECharts 5 | ROI, trends, distribution |
+| **API design** | RESTful | |
 
-### Perché Go?
-- Binary unico, basso consumo di RAM/CPU (ideale per homelab)
-- Build veloci, deploy semplice
-- Ottimo supporto concorrenza per fetch prezzi multi-fonte
+### Why Go?
 
----
-
-## 2. Roadmap (fasi)
-
-### FASE 0 — Setup progetto
-- [x] Struttura repository (monorepo con backend Go + frontend SvelteKit)
-- [ ] Docker + docker-compose con Postgres + Redis
-- [x] CI/CD base (GitHub Actions: build + vet + test Go, check + lint frontend) — **EPIC H.1 (#32)**
-- [x] Release automation: publish delle immagini multi-arch su GHCR + GitHub Release sui tag `v*` — **#131**
-- [ ] Task runner / Makefile per comandi comuni
-
-### FASE 1 — Core: Auth & Gestione Investimenti
-- [ ] Modello dati: User, Portfolio, Asset, Transaction
-- [ ] Registrazione/Login multi-utente (JWT)
-- [ ] CRUD portafogli e transazioni (acquisto/vendita)
-- [ ] Integrazione prezzi via API esterne (Yahoo Finance, Alpha Vantage, ecc.)
-- [ ] Dashboard di base: valore portafoglio, gain/loss
-
-### FASE 2 — Statistiche & Visualizzazioni
-- [ ] ROI per asset e per portafoglio
-- [ ] Distribuzione territoriale (per sede legale dell'asset)
-- [ ] Distribuzione per categoria industriale (GICS)
-- [ ] Grafici: andamento storico, composizione portafoglio
-- [ ] Report periodici (mensile/trimestrale)
-- [x] Pagina dettaglio asset (metadati, storico prezzi, distribuzioni geo/settoriali) — **EPIC B.10 (#45)**
-- [x] Microservizio Python per metadata ETF (JustETF scraping) — **EPIC B.5 (#11)**
-- [x] Endpoint allocazione geografica (weighted sum by region) — **EPIC B.6 (#12)**
-- [x] Endpoint allocazione settore (weighted sum by GICS) — **EPIC B.7 (#13)**
-- [x] Chart dashboard/portafoglio geo & settore (GeographyChart + SectorChart, universo equity-only + coverage) — **EPIC B.8 (#14)**
-- [x] Storico tassi di cambio (FX history, per-date nei series) — **EPIC B.9 (#44)**
-- [x] Asset con ticker non-Yahoo: price_source (yahoo/manual/none) — **EPIC G.7 (#53)**
-- [x] Chart storico asset: zoom in-place + selettore YTD — **EPIC F.9 (#52)**
-- [x] Pagina asset: solo pie chart + modale di modifica esposizione — **EPIC F.10 (#64)**
-- [x] Split come marcatori sul chart storico asset (`GET /assets/{id}/splits` + markLine)
-- [x] Per-country exposure: tabella `asset_country_weights` + 3 dimensioni (countries/regions/sectors) — **EPIC B.13 (#58)**
-- [x] Morningstar exposure source: resolver custom (bootstrap Chromium headless per WAF+JWT, poi SAL service via requests), rotta backend `POST /assets/{id}/fetch-morningstar-exposure`, prefill frontend — **EPIC B.14 (#59)**
-- [x] Follow-up B.13/B.14: fetch provider come anteprima non persistente, cache Redis (TTL + `?refresh=1`), provenienza persistita (sorgente + data), prefill settori da Morningstar, redesign modali geo/settore (paesi-first, badge sorgente) — **PR #67**
-- [x] Design system & dark mode: token semantici + tema a 3 modalità (default dark), sweep colori, primitive `ui/`, AppShell responsive con sidebar collassabile e ThemeToggle — **EPIC D (#37)**
-- [ ] Nuove asset class: bond, certificati, fondi pensione, conti deposito — **EPIC J (#113)**: prezzo manuale (J.1 #105), metadati fixed income (J.2 #106), tipi `cash`/`certificate` (J.3 #107), esposizione fixed income (J.4 #108), maturazione interessi (J.5 #109), metriche bond (J.6 #110), allocazione credito (J.7 #111), piani pensionistici (J.8 #112)
-- [ ] Redesign UX/UI completo (navigazione, layout, design system) per PC/tablet/mobile — **EPIC K**, branch isolato `feat/K-ux-redesign`: fondazioni (K.1), shell adattiva (K.2), Overview (K.3), pagine entità a tab (K.4), power layer (K.5). Spec in `docs/UX-REDESIGN.en.md` / `.it.md`
-
-### FASE 3 — Multi-tenancy & Family Sharing
-- [x] Ruoli utente e area admin: primo utente = `admin`, approvazione registrazioni, gestione utenti (approva/disabilita, cambio ruolo, reset password) — **#57 (fase A)**. I permessi per-utente sugli asset sono tracciati in #141.
-- [ ] Condivisione portafogli tra familiari
-- [ ] Viste aggregate famiglia
-
-### FASE 4 — Finanza Personale (estensioni future)
-- [ ] Tracciamento spese / categorie
-- [ ] Budget mensile
-- [ ] Risparmi e obiettivi
-- [ ] Reportistica finanziaria unificata
-
-### FASE 5 — Produzione Homelab
-- [ ] reverse proxy (Traefik / Caddy) con SSL
-- [ ] Backup automatico DB
-- [ ] Healthcheck e monitoring
-- [ ] Documentazione deploy
+- Single binary, low RAM/CPU usage (ideal for a homelab)
+- Fast builds, simple deployment
+- Strong concurrency support for multi-source price fetching
 
 ---
 
-## 3. Modello Dati (bozza)
+## 2. Roadmap (phases)
+
+### Phase 0 — Project setup
+
+- [x] Repository structure (monorepo: Go backend + SvelteKit frontend + Docker)
+- [x] Docker Compose with Postgres, Redis, backend, frontend, worker
+- [x] Base CI/CD (GitHub Actions: Go build + vet + test, frontend check + lint) — **EPIC H.1 (#32)**
+- [x] Release automation: multi-arch image publishing to GHCR + GitHub Release on `v*` tags — **#131**
+- [x] Task runner / Makefile
+
+### Phase 1 — Core: auth & investment management
+
+- [x] Data model: User, Portfolio, Asset, Transaction
+- [x] Multi-user registration/login (JWT)
+- [x] Portfolio and transaction CRUD (buy / sell / dividend / split / fee)
+- [x] Price integration via external APIs (Yahoo Finance)
+- [x] Base dashboard: portfolio value, gain/loss
+- [x] **EPIC A — data correctness & security** (#3 #4 #5 #6)
+
+### Phase 2 — Statistics & visualisations
+
+- [x] ROI per asset and per portfolio
+- [x] Geographic distribution (by asset domicile) and sector distribution (GICS)
+- [x] Charts: historical trend, portfolio composition
+- [ ] Periodic reports (monthly/quarterly)
+- [x] Asset detail page (metadata, price history, geo/sector distributions) — **EPIC B.10 (#45)**
+- [x] Python microservice for ETF metadata (JustETF scraping) — **EPIC B.5 (#11)**
+- [x] Geographic allocation endpoint (weighted sum by region) — **EPIC B.6 (#12)**
+- [x] Sector allocation endpoint (weighted sum by GICS) — **EPIC B.7 (#13)**
+- [x] Dashboard/portfolio geography & sector charts (equity-only universe + coverage) — **EPIC B.8 (#14)**
+- [x] FX rate history (per-date in the series engine) — **EPIC B.9 (#44)**
+- [x] Assets with non-Yahoo tickers: `price_source` (yahoo / manual / none) — **EPIC G.7 (#53)**
+- [x] Asset price chart: in-place zoom + YTD selector — **EPIC F.9 (#52)**
+- [x] Per-country exposure storage + three dimensions (countries / regions / sectors) — **EPIC B.13 (#58)**
+- [x] Morningstar exposure source (custom resolver) + backend route + UI prefill — **EPIC B.14 (#59)**
+- [x] Provider exposure cache (Redis TTL + `?refresh=1`) and persisted provenance (source + date) — **PR #67**
+- [x] Stock splits as markers on the asset price chart (`GET /assets/{id}/splits` + markLine)
+- [x] Design system & dark mode: semantic tokens, 3-mode theme, `ui/` primitives, responsive AppShell — **EPIC D (#37)**
+- [x] Domain pages & components rebuilt (dashboard, portfolio, assets, modals, login, tabbed settings) — **EPIC E (#38)**
+- [x] Full Italian/English localisation — **EPIC F**
+- [x] Dashboard & portfolio v2: user base currency, active/closed breakdown, time-weighted performance + capital charts, class/sector/country/macro-region allocations, consolidated invested-assets table, paginated transactions — **EPIC I (#98)**
+- [x] UX/UI redesign: adaptive shell, tabbed entity pages, command palette, chart table view, CVD palette, allocation drill-down — **EPIC K (PR #115)**, released in v0.6.0
+- [x] Admin area: user governance (approval, roles, enable/disable, password reset), server settings, per-user and server-wide backup & restore — **#57, #143, #145**
+- [ ] New asset classes: bonds, certificates, supplementary pensions, cash deposits — **EPIC J (#113)**: manual price entry (J.1 #105), fixed-income metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
+
+### Phase 3 — Multi-tenancy & family sharing
+
+- [x] User roles and admin area — **#57**
+- [ ] Portfolio sharing among family members
+- [ ] Aggregated family views
+- [ ] Per-user asset visibility — **#141**
+
+### Phase 4 — Personal finance (future extensions)
+
+- [ ] Expense tracking / categories
+- [ ] Monthly budget
+- [ ] Savings and goals
+- [ ] Unified financial reporting
+
+### Phase 5 — Homelab production
+
+- [ ] Reverse proxy (Traefik / Caddy) with TLS
+- [ ] Automatic database backup
+- [x] Health checks and monitoring
+- [x] Deployment documentation (project website and install guide)
+
+---
+
+## 3. Data model (draft)
 
 ### Core
+
 ```
-User         → id, email, name, password_hash, role, created_at
+User         → id, email, name, password_hash, role, status, base_currency, created_at
 Portfolio    → id, user_id, name, description, currency, created_at
 Asset        → id, isin, ticker, name, type, asset_class, price_source, country, exchange, currency, sector, industry
-               + maturity_date, issuer, issuer_country, attributes JSONB (fixed income, from EPIC J / J.2)
-Transaction  → id, portfolio_id, asset_id, type (buy/sell), quantity, price, date, fees, notes
+               + maturity_date, issuer, issuer_country, attributes JSONB (fixed income, EPIC J / J.2)
+Transaction  → id, portfolio_id, asset_id, type (buy/sell/dividend/split/fee), quantity, price, date, fees, notes
 Price        → id, asset_id, date, open, high, low, close, volume, source
 FxHistory    → base_currency, quote_currency, date, rate, source
 AssetRegion  → asset_id, region, weight
@@ -100,7 +113,8 @@ AssetExposureProvenance → asset_id, dimension, source, updated_at (where each 
 AssetCredit  → asset_id, rating, weight (credit exposure, post-MVP EPIC J / J.7)
 ```
 
-### Finanza (Fase 4)
+### Personal finance (Phase 4)
+
 ```
 Expense      → id, user_id, category_id, amount, date, description, recurring
 Budget       → id, user_id, category_id, amount, period (monthly/yearly)
@@ -109,18 +123,18 @@ Goal         → id, user_id, name, target_amount, current_amount, deadline
 
 ---
 
-## 4. Principi di design
+## 4. Design principles
 
-1. **Privacy-first**: tutto rimane in homelab, niente dato esce
-2. **API-first**: ogni funzionalità backend è accessibile via API
-3. **Tutto containerizzato**: `docker compose up` per far partire tutto
-4. **Minimal dependencies**: poche librerie esterne, facile da mantenere
-5. **Offline-resilient**: gestione gracevole quando le fonti prezzi non rispondono
-6. **Mobile-friendly**: interfaccia responsive (PWA opzionale)
+1. **Privacy-first**: everything stays in the homelab, no data leaves it
+2. **API-first**: every backend feature is reachable through the API
+3. **Fully containerised**: `docker compose up` starts everything
+4. **Minimal dependencies**: few external libraries, easy to maintain
+5. **Offline-resilient**: graceful handling when price sources do not respond
+6. **Mobile-friendly**: responsive interface (PWA optional)
 
 ---
 
-## 5. Struttura directory
+## 5. Directory structure
 
 ```
 peculium/
@@ -137,11 +151,11 @@ peculium/
 │   ├── internal/
 │   │   ├── auth/        # JWT, middleware
 │   │   ├── handler/     # HTTP handlers
-│   │   ├── model/       # Struct/entity
+│   │   ├── model/       # Structs / entities
 │   │   ├── repository/  # DB queries
 │   │   ├── service/     # Business logic
 │   │   ├── price/       # Price fetcher (Yahoo, etc.)
-│   │   ├── geo/         # Macro-regioni, settori GICS, mappature paese/regione
+│   │   ├── geo/         # Macro-regions, GICS sectors, country/region mappings
 │   │   ├── position/    # AVCO engine
 │   │   └── series/      # Materialized daily series
 │   ├── migrations/      # SQL migrations
@@ -161,19 +175,24 @@ peculium/
 │   │       ├── login/
 │   │       ├── assets/
 │   │       ├── portfolios/
+│   │       ├── admin/
 │   │       └── settings/
 │   ├── svelte.config.js
 │   ├── vite.config.ts
 │   ├── Dockerfile
 │   └── package.json
-├── python-service/            # FastAPI: metadata ETF da JustETF (B.5)
-│   ├── app/                   # main.py, scraper.py, schemas.py
+├── python-service/            # FastAPI: ETF metadata from JustETF/Morningstar (B.5/B.14)
+│   ├── app/                   # main.py, scraper.py, morningstar.py, schemas.py
 │   ├── tests/                 # pytest
 │   ├── Dockerfile
 │   └── requirements.txt
-├── tests/                     # test e2e su stack isolato
-│   ├── api-test.http          # collection REST Client (VS Code)
-│   └── test-epic-a.sh
+├── tests/                     # e2e tests on the isolated stack
+│   ├── api-test.http          # REST Client collection (VS Code)
+│   ├── test-epic-a.sh
+│   ├── test-epic-b.sh
+│   ├── test-epic-k.sh
+│   └── test-portfolio-io.sh
+├── website/                   # Astro static site (GitHub Pages)
 └── docs/
     ├── BACKEND-GUIDE.en.md
     ├── BACKEND-GUIDE.it.md
@@ -182,52 +201,30 @@ peculium/
     ├── FRONTEND-GUIDE.en.md
     ├── FRONTEND-GUIDE.it.md
     ├── UX-REDESIGN.en.md
-    └── UX-REDESIGN.it.md
+    ├── UX-REDESIGN.it.md
+    └── RELEASE-NOTES.en.md / RELEASE-NOTES.it.md
 ```
 
 ---
 
-## Stato attuale (23 Set 2026)
+## Current status (30 Sep 2026)
 
-**Release v0.6.1** pubblicata su `main` (bug release: stato aggiornamento prezzi globale
-nell'header — stampa cliccabile e fascia qualità dati su ogni pagina —, traduzione completa IT/EN
-delle schermate rimanenti, fix UX mobile di menu entità, drill-down allocazioni, tooltip grafici e
-command palette).
-Precedenti release: **v0.1.0** (25 Ago 2026), **v0.2.0** (30 Ago 2026, EPIC A + EPIC B),
-**v0.3.0** (11 Set 2026, asset editing overhaul), **v0.4.0** (13 Set 2026, design system & dark
-mode, EPIC D/E), **v0.5.0** (17 Set 2026, EPIC I — dashboard & portfolio v2) e **v0.6.0**
-(21 Set 2026, EPIC K — redesign UX/UI).
+**Release v1.0.0** is published on `main`: the first official release under the
+Peculium name, adding the admin area (user governance and server settings),
+per-user and server-wide backup & restore, clear login messages for accounts
+pending approval or disabled, and — from this release on — pull-only
+installation from public GHCR images (linux/amd64 and linux/arm64). It also
+brings the Dependabot security updates and moves the backend to Go 1.25.
 
-Fase 0 e Fase 1 completate (incluso EPIC A — data correctness & security). Lo sviluppo attivo
-procede su `develop`. Realizzate in EPIC B: la **pagina dettaglio asset** (#45, B.10),
-il **backfill country/ISO** (B.3), il **microservizio Python JustETF** per l'esposizione ETF e
-l'auto-resolve ISIN (B.5), le asset class con allocazione per classi (B.11/B.12), gli **endpoint di
-allocazione geo/settore a livello portafoglio** (B.6/B.7), le **chart dashboard/portafoglio** con
-universo equity-only e metadati di copertura (B.8, #14), lo **storico FX per-data** (B.9, #44),
-il **per-country exposure storage** (B.13, #58: tabella `asset_country_weights`, 3 dimensioni
-countries/regions/sectors) e **Morningstar come fonte esposizione** (B.14, #59: resolver custom con
-bootstrap Chromium headless per WAF+JWT, rotta backend
-`POST /assets/{id}/fetch-morningstar-exposure`, prefill frontend).
-Poi EPIC D (design system e dark mode, completata: token, tema a 3 modalità con default dark,
-primitive `ui/` e nuovo AppShell responsive), EPIC C (metric di rischio) ed EPIC E (pagine e
-componenti di dominio, completata in v0.4.0: dashboard, dettaglio portafoglio, assets/portafogli
-con modali, login e impostazioni a tab).
-Prossimi: **EPIC I — Dashboard & portfolio v2** (vista aggregata in valuta base, chart e tabelle)
-ed **EPIC C — metric di rischio**. **EPIC I completato** (I.1–I.9, PR #98, branch
-`feat/I.1-base-currency`): valuta base, dashboard attivo/chiuso, grafico performance TWR +
-capitale, allocazioni per classe/paese, tabella asset investiti consolidata, KPI e allocazioni
-del dettaglio portafoglio allineati alla dashboard, performance a barre, transazioni paginate.
-Nuovo epico pianificato: **EPIC J — nuove asset class (#113)** — obbligazioni, certificati,
-fondi pensione e conti deposito, con prezzo manuale (J.1 #105), metadati fixed income (J.2 #106),
-tipi `cash`/`certificate` (J.3 #107) come prima PR consigliata, poi esposizione fixed income
-(J.4 #108), maturazione interessi (J.5 #109), metriche bond (J.6 #110), allocazione credito
-(J.7 #111) e piani pensionistici (J.8 #112). Altro candidato: **EPIC C — metric di rischio**.
-La gestione del capitale disponibile (versamenti/prelievi, conto titoli) è tracciata a parte
-nell'issue #101. Vedi STATUS.md per lo stato dettagliato.
+Phase 0, Phase 1 (including EPIC A) and EPIC B are complete and released. The
+dashboard/portfolio v2 (EPIC I) shipped in v0.5.0 and the UX/UI redesign
+(EPIC K) in v0.6.0.
 
-**Redesign UX/UI — EPIC K (rilasciata in v0.6.0)**: analisi UX/UI completa basata solo sulle
-funzionalità attuali e proposta di un'interfaccia moderna per PC/tablet/mobile
-(`docs/UX-REDESIGN.en.md` / `.it.md`); implementazione K.1–K.5 completata (fondazioni, shell
-adattiva, Overview, pagine portafoglio/asset a tab, command palette, vista tabella, palette CVD,
-drill-down delle allocazioni) e mergiata su `develop` (PR #115).
-
+Active development proceeds on `develop`. The next planned work is **EPIC J —
+new asset classes** (#113): manual price entry (J.1 #105), fixed-income metadata
+(J.2 #106) and the `cash`/`certificate` types (J.3 #107) as the recommended
+first PR, then fixed-income exposure (J.4 #108), deposit interest accrual
+(J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111) and pension
+wrappers (J.8 #112). The other candidate is **EPIC C — risk metrics**.
+Available-cash management (deposits/withdrawals, brokerage account) is tracked
+separately in issue #101. See STATUS.md for the detailed state.
