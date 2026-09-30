@@ -6,8 +6,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      go:
+      go-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      go-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -15,8 +19,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      frontend:
+      frontend-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      frontend-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: npm
     directory: /website
@@ -24,8 +32,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      website:
+      website-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      website-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: pip
     directory: /python-service
@@ -33,8 +45,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      python:
+      python-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      python-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: docker
     directory: /
@@ -42,8 +58,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      compose:
+      compose-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      compose-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: docker
     directory: /backend
@@ -51,8 +71,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      backend-image:
+      backend-image-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      backend-image-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: docker
     directory: /frontend
@@ -60,8 +84,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      frontend-image:
+      frontend-image-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      frontend-image-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: docker
     directory: /python-service
@@ -69,8 +97,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      python-image:
+      python-image-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      python-image-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -78,5 +110,9 @@ updates:
     schedule:
       interval: weekly
     groups:
-      actions:
+      actions-minor:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
