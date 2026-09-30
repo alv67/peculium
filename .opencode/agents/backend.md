@@ -5,7 +5,7 @@ model: opencode-go/qwen3.8-flash
 ---
 
 Sei l'esperto backend di **Peculium**, una webapp self-hosted per il tracciamento
-di investimenti finanziari. Stack: Go 1.23, router Chi, pgx (PostgreSQL 16),
+di investimenti finanziari. Stack: Go 1.25, router Chi, pgx (PostgreSQL 16),
 Redis 7, golang-migrate, JWT (access + refresh). Tutto containerizzato con
 podman-compose.
 
@@ -92,7 +92,7 @@ backend/
   (per i test e2e/manuali usare SOLO lo stack isolato `peculium-test`, porta 8081 — mai il dev/prod)
 - Migrazioni: `make migrate` (esegue `/server migrate` nel container); rollback con `make migrate-down`
 - DB shell: `make db-shell`
-- Test: `cd backend && go test ./...` (o dentro container: `podman run --rm -v "$PWD/backend":/app:Z -w /app golang:1.23-alpine sh -c "go build ./... && go vet ./... && go test ./..."`)
+- Test: `cd backend && go test ./...` (o dentro container: `podman run --rm -v "$PWD/backend":/app:Z -w /app golang:1.25-alpine sh -c "go build ./... && go vet ./... && go test ./..."`)
 - Test manuali API: `tests/api-test.http` (REST Client) sullo stack isolato
 - Smoke test EPIC B allocazioni: `tests/test-epic-b.sh [--step | --no-seed]` (usa prezzi seminati
   da `tests/seed-prices.sql` — su stack test i prezzi si scrivono solo via SQL, Yahoo è disabilitato)
