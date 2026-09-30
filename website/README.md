@@ -13,9 +13,9 @@ content only: no API access, no auth.
 ```sh
 cd website
 npm install        # once
-npm run dev        # http://localhost:4321/peculium/
+npm run dev        # http://localhost:4321/
 npm run build      # static output in dist/
-npm run preview    # serve the built dist/ locally (with the /peculium base)
+npm run preview    # serve the built dist/ locally at the root (/)
 npm run check      # astro check (TypeScript diagnostics)
 ```
 
@@ -54,46 +54,27 @@ Key conventions:
   The site never stores hand-copied release notes.
 - Keep dependencies light: Astro + Tailwind only. No CMS, no UI kit.
 
-## Deployment (GitHub Pages, project site)
+## Deployment (GitHub Pages, custom domain)
 
-The site currently deploys as a **project Pages site**
-(`https://alv67.github.io/peculium/`):
+The site is published at **https://peculium.dev/** as a custom-domain Pages
+site. `astro.config.mjs` uses:
 
 ```js
 // astro.config.mjs
-site: 'https://alv67.github.io',
-base: '/peculium',
+site: 'https://peculium.dev',
+base: '/',
 ```
 
+`website/public/CNAME` contains a single line, `peculium.dev` — it is copied
+into `dist/` at build time and GitHub Pages uses it to keep the custom domain
+on every deploy.
+
 `.github/workflows/deploy-site.yml` builds on every push to `main` (and on
-`v*` tags) and publishes with `actions/deploy-pages`. One-time repo setting:
-**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+`v*` tags) and publishes with `actions/deploy-pages`. Repo settings, under
+**Settings → Pages → Build and deployment**: **Source: GitHub Actions** and
+**Custom domain: peculium.dev** (the setting and the `CNAME` file agree). At
+the registrar, the domain's DNS records (the `A` records to the GitHub Pages
+IPs and the `www` `CNAME` to `alv67.github.io`) point the domain at GitHub.
 
-## Moving to a custom domain (peculium.dev)
-
-The site is portable by design — switching to `peculium.dev` is config + DNS
-only, no content refactor:
-
-1. **Buy/point the domain.** At your registrar, add the DNS records GitHub
-   asks for the domain (typically four `A` records to GitHub Pages IPs and/or
-   a `CNAME` for `www`, e.g. to `alv67.github.io`).
-2. **`website/astro.config.mjs`** — change to:
-
-   ```js
-   site: 'https://peculium.dev',
-   base: '/',
-   ```
-
-3. **`website/public/CNAME`** — create the file with a single line:
-
-   ```text
-   peculium.dev
-   ```
-
-   (it is copied into `dist/` at build time and GitHub Pages picks it up;
-   do not enable "Enforce HTTPS" until GitHub reports the domain verified).
-4. **Repo settings** — if a `CNAME` already existed in the Pages settings,
-   update it there too (the file and the setting should agree).
-5. Re-run **Deploy site** (push or `workflow_dispatch`). Every internal link
-   keeps working because they are all generated through
-   `import.meta.env.BASE_URL` (now `/`).
+Every internal link and asset is generated through `import.meta.env.BASE_URL`
+(now `/`), so pages and assets resolve at the domain root.
