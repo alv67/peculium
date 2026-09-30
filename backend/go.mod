@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/lestrrat-go/jwx/v2 v2.1.4
-	github.com/redis/go-redis/v9 v9.7.1
+	github.com/redis/go-redis/v9 v9.7.3
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	golang.org/x/crypto v0.52.0
