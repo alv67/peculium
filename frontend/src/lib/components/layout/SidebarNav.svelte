@@ -1,8 +1,18 @@
 <script lang="ts">
-  import { Activity, Banknote, Briefcase, LayoutDashboard, Settings } from 'lucide-svelte'
+  import {
+    Activity,
+    Banknote,
+    Briefcase,
+    DatabaseBackup,
+    LayoutDashboard,
+    ServerCog,
+    Settings,
+    Users,
+  } from 'lucide-svelte'
   import { page } from '$app/state'
   import { resolve } from '$app/paths'
   import { t } from '$lib/i18n/index.svelte'
+  import { isAdmin } from '$lib/stores/auth.svelte'
   import { cx } from '../ui/utils'
 
   /**
@@ -17,6 +27,10 @@
    * Labels are translated with `t()` (EPIC K.1b, decision D1): the items
    * carry `labelKey`s and every render (text + collapsed aria/title) reads
    * the reactive locale, so switching language re-renders the nav in place.
+   *
+   * The Admin section's management entries (Users, Server settings, Server
+   * backup) render only for admin-equivalent roles (#57); `isAdmin()` reads
+   * the session, so the derived admin list re-computes on any role change.
    *
    * The active entry is the item whose path is the *longest* prefix of the
    * current URL (with `/` matching exactly): only one link ever gets
@@ -37,12 +51,21 @@
   ] as const
 
   // Decision D7: this is the *single* config point for the "Data & Sync"
-  // (ex "Health") entry — route, label key and icon live only here, so the
-  // entry can be relocated into an Administration menu later without a
-  // sweep. `BottomNav` mirrors the route when highlighting its "More" item.
-  const adminItems = [
+  // (ex "Health") entry — route, label key and icon live only here. The
+  // admin management entries (#57) join the same "Admin" section but
+  // render only for `owner`/`admin` accounts; Data & Sync stays open to every
+  // user (its `/health/prices` endpoint is not admin-gated).
+  const adminOnlyItems = [
+    { to: '/admin/users', labelKey: 'nav.users', icon: Users as IconType },
+    { to: '/admin/settings', labelKey: 'nav.serverSettings', icon: ServerCog as IconType },
+    { to: '/admin/backup', labelKey: 'nav.serverBackup', icon: DatabaseBackup as IconType },
+  ] as const
+
+  const healthItems = [
     { to: '/admin/health', labelKey: 'nav.dataSync', icon: Activity as IconType },
   ] as const
+
+  const adminItems = $derived(isAdmin() ? [...adminOnlyItems, ...healthItems] : [...healthItems])
 
   const settingsItems = [
     { to: '/settings', labelKey: 'nav.settings', icon: Settings as IconType },

@@ -36,10 +36,32 @@ export interface User {
   id: string
   email: string
   name: string
+  /** `owner` | `admin` | `editor` | `viewer`; `owner`/`admin` are admin-equivalent. */
   role: string
+  /** `active` | `pending` | `disabled`; non-active accounts cannot sign in. */
+  status: string
   /** User's base currency for consolidated views (EPIC I.1, default "EUR"). */
   base_currency: string
   created_at: string
+}
+
+/** One row of `GET /admin/users`: the full account record as stored,
+ * including the admin-managed `role`/`status` and both timestamps. */
+export interface AdminUser {
+  id: string
+  email: string
+  name: string
+  role: string
+  status: string
+  base_currency: string
+  created_at: string
+  updated_at: string
+}
+
+/** Singleton server settings row (`GET/PATCH /admin/settings`). */
+export interface ServerSettings {
+  auto_approve_registrations: boolean
+  updated_at: string
 }
 
 export interface Portfolio {
@@ -580,6 +602,53 @@ function buildUrl(path: string, params?: Record<string, string>): string {
   return url.toString()
 }
 
+/**
+ * Shared 401 → refresh → retry step: on success stores the rotated token
+ * pair, updates the `Authorization` header in place and returns `true` (the
+ * caller re-runs its request). A refused or failed refresh clears the
+ * session and hard-redirects to `/login` — exactly what `request` used to do
+ * inline — and returns `false`, leaving the original response to be handled
+ * by the caller.
+ */
+async function tryRefreshToken(headers: Record<string, string>): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refresh_token')
+  if (!refreshToken) return false
+  try {
+    const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (refreshRes.ok) {
+      const data = await refreshRes.json()
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      headers.Authorization = `Bearer ${data.access_token}`
+      return true
+    }
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    window.location.replace('/login')
+  } catch {
+    window.location.replace('/login')
+  }
+  return false
+}
+
+/** Build the `Error` for a failed response: the backend `{"error": …}` body
+ * when present (never the raw body of a non-JSON failure), plus the HTTP
+ * status on the error object so pages can map specific codes. */
+async function errorFrom(res: Response): Promise<Error> {
+  let message = 'Something went wrong'
+  try {
+    const data = await res.json()
+    if (data?.error) message = data.error
+  } catch {
+    // keep default message
+  }
+  return Object.assign(new Error(message), { status: res.status })
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET'
   const url = buildUrl(path, options.params)
@@ -616,41 +685,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   let res = await fetch(url, init())
 
   if (res.status === 401 && !path.includes('/auth/')) {
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        })
-        if (refreshRes.ok) {
-          const data = await refreshRes.json()
-          localStorage.setItem('access_token', data.access_token)
-          localStorage.setItem('refresh_token', data.refresh_token)
-          headers.Authorization = `Bearer ${data.access_token}`
-          res = await fetch(url, init())
-        } else {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.replace('/login')
-        }
-      } catch {
-        window.location.replace('/login')
-      }
+    if (await tryRefreshToken(headers)) {
+      res = await fetch(url, init())
     }
   }
 
   if (!res.ok) {
     // Do not cache failures (4xx/5xx): the normal throw/retry flow applies.
-    let message = 'Something went wrong'
-    try {
-      const data = await res.json()
-      if (data?.error) message = data.error
-    } catch {
-      // keep default message
-    }
-    throw Object.assign(new Error(message), { status: res.status })
+    throw await errorFrom(res)
   }
 
   if (res.status === 204) return undefined as T
@@ -815,4 +857,125 @@ export const settingsApi = {
     request<Currency>('/settings/currencies', { method: 'POST', body: { code, name } }),
   deleteCurrency: (code: string) =>
     request<void>(`/settings/currencies/${encodeURIComponent(code)}`, { method: 'DELETE' }),
+}
+
+/** Restore strategy (`#56`): `add` imports portfolios as new (non-destructive,
+ * the backend default); `replace` deletes the user's portfolios first. */
+export type BackupRestoreMode = 'add' | 'replace'
+
+/** Summary returned by `POST /backup/restore` (`mode` echoes what was applied;
+ * extra fields are tolerated by the structural type). */
+export interface BackupRestoreSummary {
+  mode: string
+  portfolios_created: number
+  transactions_created: number
+  assets_created: number
+  assets_reused: number
+}
+
+/** Raw bytes of an attachment endpoint plus the server-suggested file name
+ * parsed from `Content-Disposition` (`null` when the header is absent). */
+export interface BackupDownload {
+  blob: Blob
+  filename: string | null
+}
+
+/** Summary returned by `POST /admin/db/restore` (#57 Phase D): the server
+ * confirms the mode applied and the received archive size, and always
+ * carries the re-login warning (`message`). */
+export interface DBRestoreSummary {
+  status: string
+  mode: string
+  dump_bytes: number
+  message: string
+}
+
+/**
+ * Authenticated file download shared by `backupApi.download` and
+ * `adminApi.dbBackup`: deliberately a raw fetch instead of `request` (which
+ * JSON-parses bodies and would destroy the bytes), but with the same auth
+ * header, the same 401 → refresh → retry flow and the same error shape. The
+ * suggested name comes from `Content-Disposition` (`attachment;
+ * filename="…"`), with the same tolerant quote/charset handling the backends
+ * that emit it use.
+ */
+async function downloadAttachment(path: string): Promise<BackupDownload> {
+  const url = buildUrl(path)
+  const headers: Record<string, string> = {}
+  const token = localStorage.getItem('access_token')
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  let res = await fetch(url, { method: 'GET', headers })
+  if (res.status === 401 && (await tryRefreshToken(headers))) {
+    res = await fetch(url, { method: 'GET', headers })
+  }
+  if (!res.ok) throw await errorFrom(res)
+
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^";]+)"?/.exec(disposition)
+  return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
+}
+
+/**
+ * Per-user backup & restore (`/api/v1/backup`). `download` delegates to the
+ * shared `downloadAttachment` helper; `restore` POSTs the bundle object read
+ * from the chosen file: the server owns format/version validation (400 for
+ * anything it does not understand) and answers with the counts summary.
+ */
+export const backupApi = {
+  download: (): Promise<BackupDownload> => downloadAttachment('/backup'),
+  restore: (bundle: unknown, mode: BackupRestoreMode) =>
+    request<BackupRestoreSummary>('/backup/restore', { method: 'POST', params: { mode }, body: bundle }),
+}
+
+/** Admin-area endpoints (`/api/v1/admin/*`), gated server-side to the
+ * `owner`/`admin` roles (403 "admin access required" for everyone else). */
+export const adminApi = {
+  listUsers: () => request<AdminUser[]>('/admin/users'),
+  // PATCH body: at least one of role/status (role ∈ owner|admin|editor|viewer,
+  // status ∈ active|pending|disabled). 409 when the change would leave the
+  // server without an active admin.
+  updateUser: (id: string, patch: { role?: string; status?: string }) =>
+    request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body: patch }),
+  resetPassword: (id: string, password: string) =>
+    request<void>(`/admin/users/${id}/reset-password`, { method: 'POST', body: { password } }),
+  getSettings: () => request<ServerSettings>('/admin/settings'),
+  updateSettings: (autoApproveRegistrations: boolean) =>
+    request<ServerSettings>('/admin/settings', {
+      method: 'PATCH',
+      body: { auto_approve_registrations: autoApproveRegistrations },
+    }),
+  // Server database dump (`GET /admin/db/backup`): streamed
+  // `application/octet-stream` attachment (`peculium-db-<date>.dump`), so it
+  // shares the raw `downloadAttachment` path like the per-user backup.
+  dbBackup: (): Promise<BackupDownload> => downloadAttachment('/admin/db/backup'),
+  /**
+   * Server database restore (#57 Phase D): DESTRUCTIVE — replaces the whole
+   * database (users included) from a custom-format dump. Multipart POST with
+   * the archive in the `dump` file field and the literal `confirm=replace`
+   * form field (the handler also accepts it as a query param; the field is
+   * the contract this client keeps). `Content-Type` must stay unset so fetch
+   * derives it from the `FormData` with the multipart boundary. A 400
+   * answers a missing confirmation/file; a 500 carries the sanitized
+   * `pg_restore` error on purpose — the admin must read what failed, so
+   * pages surface `error.message` for that status. The successful session
+   * may itself be invalidated by the replaced users table: the summary's
+   * `message` warns about re-login.
+   */
+  dbRestore: async (file: File): Promise<DBRestoreSummary> => {
+    const url = buildUrl('/admin/db/restore')
+    const form = new FormData()
+    form.append('confirm', 'replace')
+    form.append('dump', file)
+    const headers: Record<string, string> = {}
+    const token = localStorage.getItem('access_token')
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    let res = await fetch(url, { method: 'POST', headers, body: form })
+    if (res.status === 401 && (await tryRefreshToken(headers))) {
+      res = await fetch(url, { method: 'POST', headers, body: form })
+    }
+    if (!res.ok) throw await errorFrom(res)
+    return (await res.json()) as DBRestoreSummary
+  },
 }

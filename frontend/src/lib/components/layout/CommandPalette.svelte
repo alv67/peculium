@@ -4,6 +4,8 @@
     Banknote,
     Briefcase,
     CircleDollarSign,
+    DatabaseBackup,
+    Download,
     Eye,
     FolderClosed,
     HandCoins,
@@ -14,10 +16,12 @@
     PanelLeft,
     RefreshCw,
     Search,
+    ServerCog,
     Settings,
     SlidersHorizontal,
     Sun,
     User,
+    Users,
   } from 'lucide-svelte'
   import { fade } from 'svelte/transition'
   import { afterNavigate, goto } from '$app/navigation'
@@ -31,6 +35,7 @@
     type Portfolio,
   } from '$lib/services/api'
   import { palette, setCvd } from '$lib/stores/palette.svelte'
+  import { isAdmin } from '$lib/stores/auth.svelte'
   import { refreshPrices } from '$lib/stores/priceRefresh.svelte'
   import { setThemeMode, theme, type ThemeMode } from '$lib/stores/theme.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
@@ -48,8 +53,9 @@
    *
    * Sections, rendered in this order and only when non-empty:
    * - *Go to*: the static destinations (Overview, Portfolios, Assets,
-   *   Data & Sync, Settings and its four sub-sections) plus every portfolio
-   *   from `portfolioApi.list()`;
+   *   Data & Sync, Settings and its five sub-sections, plus Users,
+   *   Server settings and Server backup for admin accounts) plus every
+   *   portfolio from `portfolioApi.list()`;
    * - *Assets*: registered assets from `assetApi.list()`, plus a live
    *   "Search Yahoo for …" row fed by a debounced `assetApi.lookup()` —
    *   selecting it navigates to `/assets` (creating assets stays out of
@@ -297,6 +303,48 @@
         keywords: 'fx exchange rates',
         run: () => goto(resolve('/settings/currencies')),
       }),
+      row({
+        id: 'go-settings-backup',
+        section: 'go',
+        label: t('settingsTabs.backup'),
+        hint: t('nav.settings'),
+        icon: Download,
+        keywords: 'backup restore download export import data json',
+        run: () => goto(resolve('/settings/backup')),
+      }),
+      // Admin destinations mirror the sidebar's Admin section: only offered
+      // to admin-equivalent accounts (#57).
+      ...(isAdmin()
+        ? [
+            row({
+              id: 'go-admin-users',
+              section: 'go',
+              label: t('nav.users'),
+              hint: t('nav.sectionAdmin'),
+              icon: Users,
+              keywords: 'admin accounts roles approve disable reset password',
+              run: () => goto(resolve('/admin/users')),
+            }),
+            row({
+              id: 'go-admin-settings',
+              section: 'go',
+              label: t('nav.serverSettings'),
+              hint: t('nav.sectionAdmin'),
+              icon: ServerCog,
+              keywords: 'admin auto approve registrations server settings',
+              run: () => goto(resolve('/admin/settings')),
+            }),
+            row({
+              id: 'go-admin-db-backup',
+              section: 'go',
+              label: t('nav.serverBackup'),
+              hint: t('nav.sectionAdmin'),
+              icon: DatabaseBackup,
+              keywords: 'admin database dump restore pg_dump pg_restore server backup',
+              run: () => goto(resolve('/admin/backup')),
+            }),
+          ]
+        : []),
       ...portfolioSource.map((p) =>
         row({
           id: `go-portfolio-${p.id}`,

@@ -23,7 +23,7 @@ Track your investments, monitor asset performance, and gain insights into your f
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Go 1.23, Chi router, pgx (PostgreSQL), golang-migrate |
+| Backend | Go 1.25, Chi router, pgx (PostgreSQL), golang-migrate |
 | Frontend | SvelteKit 5, TypeScript, Tailwind CSS, ECharts |
 | ETF metadata | Python microservice (FastAPI, requests, BeautifulSoup) — JustETF scraping |
 | Database | PostgreSQL 16 |
@@ -75,13 +75,12 @@ and send the requests in order.
 
 ## Project Status
 
-Releases on [`main`](https://github.com/alv67/peculium/tree/main): **v0.1.0** (25 Aug 2026,
-first official release), **v0.2.0** (30 Aug 2026, EPIC A — data correctness & security —
-and EPIC B — geographic/sector distribution, asset classes, FX history, charts) and
-**v0.3.0** (11 Sep 2026, asset editing overhaul and per-country exposure editing with
-Morningstar/JustETF prefill).
+The current release is **v1.0.0** (30 Sep 2026): the first official release under the
+Peculium name, adding the admin area (user governance and server settings), per-user and
+server-wide backup & restore, and — from this release on — pull-only installation from the
+public GHCR images.
 
-Active development on the [`develop`](https://github.com/alv67/peculium/tree/develop) branch — see [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md) for the roadmap.
+Active development on the [`develop`](https://github.com/alv67/peculium/tree/develop) branch — see [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md) for the roadmap. The full release history is on the [project website](https://peculium.dev/releases) and in [GitHub Releases](https://github.com/alv67/peculium/releases).
 
 ## License
 

@@ -191,8 +191,11 @@ frontend/
         │   │                       #   + URL-persisted filters)
         │   ├── tx-filters.ts       #   Activity filter model + URL query codec
         │   └── allocation/         #   Allocation tab
-        ├── settings/       # profile, password, currency whitelist
-        └── admin/health/   # price-sync health dashboard — "Data & Sync"
+        ├── settings/       # profile, password, preferences, currencies,
+        │                   #   backup & restore
+        └── admin/          # "Admin" area: health/ (price-sync dashboard,
+                            #   "Data & Sync", open to every user) plus
+                            #   users/ + settings/ + backup/ (admin only)
 ```
 
 > There is **no separate `/register` page**: the login page contains a
@@ -277,6 +280,8 @@ against the backend routes (`backend/cmd/server/main.go`).
 | `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns the `RefreshReport`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
+| `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
+| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (streamed `.dump` attachment), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (all admin-only: 403 for non-admin roles) |
 | `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -462,7 +467,7 @@ in white).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | filterable combobox over the already-registered assets (ticker/name, max 8 rows); emits the selected asset id | the transaction modal. The Yahoo ticker lookup for creating assets lives in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | transactions table (Date/Asset/Type badge/Qty/Price/Total/Actions) with a right-aligned edit action | the **portfolio detail** Transactions card; the page feeds it one 20-row page at a time and renders the Previous/Next footer under it |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | add/edit/delete transaction form: asset combobox, type (buy/sell/dividend), quantity/price or amount, date, fees, notes; inline validation and a live total; owns the API calls and toasts. It renders as the `ui/Modal` at ≥ `sm` and as a `ui/Sheet` (bottom sheet) on phones (via the `viewport` store), sharing one form/footer snippet pair; Delete removes the row immediately and shows a 5 s **undo** toast instead of a `ConfirmDialog` — the undo re-POSTs the captured payload, which yields a new id | the **portfolio detail** page, opened by "Add Transaction" and by the transaction table edit action |
-| `SettingsTabs.svelte` (`lib/components/domain/`) | link-based tab bar for the Settings subroutes (Profile / Password / Preferences / Currencies), active tab marked with `aria-current="page"`; the pill container is `max-w-full flex-wrap` so all four tabs stay reachable at phone widths | all four **Settings** pages |
+| `SettingsTabs.svelte` (`lib/components/domain/`) | link-based tab bar for the Settings subroutes (Profile / Password / Preferences / Currencies / Backup & restore), active tab marked with `aria-current="page"`; the pill container is `max-w-full flex-wrap` so all five tabs stay reachable at phone widths | all five **Settings** pages |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | shared **Chart ⇄ Table** segmented disclosure: a thin wrapper over `SegmentedControl` bound to the owning chart's internal `view` state (`'chart' \| 'table'`, `$bindable`), labeled `Chart`/`Table` through `chartView.*`; the tablist accessible name interpolates the chart's own heading when it has one (`chartView.ariaNamed`, generic `chartView.aria` otherwise) | embedded by `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` and `AllocationDonut` (see the "View as table" note below); callers hide it with `showTableToggle={false}` where a list of the same rows already sits directly under the chart |
 
 Tooltips format monetary values with `formatCurrency` (chapter 6), dates with
@@ -648,8 +653,11 @@ Reusable components live in `src/lib/components/ui/`: `Button` (variants
 primary/secondary/outline/ghost/danger/link, sizes, loading), `Input`,
 `Textarea`, `Select`, `Field`, `Card` (+ `CardHeader`/`CardContent`), `Badge`,
 `Modal`, `ConfirmDialog`, `Spinner`, `Skeleton`, `EmptyState`, the `Table`
-primitives (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl` and
-`StatCard`. Pages and the shell reuse them instead of duplicating markup.
+primitives (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl`,
+`Switch` (a `role="switch"` toggle: the boolean stays owned by the caller via
+the `checked` prop and `onchange` receives the next value, so a settings page
+can roll an optimistic write back on failure) and `StatCard`. Pages and the
+shell reuse them instead of duplicating markup.
 `SegmentedControl` is overflow-safe by design: its pill row is
 `max-w-full flex-wrap` with content-based `flex-auto` segments, so long labels
 wrap inside the container at phone widths instead of pushing a horizontal
@@ -710,9 +718,15 @@ JS state and CSS never disagree.
   headers on the portfolio/asset detail shells stack at
   `top-[var(--app-header-h)]` (with a matched `transition-[top]`) so they stay
   flush with the bar while it condenses. The default lives in `app.css` `:root`.
-- The Admin entry is labelled **"Data & Sync"** (`nav.dataSync`).
-  It lives in a single `adminItems` config point in `SidebarNav` (route
-  `/admin/health`).
+- The sidebar's **Admin** section renders from a single `adminItems` config
+  point in `SidebarNav`: **"Data & Sync"** (`nav.dataSync`, route
+  `/admin/health`) is open to every user, while the management entries
+  **Users** (`/admin/users`, `nav.users`), **Server settings**
+  (`/admin/settings`, `nav.serverSettings`) and **Server backup**
+  (`/admin/backup`, `nav.serverBackup`) render only for admin accounts —
+  `isAdmin()` (from `lib/stores/auth.svelte.ts`) treats the session `role`
+  `owner`/`admin` as admin-equivalent. `/admin` itself redirects to
+  `/admin/users`, and every `/admin/*` page content is wrapped in `AdminGate`.
 - **Command palette** — `layout/CommandPalette.svelte`
   mounts once in `AppShell` on the modal tier (z-40, under the z-50 toasts).
   The ⌘K/Ctrl+K chord is a `<svelte:window>` handler inside the component
@@ -727,7 +741,9 @@ JS state and CSS never disagree.
   deliberately non-focusable APG `role="option"` rows) over a grouped
   `role="listbox"` with three `role="group"` sections rendered only when
   non-empty: **Go to** (Overview, Portfolios, Assets, Data & Sync, Settings +
-  its four sub-sections, then every portfolio from `portfolioApi.list()`),
+  its five sub-sections, plus Users, Server settings and Server backup for
+  admin accounts,
+  then every portfolio from `portfolioApi.list()`),
   **Assets** (registered assets from `assetApi.list()` — name plus ticker
   hint — followed by a live "Search Yahoo for …" row fed by a 300 ms-debounced
   `assetApi.lookup()` from 2 characters; selecting it just navigates to
@@ -808,7 +824,8 @@ visible on every page.
   (Overview/Positions/Activity and their tables), the portfolios and assets
   lists, the asset detail tabs, every modal (create portfolio/asset, import
   portfolio, add transaction, exposure editing), the Settings pages, the Price
-  Sync Health page and the allocation/exposure surfaces (`allocation.*`,
+  Sync Health page, the admin Users, Server settings and Server backup pages and the
+  allocation/exposure surfaces (`allocation.*`,
   `exposure.*`, the drill-down `drill.*`, the chart series and empty states
   `chartView.*`, the `ProvenanceBadge` `provenance.*`) — plus the asset
   type/class/price-source labels, which `lib/format.ts` exposes as localized
@@ -833,9 +850,16 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
 - `login(email, password)` — `POST /auth/login`, saves the **pair** in
   `localStorage`, sets `auth.user`, then
   `window.location.replace('/')` (a full reload, deliberate).
-- `register(...)` — `POST /auth/register`. It does **not** log the user in:
-  the login page shows "Registered! You can now log in." and switches back to
-  the sign-in form.
+- `register(...)` — `POST /auth/register`, returning the created user. It
+  does **not** log the user in: the login page shows "Registered! You can now
+  log in." (or, when the account is created `pending`, the pending-approval
+  variant) and switches back to the sign-in form.
+- `auth.user` carries the session `role` (`owner`/`admin`/`editor`/`viewer`)
+  and `status` (`active`/`pending`/`disabled`); `isAdmin()` is the single
+  client-side admin check (`owner`/`admin` are admin-equivalent). The shell
+  chrome hides the admin entries when it is false, the `/admin/*` pages re-check
+  it through `AdminGate`, and the backend enforces the same rule again on every
+  `/admin/*` request (403).
 - `logout()` — clears both tokens, `auth.user = null` and
   `window.location.replace('/login')`.
 - `updateProfile(name, email, baseCurrency?)` — `PATCH /users/me` and
@@ -1044,7 +1068,11 @@ portfolio card carries a value-history sparkline strip.
 A single centered card toggling between **Sign in** and **Register**
 (`isRegister`). Register asks for name + email + password and, on success,
 shows a toast and switches back to Sign in; login calls `store.login()` which
-hard-redirects to `/`.
+hard-redirects to `/`. When server settings keep auto-approval off the
+register toast tells the new user an administrator must approve the account
+first; signing in on a non-active account is refused by the backend (403) and
+the form maps the two cases (pending approval / disabled) to clear localized
+messages instead of the raw error.
 
 ### `/portfolios` — Portfolios (`routes/portfolios/+page.svelte`)
 
@@ -1470,8 +1498,9 @@ TAB **Exposure** — the geo/sector distribution widgets:
 ### `/settings` — Settings (`routes/settings/+page.svelte`)
 
 Called endpoints: `settingsApi.listCurrencies()`, `updateProfile()`,
-`authApi.changePassword()`. The `SettingsTabs` bar navigates the four
-sections (Profile · Password · **Preferences** · Currencies) and its labels
+`authApi.changePassword()`, `backupApi.download()`, `backupApi.restore()`.
+The `SettingsTabs` bar navigates the five
+sections (Profile · Password · **Preferences** · Currencies · Backup & restore) and its labels
 are translated through the i18n layer (chapter 8).
 
 - **Profile** (name/email/**base currency**) and **Change password**
@@ -1501,6 +1530,26 @@ are translated through the i18n layer (chapter 8).
   422 from the backend means Yahoo has no USD→code conversion and the frontend
   shows a specific message; 409 means already present), delete with confirm
   (409 = in use or protected). Symbols rendered with `currencySymbol()`.
+- **Backup & restore** (`routes/settings/backup/+page.svelte`): per-user data
+  export/import as a single versioned JSON bundle. **Download** calls
+  `backupApi.download()` — deliberately a raw authenticated fetch instead of
+  `request`, because the bundle must arrive as a `Blob` and the suggested name
+  comes from the response's `Content-Disposition` — and saves it through the
+  same `URL.createObjectURL` anchor dance as the portfolio export. **Restore**
+  first reads the chosen file client-side (unparseable JSON → invalid-file
+  message; object shape or `version !== 1` → invalid-bundle message, neither
+  touching the API), then picks the strategy: **add** ("Add to current data",
+  the non-destructive default, selected for every freshly chosen file) or
+  **replace** ("Replace current data" — destructive: it wipes the account's
+  portfolios before importing, the Restore button takes the `danger` variant
+  while it is selected and the request only goes out after an explicit
+  `ConfirmDialog`). `POST /backup/restore?mode=…` answers the counts summary
+  (`portfolios_created`, `transactions_created`, `assets_created`,
+  `assets_reused`): success toasts and the counts stay visible as an inline
+  `<dl>` grid (2 columns on phones, 4 from `sm`); a server 400 (unsupported
+  format/version) maps to the localized invalid-bundle message, everything
+  else to the generic restore-failure one. Assets are global and never
+  deleted by any mode: existing tickers are reused, missing ones recreated.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 
@@ -1512,3 +1561,83 @@ restart). It shows 4 summary cards (Success Rate, Total Successes, Total
 Failures, Rate Limited) and a paginated table of the recent events (timestamp,
 type, status badge, code, message, duration; page size 50 with Previous/Next
 and a range label), with a "Refresh Now" button.
+
+### Admin area (`routes/admin/…`)
+
+The management home for admin accounts, linked from the sidebar's Admin
+section, the phone More sheet and the command palette — all of which render
+its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`. `/admin`
+(`routes/admin/+page.svelte`) is a redirect to `/admin/users` (`replaceState`,
+so it never stays in history). Page content is wrapped in `AdminGate`
+(`lib/components/domain/AdminGate.svelte`): anyone whose session role is not
+admin-equivalent and lands on the route (e.g. by typing the URL) gets an
+"Admins only" forbidden empty state instead of the page; the backend answers
+403 on every `/admin/*` request regardless, so this is presentation-only
+gating.
+
+### `/admin/users` — User management (`routes/admin/users/+page.svelte`)
+
+Calls `adminApi.listUsers()`, `adminApi.updateUser()`,
+`adminApi.resetPassword()`. A table of every account (Email, Name, Role,
+Status, Created, Actions) with a `Badge` per role (`owner`/`admin` accent,
+others neutral) and per status (active positive, pending warning, disabled
+negative; enum labels localized from `admin.*`, unknown values rendered as
+the raw string). Row actions are icon buttons with the target email in the
+accessible name, and the row's controls lock while a request for it is in
+flight:
+
+- **Approve** (`UserCheck`, pending signups) and **Re-enable** (`Check`,
+  disabled accounts) PATCH `status: active` directly; **Disable** (`Ban`)
+  PATCHes `status: disabled` behind a danger `ConfirmDialog`;
+- a per-row role `Select` — assignable values are `admin`/`editor`/`viewer`;
+  the legacy `owner` appears on the row still carrying it (so a change away
+  is possible without silently renaming it) and a footnote under the table
+  states it cannot be assigned to new accounts; the selection is optimistic
+  and rolls back on failure;
+- **Reset password** (`KeyRound`) opens a `Modal` asking a new password
+  (minimum 8 characters, inline validation via `password.*` keys) and POSTs
+  `/admin/users/{id}/reset-password`.
+
+Each successful PATCH splices the returned record into the list in place (no
+refetch) and, when the edited row is the signed-in account, syncs `auth.user`
+too — so a self-demotion live reveals the `AdminGate` forbidden state. Errors
+map to localized toasts: 409 (the change would leave the server without an
+active admin) and 404 (unknown user) have dedicated messages; anything else
+shows the generic update/reset failure. Raw backend strings never reach the UI.
+
+### `/admin/settings` — Server settings (`routes/admin/settings/+page.svelte`)
+
+Calls `adminApi.getSettings()` / `adminApi.updateSettings()`. A single card
+with a `ui/Switch` for the one server-wide setting, **Auto-approve new
+registrations** (`auto_approve_registrations`): when on, new accounts can sign
+in immediately; when off, signups are created `pending` and an admin approves
+them from the Users page. The toggle applies immediately (optimistic PATCH on
+change, rolled back with an error toast on failure) and a "Last updated"
+stamp sits under the label.
+
+### `/admin/backup` — Server backup (`routes/admin/backup/+page.svelte`)
+
+Server-wide database dump and restore (`adminApi.dbBackup` / `adminApi.dbRestore`,
+admin-only endpoints and an `AdminGate`d page). The **Download** card streams a
+full `pg_dump` (custom format) through `GET /admin/db/backup`
+(`application/octet-stream`, attachment `peculium-db-<date>.dump`) using the
+same raw authenticated blob path as the per-user backup — the server's
+`Content-Disposition` names the saved file. The **Restore** card picks a
+`.dump` file (the client never inspects the binary; the server validates it)
+and gates the request behind a typed confirmation: a danger
+`Modal` (`admin.dbConfirmWarning` carries the full warning — every table
+rewritten, users included, sessions possibly invalidated) whose confirm
+button only enables once the admin types the exact confirmation phrase
+(`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per locale). The upload is
+`POST /admin/db/restore` as `multipart/form-data` with the archive in the
+`dump` file field and the literal `confirm=replace` as a form field
+(`Content-Type` deliberately left unset so the browser derives it with the
+boundary). Success answers `{status, mode, dump_bytes, message}`: a toast
+plus an inline panel with the restored archive size and a persistent
+re-login notice, since the users table is part of the archive and the
+current session may no longer match the restored data. Failures surface the
+backend message on purpose (400 for a missing confirmation/file, 500 with
+the sanitized `pg_restore` stderr — a partially applied restore must be
+readable in the UI); only status-less network errors fall back to the
+localized generic. Both operations bound to the server's 30-minute window:
+the buttons spin and the page shows a "keep this page open" hint.

@@ -291,3 +291,62 @@ Authorization: Bearer {{token}}
 # @name sectorAllocation
 GET {{baseUrl}}/portfolios/{{portfolioId}}/allocation/sector
 Authorization: Bearer {{token}}
+### 18. NEW — Per-user backup bundle: every portfolio the logged-in user owns
+### (as standard portfolio-export documents), the referenced assets' metadata,
+### their exposure (with the *_source provenance) and their manual price rows
+### (source='manual', seeded via SQL on this stack), the base currency and the
+### supported currencies in use. Yahoo prices, FX history and health events are
+### excluded by design (refetchable). Served as an attachment named
+### peculium-backup-<email>-<date>.json.
+# @name backupBundle
+GET {{baseUrl}}/backup
+Authorization: Bearer {{token}}
+
+### 19. NEW — Restore the bundle onto the logged-in user. ?mode=add (the
+### default) imports every portfolio as a new one; ?mode=replace first deletes
+### the user's own portfolios (transactions cascade) — no server-side
+### confirmation, the UI confirms client-side. Assets are global: existing
+### tickers are reused untouched, missing ones are created with the importer
+### defaults. Response: the mode applied and the created/reused counts.
+### This inline document mirrors the bundle of #18 for the SMEA.MI asset of #3;
+### paste the real body from the #18 response to restore it verbatim.
+POST {{baseUrl}}/backup/restore?mode=add
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "version": 1,
+  "user": { "email": "test@example.com", "name": "Tester", "base_currency": "EUR" },
+  "currencies": [{ "code": "EUR", "name": "Euro", "symbol": "€" }],
+  "portfolios": [
+    {
+      "version": 1,
+      "portfolio": { "name": "Restored", "description": "", "currency": "EUR" },
+      "assets": [{ "ticker": "SMEA.MI", "name": "iShares Core MSCI World", "type": "etf", "currency": "EUR", "price_source": "yahoo", "asset_class": "equity" }],
+      "transactions": [
+        { "date": "2024-01-10T00:00:00Z", "type": "buy", "asset_ticker": "SMEA.MI", "quantity": "10", "price": "103.2" }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "ticker": "SMEA.MI",
+      "name": "iShares Core MSCI World",
+      "type": "etf",
+      "currency": "EUR",
+      "price_source": "yahoo",
+      "asset_class": "equity",
+      "exposure": { "countries": [], "regions": [], "sectors": [{ "name": "Information Technology", "weight": "25" }, { "name": "Financials", "weight": "15" }, { "name": "Other", "weight": "60" }], "sectors_source": "manual" },
+      "manual_prices": [{ "date": "2024-01-10", "open": "103.2", "high": "103.5", "low": "103", "close": "103.2", "source": "manual" }]
+    }
+  ]
+}
+
+### 20. Expected failures: a bundle newer than the importer (400
+### "unsupported backup version N"), an unknown mode (400 "backup mode must be
+### add or replace"), a non-JSON body (400 "invalid request body").
+POST {{baseUrl}}/backup/restore?mode=add
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "version": 99, "portfolios": [], "assets": [] }

@@ -200,8 +200,12 @@ frontend/
         │   │                       #   + filtri persistiti nell'URL)
         │   ├── tx-filters.ts       #   modello filtri Attività + codec query URL
         │   └── allocation/         #   tab Allocazione
-        ├── settings/       # profilo, password, whitelist valute
-        └── admin/health/   # health dashboard dei prezzi — "Dati e sincronizzazione"
+        ├── settings/       # profilo, password, preferenze, valute,
+        │                   #   backup e ripristino
+        └── admin/          # area "Admin": health/ (dashboard prezzi,
+                            #   "Dati e sincronizzazione", aperta a tutti)
+                            #   più users/ + settings/ + backup/ (solo
+                            #   amministratori)
 ```
 
 > **Non esiste una pagina `/register` separata**: la pagina di login contiene un
@@ -289,6 +293,8 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce il `RefreshReport`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
+| `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
+| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (allegato `.dump` in streaming), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (tutti riservati agli amministratori: 403 per gli altri ruoli) |
 | `api` (generico) | get/post/put/patch/delete | il client grezzo, usato dalla pagina health per `GET /health/prices` |
 
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -480,7 +486,7 @@ scuro contornato di bianco).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | combobox filtrabile sugli asset già registrati (ticker/nome, max 8 righe); emette l'id dell'asset selezionato | la modale transazione. La ricerca ticker Yahoo per creare asset vive in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | tabella transazioni (Data/Asset/Type badge/Qty/Price/Total/Azioni) con azione di modifica allineata a destra | la card Transactions del **dettaglio portafoglio**; la pagina le passa una pagina da 20 righe alla volta e mostra i pulsanti Previous/Next con l'intervallo sotto di essa |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | form di aggiunta/modifica/eliminazione transazione: combobox asset, tipo (buy/sell/dividend), quantità/prezzo o importo, data, commissioni, note; validazione inline e totale live; gestisce chiamate API e toast. Si presenta come `ui/Modal` da `sm` in su e come `ui/Sheet` (bottom sheet) sui telefoni (store `viewport`), condividendo un'unica coppia di snippet form/piè; Elimina rimuove la riga subito e mostra un toast **undo** da 5 s invece del `ConfirmDialog` — l'undo re-INVIA il payload catturato, con nuovo id | la pagina **dettaglio portafoglio**, aperta da "Add Transaction" e dall'azione di modifica della tabella |
-| `SettingsTabs.svelte` (`lib/components/domain/`) | barra di tab basata su link per le subroute delle Impostazioni (Profilo / Password / Preferenze / Valute), tab attivo marcato con `aria-current="page"`; il contenitore delle pill `max-w-full flex-wrap` mantiene tutte e quattro le tab raggiungibili a larghezza telefono | tutte e quattro le pagine **Settings** |
+| `SettingsTabs.svelte` (`lib/components/domain/`) | barra di tab basata su link per le subroute delle Impostazioni (Profilo / Password / Preferenze / Valute / Backup e ripristino), tab attivo marcato con `aria-current="page"`; il contenitore delle pill `max-w-full flex-wrap` mantiene tutte e cinque le tab raggiungibili a larghezza telefono | tutte e cinque le pagine **Settings** |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | disclosure segmentata **Grafico ⇄ Tabella** condivisa: wrapper sottile di `SegmentedControl` legato allo stato `view` interno (`'chart' \| 'table'`, `$bindable`) del grafico che lo ospita, con etichette `Chart`/`Table` da `chartView.*`; il nome accessibile della tablist interpola il titolo proprio del grafico, se ce l'ha (`chartView.ariaNamed`, altrimenti il generico `chartView.aria`) | incorporato da `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` e `AllocationDonut` (vedi la nota "Vedi come tabella" qui sotto); i chiamanti lo nascondono con `showTableToggle={false}` dove sotto al grafico è già presente un elenco delle stesse righe |
 
 I tooltip formattano i valori monetari con `formatCurrency` (capitolo 6), le
@@ -683,7 +689,10 @@ I componenti riusabili vivono in `src/lib/components/ui/`: `Button` (varianti
 primary/secondary/outline/ghost/danger/link, dimensioni, loading), `Input`,
 `Textarea`, `Select`, `Field`, `Card` (+ `CardHeader`/`CardContent`), `Badge`,
 `Modal`, `ConfirmDialog`, `Spinner`, `Skeleton`, `EmptyState`, le primitive
-`Table` (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl` e
+`Table` (`Table`/`THead`/`TBody`/`Tr`/`Th`/`Td`), `SegmentedControl`,
+`Switch` (un toggle `role="switch"`: il booleano resta del chiamante via la
+prop `checked` e `onchange` riceve il nuovo valore, così una pagina di
+impostazioni può ritrarre una scrittura ottimistica in caso di errore) e
 `StatCard`. Le pagine e la shell le riusano invece di duplicare markup.
 `SegmentedControl` e sicuro contro l'overflow per costruzione:
 la riga delle pill `max-w-full flex-wrap` con segmenti `flex-auto` basati sul
@@ -754,9 +763,16 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   delle shell entità (dettaglio portafoglio/asset) si impilano a
   `top-[var(--app-header-h)]` (con una `transition-[top]` analoga) così restano
   adiacenti alla barra mentre si condensa. Il default vive nel `:root` di `app.css`.
-- La voce Admin si chiama **"Dati e sincronizzazione"** (`nav.dataSync`)
-  e vive in un unico punto di configurazione `adminItems` dentro
-  `SidebarNav` (la route `/admin/health`).
+- La sezione **Admin** della sidebar renderizza da un unico punto di
+  configurazione `adminItems` dentro `SidebarNav`: **"Dati e
+  sincronizzazione"** (`nav.dataSync`, route `/admin/health`) è aperta a
+  tutti, mentre le voci di gestione **Utenti** (`/admin/users`, `nav.users`),
+  **Impostazioni server** (`/admin/settings`, `nav.serverSettings`) e **Backup
+  del server** (`/admin/backup`, `nav.serverBackup`) compaiono
+  solo per gli account amministratore — `isAdmin()` (da
+  `lib/stores/auth.svelte.ts`) tratta il `role` di sessione `owner`/`admin`
+  come equivalente ad admin. `/admin` reindirizza a `/admin/users`, e ogni
+  pagina `/admin/*` è avvolta da `AdminGate`.
 - **Pannello comandi** — `layout/CommandPalette.svelte`
   è montato una sola volta nell'`AppShell`, sul tier dei modali (z-40, sotto i
   toast a z-50). L'accordo ⌘K/Ctrl+K è un handler `<svelte:window>` dentro il
@@ -772,7 +788,9 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   l'unico tab stop; le opzioni sono righe `role="option"` deliberatamente non
   focusabili, pattern APG) su una `role="listbox"` raggruppata con tre sezioni
   `role="group"` rese solo se non vuote: **Vai a** (Panoramica, Portafogli,
-  Asset, Dati e sincronizzazione, Impostazioni + le quattro sottosezioni, poi
+  Asset, Dati e sincronizzazione, Impostazioni + le cinque sottosezioni, più
+  Utenti, Impostazioni server e Backup del server per gli account
+  amministratore, poi
   ogni portafoglio da `portfolioApi.list()`), **Asset** (gli asset registrati
   da `assetApi.list()` — nome più hint col ticker — seguiti da una riga live
   "Cerca su Yahoo …" alimentata da un `assetApi.lookup()` con debounce di
@@ -858,7 +876,8 @@ essere visibili su ogni pagina.
    (Panoramica/Posizioni/Attività e le relative tabelle), le liste portafogli e
    asset, i tab del dettaglio asset, tutte le modali (crea portafoglio/asset,
    importa portafoglio, aggiungi transazione, modifica esposizione), le pagine
-   Impostazioni, la pagina Stato sincronizzazione prezzi e le superfici
+   Impostazioni, la pagina Stato sincronizzazione prezzi, le pagine admin
+   Utenti, Impostazioni server e Backup del server e le superfici
    allocazione/esposizione (`allocation.*`, `exposure.*`, il drill-down
    `drill.*`, le serie e gli stati vuoti dei grafici `chartView.*`, il
    `ProvenanceBadge` `provenance.*`) — più le etichette di tipo/classe/fonte
@@ -884,9 +903,16 @@ Uno store a rune che contiene `auth.user` e `auth.isLoading`:
 - `login(email, password)` — `POST /auth/login`, salva la **coppia** in
   `localStorage`, imposta `auth.user`, poi
   `window.location.replace('/')` (un reload completo, voluto).
-- `register(...)` — `POST /auth/register`. **Non** effettua il login: la pagina
-  di login mostra "Registered! You can now log in." e torna al form di
-  accesso.
+- `register(...)` — `POST /auth/register`, restituisce l'utente creato.
+  **Non** effettua il login: la pagina di login mostra "Registered! You can
+  now log in." (o, se l'account nasce `pending`, la variante con approvazione
+  necessaria) e torna al form di accesso.
+- `auth.user` trasporta il `role` di sessione (`owner`/`admin`/`editor`/
+  `viewer`) e lo `status` (`active`/`pending`/`disabled`); `isAdmin()` è
+  l'unico controllo client-side lato admin (`owner`/`admin` sono
+  equivalenti). La chrome della shell nasconde le voci admin quando è false,
+  le pagine `/admin/*` lo riverificano via `AdminGate` e il backend applica la
+  stessa regola di nuovo su ogni richiesta `/admin/*` (403).
 - `logout()` — cancella entrambi i token, `auth.user = null` e
   `window.location.replace('/login')`.
 - `updateProfile(name, email, baseCurrency?)` — `PATCH /users/me` e aggiorna
@@ -1098,7 +1124,11 @@ valore.
 Una sola card centrata con un toggle tra **Sign in** e **Register**
 (`isRegister`). La registrazione chiede nome + email + password e, al
 successo, mostra un toast e torna al Sign in; il login chiama `store.login()`
-che fa un redirect "duro" a `/`.
+che fa un redirect "duro" a `/`. Quando le impostazioni server tengono
+l'approvazione automatica spenta, il toast della registrazione avvisa che un
+amministratore deve approvare l'account; l'accesso su un account non attivo
+viene rifiutato dal backend (403) e il form traduce i due casi (in approvazione
+/ disattivato) in messaggi localizzati chiari invece dell'errore grezzo.
 
 ### `/portfolios` — Portafogli (`routes/portfolios/+page.svelte`)
 
@@ -1543,8 +1573,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 ### `/settings` — Impostazioni (`routes/settings/+page.svelte`)
 
 Endpoint chiamati: `settingsApi.listCurrencies()`, `updateProfile()`,
-`authApi.changePassword()`. La barra `SettingsTabs` naviga le quattro
-sezioni (Profilo · Password · **Preferenze** · Valute) e le sue etichette
+`authApi.changePassword()`, `backupApi.download()`, `backupApi.restore()`.
+La barra `SettingsTabs` naviga le cinque
+sezioni (Profilo · Password · **Preferenze** · Valute · Backup e ripristino) e le sue etichette
 sono tradotte tramite il layer i18n (capitolo 8).
 
 - **Profile** (nome/email/**valuta base**) e **Change password**
@@ -1577,6 +1608,28 @@ sono tradotte tramite il layer i18n (capitolo 8).
   USD→codice e il frontend mostra un messaggio dedicato; 409 = già presente),
   elimina con conferma (409 = in uso o protetta). I simboli sono renderizzati
   con `currencySymbol()`.
+- **Backup e ripristino** (`routes/settings/backup/+page.svelte`): export/import
+  dei dati del singolo utente come un unico bundle JSON versionato. Il
+  **Download** chiama `backupApi.download()` — deliberatamente una fetch
+  autenticata grezza invece di `request`, perché il bundle deve arrivare come
+  `Blob` e il nome suggerito arriva dall'`Content-Disposition` della risposta —
+  e lo salva con la stessa danza `URL.createObjectURL` + ancora usata
+  dall'export del portafoglio. Il **Ripristino** prima legge il file scelto
+  lato client (JSON non parsabile → messaggio file non valido; forma o
+  `version !== 1` non supportati → messaggio bundle non valido, senza toccare
+  l'API), poi sceglie la strategia: **add** ("Aggiungi ai dati attuali",
+  default non distruttivo, selezionato per ogni nuovo file scelto) o
+  **replace** ("Sostituisci i dati attuali" — distruttivo: cancella i
+  portafogli dell'account prima di importare; con questa opzione attiva il
+  pulsante Ripristina prende la variante `danger` e la richiesta parte solo
+  dopo un `ConfirmDialog` esplicito). `POST /backup/restore?mode=…` risponde
+  il riepilogo dei conteggi (`portfolios_created`, `transactions_created`,
+  `assets_created`, `assets_reused`): toast di successo e conteggi lasciati
+  visibili in una griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`);
+  un 400 del backend (formato/versione non supportati) mappa sul messaggio
+  localizzato bundle non valido, tutto il resto sul fallback di ripristino
+  fallito. Gli asset sono globali e nessuna modalità li elimina: i ticker
+  esistenti vengono riusati, i mancanti ricreati.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 
@@ -1588,3 +1641,91 @@ card di riepilogo (Success Rate, Total Successes, Total Failures, Rate Limited)
 e una tabella paginata degli eventi recenti (timestamp, tipo, badge dello stato,
 codice, messaggio, durata; 50 per pagina con Previous/Next e indicazione
 dell'intervallo), con un pulsante "Refresh Now".
+
+### Area Admin (`routes/admin/…`)
+
+La home di gestione per gli account amministratore, raggiungibile dalla
+sezione Admin della sidebar, dal foglio "Altro" del telefono e dal pannello
+comandi — che renderizzano le sue voci (`Utenti`, `Impostazioni server`,
+`Backup del server`) solo
+quando `isAdmin()`. `/admin` (`routes/admin/+page.svelte`) è un redirect a
+`/admin/users` (`replaceState`, così non resta mai nella cronologia). Il
+contenuto delle pagine è avvolto da `AdminGate`
+(`lib/components/domain/AdminGate.svelte`): chi ha un ruolo di sessione non
+equivalente ad admin e arriva alla route (es. digitando l'URL) trova uno stato
+vuoto "Solo amministratori" al posto della pagina; il backend risponde 403 su
+ogni richiesta `/admin/*` indipendentemente, quindi questo è solo gating
+presentazionale.
+
+### `/admin/users` — Gestione utenti (`routes/admin/users/+page.svelte`)
+
+Chiama `adminApi.listUsers()`, `adminApi.updateUser()`,
+`adminApi.resetPassword()`. Una tabella di tutti gli account (Email, Nome,
+Ruolo, Stato, Creato, Azioni) con un `Badge` per il ruolo (`owner`/`admin`
+accent, gli altri neutral) e uno per lo stato (active positivo, pending
+warning, disabled negativo; le etichette degli enum sono localizzate da
+`admin.*`, i valori inattesi mostrano la stringa grezza). Le azioni di riga
+sono pulsanti icona con l'email dell'obiettivo nel nome accessibile, e i
+controlli della riga si bloccano mentre una richiesta per quella riga è in
+corso:
+
+- **Approva** (`UserCheck`, registrazioni pending) e **Riattiva** (`Check`,
+  account disabled) fanno PATCH `status: active` diretto; **Disattiva**
+  (`Ban`) fa PATCH `status: disabled` dietro `ConfirmDialog` danger;
+- un `Select` di ruolo per riga — i valori assegnabili sono
+  `admin`/`editor`/`viewer`; il legacy `owner` compare solo sulla riga che
+  ancora lo porta (così un cambio è possibile senza rinominarlo in silenzio)
+  e una nota sotto la tabella spiega che non è assegnabile a nuovi account;
+  la selezione è ottimistica e viene ritratta in caso di errore;
+- **Reimposta password** (`KeyRound`) apre una `Modal` che chiede una nuova
+  password (minimo 8 caratteri, validazione inline con le chiavi `password.*`)
+  e POSTa `/admin/users/{id}/reset-password`.
+
+Ogni PATCH riuscito sostituisce la riga con il record restituito (senza
+rifetch) e, quando la riga modificata è l'account corrente, sincronizza anche
+`auth.user` — un auto-declassamento rivela subito lo stato "Solo
+amministratori" di `AdminGate`. Gli errori diventano toast localizzati: 409
+(cambiamento che lascerebbe il server senza un amministratore attivo) e 404
+(utente sconosciuto) hanno messaggi dedicati; tutto il resto mostra il
+fallback generico di aggiornamento/reset. Le stringhe grezze del backend non
+arrivano mai alla UI.
+
+### `/admin/settings` — Impostazioni server (`routes/admin/settings/+page.svelte`)
+
+Chiama `adminApi.getSettings()` / `adminApi.updateSettings()`. Una sola card
+con un `ui/Switch` per l'unico impostazione dell'intero server, **Approvazione
+automatica delle nuove registrazioni** (`auto_approve_registrations`): se
+attiva i nuovi account accedono subito, se disattiva le registrazioni nascono
+`pending` e un amministratore le approva dalla pagina Utenti. Il toggle si
+applica subito (PATCH ottimistica al cambio, ritratta con toast d'errore se
+fallisce) e un timbro "Ultimo aggiornamento" sta sotto l'etichetta.
+
+### `/admin/backup` — Backup del server (`routes/admin/backup/+page.svelte`)
+
+Dump e ripristino dell'intero database di server (`adminApi.dbBackup` /
+`adminApi.dbRestore`, endpoint riservati agli amministratori e pagina avvolta
+da `AdminGate`). La card **Scarica** trasmette un dump completo `pg_dump`
+(formato custom) via `GET /admin/db/backup` (`application/octet-stream`,
+allegato `peculium-db-<date>.dump`) con lo stesso percorso blob autenticato
+grezzo del backup per-utente: è il `Content-Disposition` del server a dare il
+nome del file salvato. La card **Ripristina** sceglie un file `.dump` (il
+client non ispeziona mai il binario; valida il server) e blocca la richiesta
+dietro una conferma scritta: un `Modal` danger (`admin.dbConfirmWarning`
+porta l'avviso completo — ogni tabella riscritta, utenti inclusi, sessione
+possibilmente invalidata) il cui pulsante di conferma si abilita solo quando
+l'amministratore digita esattamente la frase di conferma
+(`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per lingua). Il caricamento
+è `POST /admin/db/restore` in `multipart/form-data` con
+l'archivio nel campo file `dump` e il letterale `confirm=replace` come campo
+del form (`Content-Type` volutamente non impostato, così il browser lo deriva
+con il boundary). Il successo risponde `{status, mode, dump_bytes, message}`:
+toast più pannello inline con la dimensione dell'archivio ripristinato e un
+avviso persistente di nuovo login, poiché la tabella utenti fa parte
+dell'archivio e la sessione corrente potrebbe non corrispondere più ai dati
+ripristinati. Gli errori riportano deliberatamente il messaggio del backend
+(400 per conferma/file mancanti, 500 con lo stderr sanificato di
+`pg_restore` — un ripristino parzialmente applicato deve essere leggibile
+nella UI); solo gli errori di rete senza status ripiegano sul generico
+localizzato. Entrambe le operazioni hanno 30 minuti di margine lato server: i
+pulsanti mostrano lo spinner e la pagina riporta un avviso "tieni aperta
+questa pagina".
