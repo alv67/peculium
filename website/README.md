@@ -34,10 +34,12 @@ Requirements: Node **22.12+** (Astro 7's minimum).
 Manual content conventions:
 
 - Frontmatter schema: `title`, `order`, `description` (`src/content.config.ts`).
-- Images and internal links in the markdown are authored root-relative
-  (`/screenshots/<locale>/manual/<file>.png`, `/install`); the Sätteri hast
-  plugin `src/lib/satteri-site-urls.ts` prefixes them with the site base at
-  build time, so content never hardcodes `/peculium`. The base passed to the
+- Images and internal links in the markdown are authored as full paths of
+  the file's own locale — EN: `/install`, `/screenshots/en/manual/<file>.png`;
+  IT: `/it/install`, `/screenshots/it/manual/<file>.png` — so every content
+  link stays inside its locale. The Sätteri hast plugin
+  `src/lib/satteri-site-urls.ts` prefixes them with the site base at build
+  time, so content never hardcodes `/peculium`. The base passed to the
   plugin is the same `base` constant in `astro.config.mjs`.
 - Headings get stable slug `id`s automatically (Astro's Sätteri pipeline), so
   in-app help can deep-link to sections.

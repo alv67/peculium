@@ -6,11 +6,11 @@ description: Dall'istanza appena avviata alla tua prima dashboard, in pochi minu
 
 Questo capitolo ti accompagna da zero al primo risultato in Peculium. La
 configurazione completa della stack vive nella [pagina di
-installazione](/install); qui diamo per assunto che Peculium sia già in esecuzione.
+installazione](/it/install); qui diamo per assunto che Peculium sia già in esecuzione.
 
 ## Cosa ti serve
 
-Docker e una stack Peculium avviata seguendo la [guida all'installazione](/install).
+Docker e una stack Peculium avviata seguendo la [guida all'installazione](/it/install).
 Serve poi solo un browser puntato sulla web app (in default `http://localhost:3000`).
 
 ## Primo accesso
@@ -63,8 +63,8 @@ prezzi che Peculium aggiorna per te, aggregati su tutti i tuoi portafogli.
 
 ## E adesso?
 
-- La pagina [Funzionalità](/features) mostra tutto il resto: allocazioni,
+- La pagina [Funzionalità](/it/features) mostra tutto il resto: allocazioni,
   esposizione ETF, viste multi-valuta.
-- La [guida all'installazione](/install) copre la gestione e l'aggiornamento della stack.
+- La [guida all'installazione](/it/install) copre la gestione e l'aggiornamento della stack.
 - Gli altri capitoli di questo manuale compaiono nella barra laterale e sulla
-  [home del manuale](/manual).
+  [home del manuale](/it/manual).
