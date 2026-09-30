@@ -28,6 +28,11 @@
   `tests/seed-prices.sql`, since Yahoo is disabled there). The EPIC K
   transaction-filter and allocation drill-down smoke test is
   `tests/test-epic-k.sh` (same isolated stack and price seed).
+- **Issue triage**: external issues opened on the public repo arrive through the
+  issue forms in `.github/ISSUE_TEMPLATE/` with the `triage` label applied
+  automatically. The maintainers' planning issues never use `triage`; they carry
+  `epic:*`/`priority` labels. Treat `label:triage` as the incoming queue and
+  `label:epic:*` as the project plan.
 - **Keep the project docs in sync before closing a PR**: always check the
   project documents first (AGENTS.md, PLAN.md, STATUS.md, `docs/` guides en/it)
   and update them together with the code. A PR must NOT be closed until its
