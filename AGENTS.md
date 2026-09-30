@@ -11,6 +11,11 @@
   ports 8081/5433/6380, Yahoo finance disabled). NEVER test against the dev stack
   (`docker-compose.dev.yml` / `make up`, DB `peculium`, port 8080) or the release
   stack (`docker-compose.yml`): they hold real data and must stay clean.
+- **Never run schema migrations on the shared dev stack**: a change that adds or
+  edits a migration must be exercised on the isolated test stack
+  (`make test-e2e` / `docker-compose.test.yml`), never via `make up` on the dev
+  DB. Migrating the real dev DB ahead of `develop` leaves the dev backend
+  crash-looping on the migration-version mismatch until the code catches up.
 - Delegate implementation to the dedicated subagents whenever the work fits
   their scope: `backend` for Go/Postgres/Redis/API, `frontend` for SvelteKit/
   TypeScript/Tailwind, `python` for the `python-service/` ETF metadata microservice
@@ -23,6 +28,11 @@
   `tests/seed-prices.sql`, since Yahoo is disabled there). The EPIC K
   transaction-filter and allocation drill-down smoke test is
   `tests/test-epic-k.sh` (same isolated stack and price seed).
+- **Issue triage**: external issues opened on the public repo arrive through the
+  issue forms in `.github/ISSUE_TEMPLATE/` with the `triage` label applied
+  automatically. The maintainers' planning issues never use `triage`; they carry
+  `epic:*`/`priority` labels. Treat `label:triage` as the incoming queue and
+  `label:epic:*` as the project plan.
 - **Keep the project docs in sync before closing a PR**: always check the
   project documents first (AGENTS.md, PLAN.md, STATUS.md, `docs/` guides en/it)
   and update them together with the code. A PR must NOT be closed until its

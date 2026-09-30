@@ -75,14 +75,33 @@
     submitting = true
     try {
       if (isRegister) {
-        await register(email, name, password)
-        toast.success(t('login.registered'))
+        const user = await register(email, name, password)
+        // Approval flow (#57 Phase A): with auto-approve off the account is
+        // created as `pending` and sign-in would be refused — say so instead
+        // of the generic "you can now log in".
+        toast.success(user.status === 'pending' ? t('login.registeredPending') : t('login.registered'))
         mode = 'signin'
       } else {
         await login(email, password)
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('common.somethingWentWrong')
+      const status =
+        err instanceof Error && 'status' in err
+          ? (err as Error & { status: number }).status
+          : undefined
+      const raw = err instanceof Error ? err.message : ''
+      // The backend answers sign-ins on non-active accounts with 403 +
+      // "account pending approval" / "account disabled" (#57): surface those
+      // as clear localized messages; everything else keeps the previous
+      // behavior (backend message, generic fallback).
+      let message: string
+      if (status === 403 && raw.includes('disabled')) {
+        message = t('login.accountDisabled')
+      } else if (status === 403 && raw.includes('pending')) {
+        message = t('login.accountPending')
+      } else {
+        message = raw || t('common.somethingWentWrong')
+      }
       toast.error(message)
     } finally {
       submitting = false
