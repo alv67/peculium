@@ -1,0 +1,38 @@
+---
+// Landing del manuale (IT): capitoli in ordine con descrizione.
+import ManualLayout from '../../../layouts/ManualLayout.astro';
+import { getCollection } from 'astro:content';
+import { withBase } from '../../../lib/base';
+import { UI } from '../../../lib/i18n';
+
+const t = UI.it;
+const chapters = (
+  await getCollection('manual', ({ id }) => id.startsWith('it/manual/'))
+).sort((a, b) => a.data.order - b.data.order);
+---
+
+<ManualLayout
+  locale="it"
+  path="/manual"
+  title={`${t.navLabel.manual} · ${t.siteName}`}
+  description="Il manuale utente di Peculium: avvio rapido, flussi di lavoro e impostazioni, per l'utente self-hosted."
+>
+  <h1 class="text-3xl font-extrabold tracking-tight">{t.navLabel.manual}</h1>
+  <p class="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+    Come usare Peculium giorno per giorno, dal primo accesso alla dashboard. I
+    nuovi capitoli si aggiungono via via; si comincia dall'Avvio rapido.
+  </p>
+  <ol class="mt-10 space-y-6">
+    {chapters.map((c) => (
+      <li>
+        <a
+          href={withBase(`/manual/${c.id.split('/').pop()}`)}
+          class="block rounded-xl border border-slate-200 bg-white p-5 shadow-card transition-colors hover:border-brand dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-dark"
+        >
+          <span class="text-lg font-bold">{c.data.title}</span>
+          <span class="mt-1 block text-sm leading-relaxed text-slate-600 dark:text-slate-300">{c.data.description}</span>
+        </a>
+      </li>
+    ))}
+  </ol>
+</ManualLayout>

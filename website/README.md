@@ -29,6 +29,20 @@ Requirements: Node **22.12+** (Astro 7's minimum).
 | `/install` and `/it/install` | `src/pages/install.astro`, `src/pages/it/install.astro` | real content (pull-only guide) |
 | `/releases` and `/it/releases` | `src/pages/releases.astro`, `src/pages/it/releases.astro` | real content (notes rendered from `docs/RELEASE-NOTES.*` at build time) |
 | `/features` and `/it/features` | `src/pages/features.astro`, `src/pages/it/features.astro` | real content, with per-locale screenshots from `public/screenshots/en/` and `public/screenshots/it/` |
+| `/manual` and `/it/manual` | `src/pages/manual/`, `src/pages/it/manual/` over the Content Layer collection `manual` (`src/content/docs/{en,it}/manual/*.md`) | user manual: landing lists the chapters by `order`; each chapter renders in `ManualLayout.astro` with the sidebar TOC and the language switcher (EN/IT chapters share their file slug) |
+
+Manual content conventions:
+
+- Frontmatter schema: `title`, `order`, `description` (`src/content.config.ts`).
+- Images and internal links in the markdown are authored root-relative
+  (`/screenshots/<locale>/manual/<file>.png`, `/install`); the Sätteri hast
+  plugin `src/lib/satteri-site-urls.ts` prefixes them with the site base at
+  build time, so content never hardcodes `/peculium`. The base passed to the
+  plugin is the same `base` constant in `astro.config.mjs`.
+- Headings get stable slug `id`s automatically (Astro's Sätteri pipeline), so
+  in-app help can deep-link to sections.
+- Screenshots for the manual live under `public/screenshots/{en,it}/manual/`,
+  one file per locale, same slug in both.
 
 English is the default locale and is **not** prefixed (`prefixDefaultLocale:
 false`); Italian pages live under `/it/...`. The nav has an EN/IT switcher that
