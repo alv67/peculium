@@ -24,6 +24,7 @@ import (
 	"github.com/alv67/peculium/internal/cache"
 	"github.com/alv67/peculium/internal/config"
 	"github.com/alv67/peculium/internal/handler"
+	appmw "github.com/alv67/peculium/internal/middleware"
 	"github.com/alv67/peculium/internal/price"
 	"github.com/alv67/peculium/internal/repository"
 	"github.com/alv67/peculium/internal/series"
@@ -75,7 +76,15 @@ func main() {
 		price.WithRateBudget(budget),
 		price.WithHealthRecorder(healthSvc),
 	)
-	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc)
+	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc,
+		service.NewExecDBMaintainer(service.DBConnection{
+			Host:     cfg.DBHost,
+			Port:     cfg.DBPort,
+			User:     cfg.DBUser,
+			Name:     cfg.DBName,
+			Password: cfg.DBPassword,
+			SSLMode:  cfg.DBSSLMode,
+		}))
 
 	h := handler.New(svc, jwtAuth)
 
@@ -93,7 +102,7 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	setupRoutes(r, h, jwtAuth)
+	setupRoutes(r, h, jwtAuth, repos.User)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort),
@@ -150,7 +159,7 @@ func runMigrations(cfg *config.Config) {
 	log.Info().Msg("migrations applied successfully")
 }
 
-func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
+func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users appmw.UserLoader) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -164,6 +173,19 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
 
 		r.Group(func(r chi.Router) {
 			r.Use(jwtAuth.Middleware)
+			r.Use(appmw.RequireActiveUser(users))
+
+			r.Route("/admin", func(r chi.Router) {
+				r.Use(appmw.RequireAdmin)
+				r.Get("/users", h.ListAdminUsers)
+				r.Patch("/users/{id}", h.UpdateAdminUser)
+				r.Post("/users/{id}/reset-password", h.AdminResetPassword)
+				r.Get("/settings", h.GetAdminSettings)
+				r.Patch("/settings", h.UpdateAdminSettings)
+				r.Get("/db/backup", h.AdminDBBackup)
+				r.Post("/db/restore", h.AdminDBRestore)
+			})
+
 			r.Get("/users/me", h.GetCurrentUser)
 			r.Patch("/users/me", h.UpdateCurrentUser)
 			r.Post("/users/me/password", h.ChangePassword)
@@ -217,6 +239,9 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth) {
 			r.Get("/dashboard/allocation", h.GetDashboardAllocation)
 			r.Get("/dashboard/allocation/drill", h.GetDashboardAllocationDrill)
 			r.Get("/dashboard/performance", h.GetDashboardPerformance)
+
+			r.Get("/backup", h.DownloadBackup)
+			r.Post("/backup/restore", h.RestoreUserBackup)
 
 			r.Get("/settings/currencies", h.ListCurrencies)
 			r.Post("/settings/currencies", h.CreateCurrency)

@@ -18,6 +18,7 @@ type PriceRepository interface {
 	FindByAsset(ctx context.Context, assetID uuid.UUID) ([]*model.Price, error)
 	FindLatest(ctx context.Context, assetID uuid.UUID) (*model.Price, error)
 	FindLatestForAssets(ctx context.Context, assetIDs []uuid.UUID) (map[uuid.UUID]*model.Price, error)
+	FindManualByAssets(ctx context.Context, assetIDs []uuid.UUID) ([]*model.Price, error)
 	FindForPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Price, error)
 	MinMaxDate(ctx context.Context, assetID uuid.UUID) (earliest, latest *time.Time, err error)
 	ReferenceCloses(ctx context.Context, assetID uuid.UUID, dates []time.Time) (map[time.Time]decimal.Decimal, error)
@@ -103,6 +104,35 @@ func (r *priceRepo) FindLatestForAssets(ctx context.Context, assetIDs []uuid.UUI
 		latest[p.AssetID] = p
 	}
 	return latest, rows.Err()
+}
+
+// FindManualByAssets returns every manually-entered price row (source
+// "manual") stored for the given assets, ordered by asset and date. Yahoo
+// rows are excluded by design: they are refetchable market data, manual rows
+// are user input.
+func (r *priceRepo) FindManualByAssets(ctx context.Context, assetIDs []uuid.UUID) ([]*model.Price, error) {
+	if len(assetIDs) == 0 {
+		return []*model.Price{}, nil
+	}
+	rows, err := r.db.Query(ctx,
+		`SELECT id, asset_id, date, open, high, low, close, volume, source, created_at
+		 FROM prices WHERE asset_id = ANY($1::uuid[]) AND source = 'manual' ORDER BY asset_id, date ASC`,
+		assetIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	prices := make([]*model.Price, 0)
+	for rows.Next() {
+		p := &model.Price{}
+		if err := rows.Scan(&p.ID, &p.AssetID, &p.Date, &p.Open, &p.High, &p.Low, &p.Close, &p.Volume, &p.Source, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		prices = append(prices, p)
+	}
+	return prices, rows.Err()
 }
 
 func (r *priceRepo) FindForPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Price, error) {

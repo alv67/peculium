@@ -1,0 +1,32 @@
+---
+// Una rotta per capitolo IT del manuale (speculare a /manual/[chapter]).
+import ManualLayout from '../../../layouts/ManualLayout.astro';
+import { getCollection, render } from 'astro:content';
+import { UI } from '../../../lib/i18n';
+
+export async function getStaticPaths() {
+  const chapters = await getCollection('manual', ({ id }) => id.startsWith('it/manual/'));
+  return chapters.map((entry) => ({
+    params: { chapter: entry.id.split('/').pop()! },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const t = UI.it;
+const slug = entry.id.split('/').pop()!;
+---
+
+<ManualLayout
+  locale="it"
+  path={`/manual/${slug}`}
+  active={slug}
+  title={`${entry.data.title} · ${t.navLabel.manual} · ${t.siteName}`}
+  description={entry.data.description}
+>
+  <article class="manual-content">
+    <h1>{entry.data.title}</h1>
+    <Content />
+  </article>
+</ManualLayout>

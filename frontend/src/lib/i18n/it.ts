@@ -81,6 +81,11 @@ export const it = {
     more: 'Altro',
     bottomNav: 'Navigazione principale',
     dataSync: 'Dati e sincronizzazione',
+    /** Voci dell'area Admin (#57 Fase A): renderizzate solo per amministratori. */
+    users: 'Utenti',
+    serverSettings: 'Impostazioni server',
+    /** Voce di backup del database di server (#57 Fase D). */
+    serverBackup: 'Backup del server',
     settings: 'Impostazioni',
     sectionAdmin: 'Admin',
     sectionSettings: 'Impostazioni',
@@ -145,6 +150,14 @@ export const it = {
     nameRequired: 'Il nome è obbligatorio',
     /** Toast di esito della registrazione (poi il form torna al login). */
     registered: 'Registrazione completata! Ora puoi accedere.',
+    /** Toast di registrazione quando serve l'approvazione (auto-approvazione
+     *  off, #57 Fase A). */
+    registeredPending:
+      'Registrazione completata! Un amministratore deve approvare il tuo account prima di accedere.',
+    /** Accesso negato su account non attivo (403 del backend, #57 Fase A). */
+    accountPending:
+      'Il tuo account è in attesa di approvazione. Un amministratore deve approvarlo prima che tu possa accedere.',
+    accountDisabled: 'Il tuo account è stato disattivato. Contatta un amministratore per riattivarlo.',
   },
   theme: {
     group: 'Tema',
@@ -160,6 +173,8 @@ export const it = {
     password: 'Password',
     preferences: 'Preferenze',
     currencies: 'Valute',
+    /** Sezione backup e ripristino (issue #56). */
+    backup: 'Backup e ripristino',
   },
   /**
    * Pannello comandi globale (EPIC K.5a, spec §8.1). Le etichette di
@@ -251,6 +266,51 @@ export const it = {
     deleteTitle: 'Elimina valuta',
     deleteConfirm: 'Eliminare la valuta {code}?',
     loadFailed: 'Caricamento delle valute non riuscito',
+  },
+  /**
+   * Impostazioni → Backup e ripristino (issue #56): la card di download, il
+   * flusso di ripristino (selettore di file, modalità aggiungi/sostituisci,
+   * conferma distruttiva, riepilogo dei conteggi) e i loro toast. I 400 del
+   * ripristino mappano su `invalidBundle`; le stringhe grezze del backend non
+   * arrivano mai alla UI.
+   */
+  backup: {
+    /** Card di download. */
+    downloadTitle: 'Scarica i tuoi dati',
+    downloadHint:
+      'Esporta ogni portafoglio con le sue transazioni, gli asset correlati (metadati, esposizione, prezzi manuali) e le valute in uso in un unico file JSON. I dati dei provider (prezzi Yahoo, storico FX) sono esclusi: vengono ricaricati dopo il ripristino.',
+    downloadAction: 'Scarica backup',
+    downloaded: 'Backup scaricato',
+    downloadFailed: 'Download del backup non riuscito',
+    /** Card di ripristino. */
+    restoreTitle: 'Ripristina da un backup',
+    restoreHint:
+      'Scegli un file di backup creato da questa app. Gli asset sono globali: quelli esistenti vengono riusati, quelli mancanti ricreati.',
+    chooseFile: 'Scegli file di backup',
+    chooseAnotherFile: 'Scegli un altro file',
+    restorePickHint: 'Seleziona un file JSON di backup per scegliere come importarlo.',
+    selectedFile: 'File selezionato:',
+    /** Radio della strategia di importazione. */
+    modeAdd: 'Aggiungi ai dati attuali',
+    modeAddHint: 'I portafogli vengono importati come nuovi; nulla di ciò che hai già viene toccato.',
+    modeReplace: 'Sostituisci i dati attuali',
+    modeReplaceHint:
+      'Elimina prima i tuoi portafogli esistenti e le loro transazioni, poi importa. Gli asset non vengono mai eliminati.',
+    restoreAction: 'Ripristina',
+    done: 'Backup ripristinato',
+    restoreFailed: 'Ripristino non riuscito',
+    invalidFile: 'Il file non è un documento JSON valido.',
+    invalidBundle: 'Il file non è un backup supportato (verifica formato o versione).',
+    /** Riepilogo dei conteggi inline dopo un ripristino riuscito. */
+    resultTitle: "Risultato dell'importazione",
+    resultPortfolios: 'Portafogli creati',
+    resultTransactions: 'Transazioni create',
+    resultAssetsCreated: 'Asset creati',
+    resultAssetsReused: 'Asset riusati',
+    /** Dialogo di conferma della modalità sostituisci. */
+    confirmTitle: 'Sostituire i dati attuali?',
+    confirmMessage:
+      "Questa operazione elimina i tuoi portafogli esistenti e le loro transazioni prima di importare il backup. Non è reversibile.",
   },
   /**
    * Superfici di allocazione (bug-fix EPIC K, sweep progressivo D1): la card
@@ -480,6 +540,111 @@ export const it = {
     statusRateLimited: 'Richieste limitate',
     statusFailure: 'Errore',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
+  },
+  /**
+   * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti
+   * (badge di ruolo/statuse, azioni di riga, dialoghi e toast) e pagina delle
+   * impostazioni server. Le etichette dei badge localizzano gli enum backend;
+   * i valori inattesi mostrano la stringa grezza al punto d'uso.
+   */
+  admin: {
+    /** Stato vuoto condiviso su ogni rotta `/admin/*` protetta. */
+    forbiddenTitle: 'Solo amministratori',
+    forbiddenHint: 'Non hai accesso a quest\'area.',
+    /** Pagina Utenti (titolo che riusa `nav.users`, intestazioni `login.email`,
+     *  `chartView.colName`, `positions.colStatus`, `common.colActions`). */
+    usersSubtitle: 'Approva le registrazioni, gestisci i ruoli e reimposta le password.',
+    colRole: 'Ruolo',
+    colCreated: 'Creato il',
+    /** Etichette badge/selettore di ruolo (`owner` è legacy: mostrato, mai
+     *  assegnabile). */
+    roleOwner: 'Proprietario',
+    roleAdmin: 'Amministratore',
+    roleEditor: 'Editor',
+    roleViewer: 'Visualizzatore',
+    /** Etichette badge di stato. */
+    statusActive: 'Attivo',
+    statusPending: 'In approvazione',
+    statusDisabled: 'Disattivato',
+    /** Tooltip delle azioni di riga; le chiavi `*Named` sono i nomi accessibili. */
+    approve: 'Approva',
+    disable: 'Disattiva',
+    enable: 'Riattiva',
+    resetPassword: 'Reimposta password',
+    approveNamed: 'Approva {email}',
+    disableNamed: 'Disattiva {email}',
+    enableNamed: 'Riattiva {email}',
+    resetNamed: 'Reimposta la password di {email}',
+    roleNamed: 'Ruolo di {email}',
+    /** Nota sotto la tabella sul ruolo legacy. */
+    ownerNote: 'Il ruolo legacy Proprietario equivale ad Amministratore e non può essere assegnato a nuovi account.',
+    /** Toast degli esiti delle azioni di riga. */
+    approved: 'Utente approvato',
+    userEnabled: 'Utente riattivato',
+    userDisabled: 'Utente disattivato',
+    roleUpdated: 'Ruolo aggiornato',
+    passwordReset: 'Password reimpostata',
+    /** Fallback di errore e codici API mappati (409/404). */
+    loadFailed: 'Caricamento utenti non riuscito',
+    loadFailedHint: 'Verifica la connessione e riprova.',
+    empty: 'Nessun utente trovato.',
+    updateFailed: 'Aggiornamento non riuscito',
+    resetFailed: 'Reimposta password non riuscita',
+    lastAdmin: 'Il server deve mantenere almeno un amministratore attivo.',
+    userNotFound: 'Utente non trovato.',
+    /** Dialogo di conferma disattivazione. */
+    disableTitle: 'Disattiva utente',
+    disableConfirm: 'Disattivare {email}? Non potrà accedere finché non sarà riattivato.',
+    /** Dialogo di reimposta password (label/hint del campo riusano `password.*`). */
+    resetTitle: 'Reimposta la password di {email}',
+    resetHint: "Imposta una nuova password per questo account; l'utente dovrà cambiarla dopo l'accesso.",
+    /** Pagina impostazioni server (titolo che riusa `nav.serverSettings`). */
+    settingsSubtitle: 'Preferenze dell\'intero server, applicate subito.',
+    autoApprove: 'Approvazione automatica delle nuove registrazioni',
+    autoApproveHint:
+      'Se attiva, i nuovi account possono accedere subito. Se disattiva, un amministratore deve approvarli dalla pagina Utenti.',
+    lastUpdated: 'Ultimo aggiornamento: {time}',
+    settingSaved: 'Impostazione salvata',
+    settingSaveFailed: 'Salvataggio impostazione non riuscito',
+    settingsLoadFailed: 'Caricamento impostazioni server non riuscito',
+    /**
+     * Pagina Backup del server (#57 Fase D; il titolo riusa
+     * `nav.serverBackup`). Il ripristino è distruttivo e riguarda l'intero
+     * server: una conferma scritta lo blocca e l'avviso di nuovo login fa
+     * parte del risultato di successo. I toast di errore riportano
+     * deliberatamente il messaggio del backend (un ripristino fallito deve
+     * essere leggibile, non cercato nei log di server); questa chiave è solo
+     * il fallback senza messaggio.
+     */
+    dbSubtitle: 'Backup e ripristino dell\'intero database di questo server.',
+    dbDownloadTitle: 'Scarica un dump completo',
+    dbDownloadHint:
+      'Trasmette l\'intero database del server — tutti gli utenti, portafogli, asset e impostazioni — come archivio PostgreSQL in formato custom. Custodisci il file: contiene tutti gli account di questa istanza.',
+    dbDownloadAction: 'Scarica dump del database',
+    dbDownloaded: 'Dump del database scaricato',
+    dbDownloadFailed: 'Download del dump non riuscito',
+    dbRestoreTitle: 'Ripristina da un dump',
+    dbRestoreDanger:
+      'Distruttivo: sostituisce ogni account e ogni dato di questo server, e la tua sessione potrebbe chiudersi nel processo.',
+    dbRestoreHint:
+      'Sostituisce l\'intero database con l\'archivio caricato (formato custom, prodotto dal download qui sopra). Ogni tabella viene riscritta — utenti inclusi.',
+    dbChooseFile: 'Scegli file di dump',
+    dbChooseAnotherFile: 'Scegli un altro file',
+    dbRestorePickHint: 'Seleziona un archivio .dump creato da questa pagina per ripristinarlo.',
+    dbRestoreAction: 'Ripristina il database',
+    /** Dialogo di conferma scritta del ripristino distruttivo. */
+    dbConfirmTitle: 'Sostituire l\'intero database?',
+    dbConfirmWarning:
+      'Questa operazione riscrive ogni tabella dall\'archivio — utenti inclusi. Le sessioni e i token correnti potrebbero non funzionare più e probabilmente dovrai effettuare di nuovo il login. Non c\'è annullamento: sostituisce il database dell\'intero server, non solo il tuo account.',
+    dbConfirmTypeLabel: 'Scrivi {phrase} per confermare',
+    dbConfirmPhrase: 'SOSTITUISCI',
+    dbRestored: 'Database ripristinato',
+    dbDumpSize: 'Ripristinati {bytes} dall\'archivio.',
+    dbReloginNotice:
+      'La tabella utenti faceva parte dell\'archivio: effettua di nuovo il login per allineare la sessione ai dati ripristinati.',
+    dbRestoreFailed: 'Ripristino del database non riuscito',
+    /** Mostrato durante un dump o un ripristino (lato server, lento-safe). */
+    dbLongOperation: 'Operazione sull\'intero server: database grandi possono richiedere tempo — tieni aperta questa pagina.',
   },
   checklist: {
     title: 'Configura il tuo patrimonio',

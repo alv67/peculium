@@ -44,6 +44,10 @@ var (
 	ErrInvalidPriceSource = errors.New("invalid price source")
 	ErrNotETF             = errors.New("asset is not an ETF")
 	ErrAssetExists        = errors.New("asset with this ticker already exists")
+	ErrAccountPending     = errors.New("account pending approval")
+	ErrAccountDisabled    = errors.New("account disabled")
+	ErrLastAdmin          = errors.New("cannot demote or disable the last active admin")
+	ErrDBMaintenance      = errors.New("database maintenance failed")
 )
 
 // AssetExistsError reports a duplicate ticker during creation and carries
@@ -138,16 +142,17 @@ type Service struct {
 	seriesMaxPoints  int
 	stalePriceDays   int
 	Health           *HealthService
+	db               DBMaintainer
 }
 
-func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetcher, etfFetcher price.ETFFetcher, lookupCacheTTL time.Duration, exposureCacheTTL time.Duration, c *cache.Cache, seriesMaxPoints int, stalePriceDays int, health *HealthService) *Service {
+func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetcher, etfFetcher price.ETFFetcher, lookupCacheTTL time.Duration, exposureCacheTTL time.Duration, c *cache.Cache, seriesMaxPoints int, stalePriceDays int, health *HealthService, db DBMaintainer) *Service {
 	if seriesMaxPoints <= 0 {
 		seriesMaxPoints = 500
 	}
 	if stalePriceDays <= 0 {
 		stalePriceDays = 7
 	}
-	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health}
+	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health, db: db}
 }
 
 // cached implements the read-through cache pattern: it reads the current data
@@ -191,12 +196,56 @@ func (s *Service) bumpRev(ctx context.Context) {
 	}
 }
 
-func (s *Service) Register(ctx context.Context, email, name, password string) (*model.User, error) {
-	existing, _ := s.repos.User.FindByEmail(ctx, email)
-	if existing != nil {
-		return nil, ErrEmailExists
+// withTx runs fn inside a database transaction so multi-statement writes stay
+// atomic. When the service is wired without a connection pool (in-memory
+// repository fakes in unit tests) it runs fn against the same repositories
+// directly, which is all the fakes need.
+func (s *Service) withTx(ctx context.Context, fn func(tx *repository.Repository) error) error {
+	if s.repos == nil || s.repos.DB == nil {
+		return fn(s.repos)
 	}
-	return s.repos.User.Create(ctx, email, name, password)
+	return s.repos.WithTx(ctx, fn)
+}
+
+// Register creates the account for a new user. On an empty server the first
+// registrant becomes the active admin; later registrants are active when the
+// auto-approve setting is on and pending otherwise. The whole decision runs in
+// one transaction that first locks the settings row, so concurrent signups
+// cannot both be treated as the first user.
+func (s *Service) Register(ctx context.Context, email, name, password string) (*model.User, error) {
+	var created *model.User
+	err := s.withTx(ctx, func(tx *repository.Repository) error {
+		settings, err := tx.Settings.GetForUpdate(ctx)
+		if err != nil {
+			return err
+		}
+		n, err := tx.User.Count(ctx)
+		if err != nil {
+			return err
+		}
+		if existing, _ := tx.User.FindByEmail(ctx, email); existing != nil {
+			return ErrEmailExists
+		}
+
+		role, status := model.RoleViewer, model.StatusActive
+		switch {
+		case n == 0:
+			role, status = model.RoleAdmin, model.StatusActive
+		case !settings.AutoApproveRegistrations:
+			status = model.StatusPending
+		}
+
+		user, err := tx.User.Create(ctx, email, name, password, role, status)
+		if err != nil {
+			return err
+		}
+		created = user
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*model.User, string, string, error) {
@@ -207,6 +256,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*model.Use
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, "", "", ErrInvalidCredentials
+	}
+
+	if user.Status != model.StatusActive {
+		return nil, "", "", statusLoginError(user.Status)
 	}
 
 	accessToken, err := s.jwtAuth.GenerateAccessToken(user.ID, user.Email, string(user.Role))
@@ -222,6 +275,15 @@ func (s *Service) Login(ctx context.Context, email, password string) (*model.Use
 	return user, accessToken, refreshToken, nil
 }
 
+// statusLoginError maps a non-active account status to the login/refresh
+// rejection reason.
+func statusLoginError(status model.Status) error {
+	if status == model.StatusPending {
+		return ErrAccountPending
+	}
+	return ErrAccountDisabled
+}
+
 func (s *Service) RefreshToken(ctx context.Context, tokenString string) (string, string, error) {
 	claims, err := s.jwtAuth.ValidateToken(tokenString)
 	if err != nil {
@@ -234,6 +296,9 @@ func (s *Service) RefreshToken(ctx context.Context, tokenString string) (string,
 	user, err := s.repos.User.FindByID(ctx, claims.UserID)
 	if err != nil {
 		return "", "", ErrNotFound
+	}
+	if user.Status != model.StatusActive {
+		return "", "", statusLoginError(user.Status)
 	}
 
 	accessToken, err := s.jwtAuth.GenerateAccessToken(user.ID, user.Email, string(user.Role))
@@ -2433,55 +2498,19 @@ func (s *Service) ImportPortfolio(ctx context.Context, userID uuid.UUID, doc *mo
 		}
 
 		assetByTicker := map[string]*model.Asset{}
-		// The defaults below keep documents exported by older app versions
-		// importable: those files predate fields like price_source/asset_class
-		// and may omit any optional value, so every missing piece is filled
-		// with a constraint-satisfying default instead of failing the insert.
-		// An unknown or absent price_source falls back to "yahoo" rather than
-		// erroring, the same default Service.CreateAsset applies.
+		exportMetaByTicker := map[string]*model.ExportAsset{}
+		for i := range doc.Assets {
+			key := strings.ToLower(strings.TrimSpace(doc.Assets[i].Ticker))
+			if _, ok := exportMetaByTicker[key]; !ok {
+				exportMetaByTicker[key] = &doc.Assets[i]
+			}
+		}
+		// Asset resolution (reuse by ticker, create from the exported
+		// metadata with importer defaults for anything missing) is shared
+		// with the user-bundle restore: see importBackupAsset.
 		createAsset := func(ticker string) (*model.Asset, error) {
-			if a, ok := assetByTicker[ticker]; ok {
-				return a, nil
-			}
-			a, err := rx.Asset.FindByTicker(ctx, ticker)
-			if err != nil {
-				return nil, err
-			}
-			if a == nil {
-				a = &model.Asset{Ticker: ticker, Name: ticker, Type: model.AssetTypeStock, Currency: "USD", PriceSource: "yahoo"}
-				for i := range doc.Assets {
-					ea := doc.Assets[i]
-					if !strings.EqualFold(ea.Ticker, ticker) {
-						continue
-					}
-					if ea.Name != "" {
-						a.Name = ea.Name
-					}
-					a.ISIN = ea.ISIN
-					if ea.Type != "" {
-						a.Type = ea.Type
-					}
-					if ea.Currency != "" {
-						a.Currency = ea.Currency
-					}
-					if ea.AssetClass != "" {
-						a.AssetClass = ea.AssetClass
-					}
-					if priceSources[ea.PriceSource] {
-						a.PriceSource = ea.PriceSource
-					}
-					break
-				}
-				if a.AssetClass == "" {
-					a.AssetClass = defaultAssetClassForType(a.Type)
-				}
-				a, err = rx.Asset.Create(ctx, a)
-				if err != nil {
-					return nil, err
-				}
-			}
-			assetByTicker[ticker] = a
-			return a, nil
+			a, _, err := importBackupAsset(ctx, rx, assetByTicker, exportMetaByTicker, ticker)
+			return a, err
 		}
 		for _, ea := range doc.Assets {
 			if _, err := createAsset(strings.TrimSpace(ea.Ticker)); err != nil {
