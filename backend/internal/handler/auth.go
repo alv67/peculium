@@ -84,12 +84,17 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, accessToken, refreshToken, err := h.svc.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		if err == service.ErrInvalidCredentials {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
 			respondError(w, http.StatusUnauthorized, "invalid email or password")
-			return
+		case errors.Is(err, service.ErrAccountPending):
+			respondError(w, http.StatusForbidden, err.Error())
+		case errors.Is(err, service.ErrAccountDisabled):
+			respondError(w, http.StatusForbidden, err.Error())
+		default:
+			log.Error().Err(err).Msg("login failed")
+			respondError(w, http.StatusInternalServerError, "login failed")
 		}
-		log.Error().Err(err).Msg("login failed")
-		respondError(w, http.StatusInternalServerError, "login failed")
 		return
 	}
 
@@ -111,7 +116,12 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, refreshToken, err := h.svc.RefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "invalid refresh token")
+		switch {
+		case errors.Is(err, service.ErrAccountPending), errors.Is(err, service.ErrAccountDisabled):
+			respondError(w, http.StatusForbidden, err.Error())
+		default:
+			respondError(w, http.StatusUnauthorized, "invalid refresh token")
+		}
 		return
 	}
 

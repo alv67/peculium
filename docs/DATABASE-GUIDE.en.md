@@ -57,7 +57,7 @@ keys are the labels saying "this box belongs to that one".
 
 ## 2. The big picture
 
-There are sixteen tables, which can be grouped by topic:
+There are seventeen tables, which can be grouped by topic:
 
 | Area | Tables | What they represent |
 |---|---|---|
@@ -67,7 +67,7 @@ There are sixteen tables, which can be grouped by topic:
 | **History** | `portfolio_series`, `asset_series` | value and cost day by day |
 | **Market data** | `prices`, `splits`, `fx_rates` | prices, stock splits and exchange rates |
 | **Exposure** | `asset_country_weights`, `asset_region_weights`, `asset_sector_weights`, `asset_exposure_provenance` | the country, geographic and sector distribution of a security, and where each dimension came from |
-| **Configuration and cache** | `supported_currencies`, `lookup_cache` | the allowed currencies and the search cache |
+| **Configuration and cache** | `supported_currencies`, `lookup_cache`, `server_settings` | the allowed currencies, the search cache and the server-wide options |
 
 ---
 
@@ -114,6 +114,9 @@ erDiagram
     supported_currencies {
         text code PK
     }
+    server_settings {
+        int id PK
+    }
 ```
 
 ### The relationships, listed
@@ -142,7 +145,9 @@ erDiagram
 ### `users` — the users
 
 Each row is an account. The password is not stored in plain text, but as a
-**hash** (see the guide, chapter 14).
+**hash** (see the guide, chapter 14). `role` and `status` are managed from
+the admin area: `owner` and `admin` are the administrator roles, and only an
+`active` account can log in or call the API.
 
 | Column | Type | Explanation |
 |---|---|---|
@@ -151,6 +156,7 @@ Each row is an account. The password is not stored in plain text, but as a
 | `name` | TEXT | the visible name |
 | `password_hash` | TEXT | the encrypted fingerprint of the password |
 | `role` | TEXT | role: `owner`, `admin`, `editor` or `viewer` |
+| `status` | TEXT (CHECK) | account status: `active`, `pending` (waiting for approval) or `disabled` (default `active`) |
 | `base_currency` | TEXT | the user's preferred currency for dashboard aggregations (default `EUR`) |
 | `created_at` / `updated_at` | TIMESTAMPTZ | when the account was created/modified |
 
@@ -406,6 +412,22 @@ saved here for a few days, so the same search does not call Yahoo again.
 | `results` | JSONB | the search results |
 | `created_at` | TIMESTAMPTZ | when it was saved |
 
+### `server_settings` — the server-wide options
+
+Exactly one row (its primary key forces `id = 1`), created by the migration
+with the default values. It holds the settings edited from the admin area,
+server-wide (not per user).
+
+| Column | Type | Explanation |
+|---|---|---|
+| `id` | INT (PK, CHECK `= 1`) | the singleton identifier, always `1` |
+| `auto_approve_registrations` | BOOLEAN | whether new registrants become active immediately (`TRUE`, the default) or wait as `pending` until an admin approves them |
+| `updated_at` | TIMESTAMPTZ | when the settings were last changed |
+
+Registration reads the row with `SELECT ... FOR UPDATE`, which also serializes
+concurrent signups so only one of them can be treated as the first user (and
+promoted to `admin`).
+
 ---
 
 ## 5. Constraints and indexes at a glance
@@ -419,6 +441,8 @@ saved here for a few days, so the same search does not call Yahoo again.
 **CHECK constraints** (rules on values):
 
 - `users.role` — only `owner`, `admin`, `editor`, `viewer`
+- `users.status` — only `active`, `pending`, `disabled`
+- `server_settings.id` — only the value `1`: the table is a single row
 - `assets.type` — only the allowed security types
 - `assets.price_source` — only `yahoo`, `manual`, `none`
 - `transactions.type` — only `buy`, `sell`, `dividend`, `split`, `fee`

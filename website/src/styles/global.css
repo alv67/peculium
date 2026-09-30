@@ -10,3 +10,44 @@
     @apply inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-dark dark:hover:text-brand-dark;
   }
 }
+
+/* Markdown prose for manual chapters (hand-sized instead of
+   @tailwindcss/typography: the site keeps dependencies to Astro + Tailwind).
+   Headings keep scroll padding so sidebar/deep-link anchors clear the header. */
+.manual-content {
+  @apply max-w-2xl text-[15px] leading-7 text-slate-700 dark:text-slate-300;
+}
+.manual-content :where(h1) {
+  @apply mb-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white;
+}
+.manual-content :where(h2) {
+  @apply mt-10 mb-3 scroll-mt-6 text-2xl font-bold tracking-tight text-slate-900 dark:text-white;
+}
+.manual-content :where(h3) {
+  @apply mt-8 mb-2 scroll-mt-6 text-lg font-semibold tracking-tight text-slate-900 dark:text-white;
+}
+.manual-content :where(p) {
+  @apply mt-4;
+}
+.manual-content :where(a) {
+  @apply font-semibold text-brand underline-offset-2 hover:underline dark:text-brand-dark;
+}
+.manual-content :where(ul),
+.manual-content :where(ol) {
+  @apply mt-4 space-y-1.5 pl-5;
+}
+.manual-content :where(ul) {
+  @apply list-disc;
+}
+.manual-content :where(ol) {
+  @apply list-decimal;
+}
+.manual-content :where(code) {
+  @apply rounded bg-slate-100 px-1.5 py-0.5 text-[13px] dark:bg-slate-800;
+}
+.manual-content :where(strong) {
+  @apply font-semibold text-slate-900 dark:text-white;
+}
+.manual-content :where(img) {
+  @apply mt-6 w-full rounded-xl border border-slate-200 shadow-card dark:border-slate-800;
+}

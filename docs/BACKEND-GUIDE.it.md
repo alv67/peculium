@@ -152,10 +152,12 @@ La sequenza di avvio del server è:
    log, recupero dagli errori, un ID per tracciare ogni richiesta, un timeout
    di 30 secondi e la gestione CORS (le regole che permettono al frontend di
    chiamare l'API).
-5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
-   Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
-   autenticati (controlla il capitolo sull'autenticazione). Fuori da
-   `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
+ 5. **Routes** — si collegano gli endpoint alle funzioni che li gestiscono.
+    Alcuni endpoint sono pubblici (`/auth/*`), gli altri richiedono di essere
+    autenticati con un token valido appartenente a un account attivo
+    (controlla il capitolo sull'autenticazione), e quelli sotto
+    `/api/v1/admin/*` richiedono anche il ruolo admin. Fuori da
+    `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
    `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
@@ -211,12 +213,12 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 
 ## 6. Il database
 
-Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000018`)
+Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000019`)
 costruiscono lo schema. Le tabelle principali:
 
 | Tabella | Contiene | Spiegazione |
 |---|---|---|
-| `users` | gli utenti | email, nome, hash della password, ruolo, valuta base (`base_currency`, default EUR) |
+| `users` | gli utenti | email, nome, hash della password, ruolo, stato dell'account (`active`, `pending`, `disabled`), valuta base (`base_currency`, default EUR) |
 | `assets` | i titoli | ticker, nome, tipo (azione, ETF, crypto...), classe di investimento, fonte prezzi, valuta, exchange, settore, industria |
 | `portfolios` | i portafogli | un portafoglio appartiene a un utente e ha una valuta |
 | `portfolio_shares` | la condivisione | chi altro può vedere un portafoglio (con che ruolo) |
@@ -232,6 +234,7 @@ costruiscono lo schema. Le tabelle principali:
 | `portfolio_series` | serie per portafoglio | valore e costo del portafoglio per ogni giorno |
 | `asset_series` | serie per titolo | valore e costo di ogni titolo per ogni giorno |
 | `health_events` | gli eventi di health dei prezzi | registrazioni di aggiornamenti prezzi vecchi/falliti nella pagina health |
+| `server_settings` | le opzioni del server | una sola riga: auto-approvazione delle registrazioni (capitolo 14) |
 
 Due idee fondamentali del database:
 
@@ -921,6 +924,85 @@ Le password sono salvate come **hash bcrypt** (non in chiaro).
 > l'impronta della password inserita e la si confronta con quella salvata.
 > Così, anche se qualcuno ruba il database, non può leggere le password.
 
+### Stato dell'account e approvazione delle registrazioni
+
+Ogni account porta con sé uno **stato** — `active`, `pending` (in attesa di
+approvazione) o `disabled` — e lo stato viaggia nell'oggetto utente restituito
+da register, login e `GET /users/me`.
+
+- Il **primo registrato** su un server vuoto diventa automaticamente l'`admin`
+  attivo. Tutto avviene in una sola transazione che prima blocca la riga delle
+  impostazioni, così due iscrizioni simultanee non possono essere trattate
+  entrambe come la prima.
+- I registrati successivi ricevono il ruolo `viewer`. Con l'impostazione di
+  server `auto_approve_registrations` **attiva** (il default) sono subito
+  `active`; con **disattiva** sono `pending`. La registrazione riesce sempre —
+  è lo stato nella risposta a indicare al frontend di mostrare "in attesa di
+  approvazione".
+- Il login accetta solo account `active`: uno `pending` viene rifiutato con 403
+  "account pending approval", uno `disabled` con 403 "account disabled" (le
+  stesse regole valgono per il refresh di una coppia di token).
+
+Dopo il controllo JWT, un secondo middleware carica l'account dietro il token
+**a ogni** richiesta protetta e lo lascia passare solo mentre lo stato
+salvato è `active`: un utente sconosciuto o cancellato riceve 401, uno non
+attivo 403. Approvare o disabilitare un account ha quindi effetto immediato,
+anche sui token emessi prima della modifica.
+
+### Area admin
+
+I ruoli `owner` e `admin` sono i ruoli da amministratore (un `owner` — il
+ruolo di default dello schema — conta come admin ovunque); `editor` e
+`viewer` sono utenti normali. Gli endpoint admin stanno sotto
+`/api/v1/admin`, dietro il middleware JWT, il middleware dello stato attivo
+e un cancello admin che risponde 403 ai non-admin:
+
+| Endpoint | Cosa fa |
+|---|---|
+| `GET /admin/users` | elenca tutti gli account: id, email, nome, ruolo, stato, created_at (l'hash della password non è mai esposto) |
+| `PATCH /admin/users/{id}` | imposta `role` e/o `status` (validati contro gli enum); rifiuta con 409 di degradare o disabilitare **l'ultimo admin attivo** |
+| `POST /admin/users/{id}/reset-password` | imposta una nuova password per l'account (minimo 8 caratteri, senza chiedere la corrente) |
+| `GET /admin/settings` | legge le impostazioni di server (`auto_approve_registrations`, `updated_at`) |
+| `PATCH /admin/settings` | aggiorna `auto_approve_registrations` |
+| `GET /admin/db/backup` | scarica il dump completo del database come allegato |
+| `POST /admin/db/restore` | sostituisce l'intero database a partire da un dump caricato (distruttivo, richiede conferma) |
+
+### Backup e ripristino del database (`GET /admin/db/backup`, `POST /admin/db/restore`)
+
+Questi due endpoint agiscono sull'**intero database PostgreSQL** (ogni tabella,
+ogni utente) eseguendo i tool client `pg_dump` / `pg_restore`, che l'immagine
+server del backend include (`postgresql16-client`, PostgreSQL 16); l'immagine
+del worker non li contiene. Le coordinate di connessione vengono dalla stessa
+configurazione DB dell'applicazione; la password arriva ai tool attraverso la
+variabile d'ambiente `PGPASSWORD` (mai sulla riga di comando) e l'impostazione
+TLS attraverso `PGSSLMODE`.
+
+`GET /admin/db/backup` esegue `pg_dump -Fc` — un dump completo nel **custom
+format** di PostgreSQL (compresso, ripristinabile in modo selettivo) e canalizza
+l'output del tool direttamente nella risposta HTTP, senza mai tenere l'intero
+archivio in memoria. La risposta è un download: `Content-Type:
+application/octet-stream` e `Content-Disposition: attachment` con nome file
+`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Se `pg_dump` fallisce prima che una
+parte dell'archivio raggiunga il client, la risposta è un 500 con un messaggio
+generico "database backup failed": l'output dei tool e le credenziali non sono
+mai esposti; un fallimento avvenuto dopo l'inizio dello streaming può
+manifestarsi solo come download troncato.
+
+`POST /admin/db/restore` accetta l'archivio come **caricamento multipart** nel
+campo file `dump`, insieme alla conferma esplicita `confirm=replace` (come
+campo del form o parametro di query): il ripristino **sostituisce l'intero
+database**, quindi la richiesta è rifiutata con 400 senza quell'esatta
+conferma, così come una richiesta senza dump file. Il caricamento viene scritto
+in un file temporaneo (rimosso dopo l'uso) e passato a
+`pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, che elimina e
+ricrea gli oggetti presenti nell'archivio. In caso di successo la risposta è un
+riepilogo JSON (`status`, `mode`, `dump_bytes`, `message`); in caso di fallimento
+un 500 che riporta l'output errore di `pg_restore` con la password del database
+mascherata, così che l'admin capisca cosa non funziona. Poiché l'archivio
+contiene anche la tabella `users`, un ripristino riscrive gli account: sessioni
+e token già emessi possono riferire righe non più esistenti, e il messaggio del
+riepilogo avvisa l'admin di **effettuare di nuovo il login**.
+
 ---
 
 ## 15. Operazioni atomiche — `WithTx`
@@ -968,6 +1050,62 @@ Un `price_source` sconosciuto nel documento non fa fallire l'importazione:
 anche in questo caso si ripiega su `yahoo`. Un documento con `version` più
 recente di quella supportata dall'importer viene rifiutato con un 400 chiaro
 (`unsupported export version N`) invece di un errore generico.
+
+### Backup e ripristino per utente (`GET /backup`, `POST /backup/restore`)
+
+`GET /backup` restituisce tutti i dati dell'utente autenticato come un
+unico bundle JSON scaricabile (`peculium-backup-<email>-<data>.json`). Come
+l'export del portafoglio, il documento è **versionato** (campo `version`,
+attualmente `1`) e **additivo**: i campi opzionali possono mancare all'import,
+e un bundle più recente di quello che il server capisce viene rifiutato con
+un 400 (`unsupported backup version N`). Il bundle contiene:
+
+- `user` — email e nome dell'account da cui il bundle proviene
+  (informativi) e la sua **valuta base**, l'unica impostazione utente che
+  il ripristino riapplica;
+- `currencies` — le voci di valute supportate in uso: la valuta base e
+  tutte le valute di portafogli e asset;
+- `portfolios` — un normale documento di export del portafoglio per
+  ciascun portafoglio **posseduto** dall'utente (i portafogli condivisi in
+  ingresso non vengono duplicati); ogni voce è autonoma e importabile anche
+  da sola attraverso l'endpoint di import del portafoglio;
+- `assets` — i dati per-asset che nessun provider può rifornire, indicizzati
+  per ticker: i metadati identificativi, l'**esposizione** (righe paesi,
+  regioni e settori con, nei campi `*_source`, la provenienza di ogni
+  dimensione salvata) e le **righe dei prezzi manuali**.
+
+I prezzi Yahoo, la cronologia FX e gli eventi health sono esclusi di
+proposito: sono dati dei provider, che fetcher e worker rigenerano sul
+server ripristinato.
+
+`POST /backup/restore?mode=add|replace` riscrive il bundle sull'account
+autenticato — lo scenario previsto è un server reinizializzato da zero, dove
+l'utente ha ricreato l'account a mano. Il body è il JSON del bundle stesso.
+La modalità decide cosa succede ai dati esistenti:
+
+- `add` (default quando `mode` è omesso) è non distruttivo: ogni
+  portafoglio del bundle viene importato come nuovo e i dati esistenti
+  restano intatti;
+- `replace` elimina prima i portafogli posseduti dall'utente — CASCADE
+  porta via le loro transazioni — e poi importa il bundle. Non esiste una
+  conferma lato server per `replace`: è la UI client a confermare prima
+  della chiamata.
+
+Gli asset sono globali e condivisi tra utenti, quindi il ripristino **non
+ne elimina mai nessuno**: un ticker già presente viene riusato così com'è —
+i suoi metadati identificativi condivisi non vengono sovrascritti — e uno
+assente viene creato dal bundle con gli stessi default dell'importatore del
+portafoglio. L'esposizione viene ripristinata solo per le dimensioni che
+hanno effettivamente righe (una dimensione assente dal bundle lascia
+invariata quella salvata), e i prezzi manuali fanno upsert su
+`(asset, data)`. Le voci delle valute aggiungono alla whitelist globale i
+codici mancanti e non modificano mai quelli esistenti. Tutta la scrittura
+avviene in un'unica transazione e, dopo il commit, le serie di ogni
+portafoglio creato vengono ricalcolate.
+
+La risposta è il riepilogo dell'operazione: la `mode` effettivamente
+applicata e i contatori `portfolios_created`, `transactions_created`,
+`assets_created` e `assets_reused`.
 
 ---
 
@@ -1040,15 +1178,16 @@ backend/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
 │   ├── geo/geo.go          # macro-regioni, settori GICS, paesi ISO canonici, mappatura paese→regione
-│   ├── handler/            # livello HTTP (auth.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # livello HTTP (auth.go, admin.go, admin_db.go, backup.go, portfolio.go, settings.go, ...)
+│   ├── middleware/         # controlli d'account per richiesta: stato attivo + cancello admin
 │   ├── model/              # strutture dati con tag JSON
 │   ├── position/           # motore AVCO (State, Apply, Walk)
 │   ├── price/              # client Yahoo (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + fetcher JustETF/Morningstar
-│   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
-│   └── service/            # logica di business (service.go)
-├── migrations/             # SQL versionato (000001..000018)
+│   └── service/            # logica di business (service.go, admin.go, backup.go, dbmaint.go)
+├── migrations/             # SQL versionato (000001..000019)
 └── go.mod
 ```
 
