@@ -59,7 +59,7 @@ esterne sono le etichette che dicono "questa scatola appartiene a quest'altra".
 
 ## 2. Il quadro d'insieme
 
-Ci sono sedici tabelle, raggruppabili per argomento:
+Ci sono diciassette tabelle, raggruppabili per argomento:
 
 | Ambito | Tabelle | Cosa rappresentano |
 |---|---|---|
@@ -69,7 +69,7 @@ Ci sono sedici tabelle, raggruppabili per argomento:
 | **Storia** | `portfolio_series`, `asset_series` | il valore e il costo giorno per giorno |
 | **Dati di mercato** | `prices`, `splits`, `fx_rates` | prezzi, split azionari e tassi di cambio |
 | **Esposizione** | `asset_country_weights`, `asset_region_weights`, `asset_sector_weights`, `asset_exposure_provenance` | la distribuzione per-paese, geografica e settoriale di un titolo e la provenienza di ciascuna dimensione |
-| **Configurazione e cache** | `supported_currencies`, `lookup_cache` | le valute consentite e la cache della ricerca |
+| **Configurazione e cache** | `supported_currencies`, `lookup_cache`, `server_settings` | le valute consentite, la cache della ricerca e le opzioni di intero server |
 
 ---
 
@@ -116,6 +116,9 @@ erDiagram
     supported_currencies {
         text code PK
     }
+    server_settings {
+        int id PK
+    }
 ```
 
 ### Le relazioni, elencate
@@ -144,7 +147,9 @@ erDiagram
 ### `users` — gli utenti
 
 Ogni riga è un account. La password non è salvata in chiaro, ma come **hash**
-(vedi la guida, capitolo 14).
+(vedi la guida, capitolo 14). `role` e `status` si gestiscono dall'area admin:
+`owner` e `admin` sono i ruoli da amministratore, e solo un account `active`
+può fare login o chiamare le API.
 
 | Colonna | Tipo | Spiegazione |
 |---|---|---|
@@ -153,6 +158,7 @@ Ogni riga è un account. La password non è salvata in chiaro, ma come **hash**
 | `name` | TEXT | il nome visibile |
 | `password_hash` | TEXT | l'impronta cifrata della password |
 | `role` | TEXT | ruolo: `owner`, `admin`, `editor` o `viewer` |
+| `status` | TEXT (CHECK) | stato dell'account: `active`, `pending` (in attesa di approvazione) o `disabled` (default `active`) |
 | `base_currency` | TEXT | la valuta preferita dell'utente per le aggregazioni della dashboard (default `EUR`) |
 | `created_at` / `updated_at` | TIMESTAMPTZ | quando l'account è stato creato/modificato |
 
@@ -409,6 +415,22 @@ qui per qualche giorno, così la stessa ricerca non rifà la chiamata a Yahoo.
 | `results` | JSONB | i risultati della ricerca |
 | `created_at` | TIMESTAMPTZ | quando è stata salvata |
 
+### `server_settings` — le opzioni di intero server
+
+Esattamente una riga (la chiave primaria impone `id = 1`), creata dalla
+migrazione con i valori di default. Contiene le impostazioni modificate
+dall'area admin, valide per tutto il server (non per singolo utente).
+
+| Colonna | Tipo | Spiegazione |
+|---|---|---|
+| `id` | INT (PK, CHECK `= 1`) | l'identificatore del singleton, sempre `1` |
+| `auto_approve_registrations` | BOOLEAN | se i nuovi registrati diventano subito attivi (`TRUE`, il default) o restano `pending` finché un admin li approva |
+| `updated_at` | TIMESTAMPTZ | quando le impostazioni sono state cambiate l'ultima volta |
+
+La registrazione legge la riga con `SELECT ... FOR UPDATE`, che serializza
+anche le iscrizioni simultanee: solo una di esse può essere trattata come la
+prima e promossa a `admin`.
+
 ---
 
 ## 5. Vincoli e indici in sintesi
@@ -422,6 +444,8 @@ qui per qualche giorno, così la stessa ricerca non rifà la chiamata a Yahoo.
 **Vincoli CHECK** (regole sui valori):
 
 - `users.role` — solo `owner`, `admin`, `editor`, `viewer`
+- `users.status` — solo `active`, `pending`, `disabled`
+- `server_settings.id` — solo il valore `1`: la tabella è una singola riga
 - `assets.type` — solo i tipi di titolo ammessi
 - `assets.price_source` — solo `yahoo`, `manual`, `none`
 - `transactions.type` — solo `buy`, `sell`, `dividend`, `split`, `fee`

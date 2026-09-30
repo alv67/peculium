@@ -96,6 +96,11 @@ export const en = {
      * label included — can be relocated to an Administration menu later.
      */
     dataSync: 'Data & Sync',
+    /** Admin-area entries (#57 Phase A): rendered only for admin accounts. */
+    users: 'Users',
+    serverSettings: 'Server settings',
+    /** Server-wide database backup entry (#57 Phase D). */
+    serverBackup: 'Server backup',
     settings: 'Settings',
     /** Sidebar section headers (visible only when the sidebar is expanded). */
     sectionAdmin: 'Admin',
@@ -166,6 +171,13 @@ export const en = {
     nameRequired: 'Name is required',
     /** Success toast of the register flow (then the form switches to Sign in). */
     registered: 'Registered! You can now log in.',
+    /** Register toast when the account needs approval (auto-approve off, #57). */
+    registeredPending:
+      'Registered! An administrator must approve your account before you can sign in.',
+    /** Sign-in refused on a non-active account (backend 403, #57 Phase A). */
+    accountPending:
+      'Your account is waiting for approval. An administrator needs to approve it before you can sign in.',
+    accountDisabled: 'Your account has been disabled. Contact an administrator to restore access.',
   },
   theme: {
     /** Field label on Preferences and group name of the header popup. */
@@ -184,6 +196,8 @@ export const en = {
     password: 'Password',
     preferences: 'Preferences',
     currencies: 'Currencies',
+    /** Backup & restore section (issue #56). */
+    backup: 'Backup & restore',
   },
   /**
    * Global command palette (EPIC K.5a, spec §8.1). Destination/action labels
@@ -280,6 +294,50 @@ export const en = {
     deleteTitle: 'Delete currency',
     deleteConfirm: 'Delete currency {code}?',
     loadFailed: 'Failed to load currencies',
+  },
+  /**
+   * Settings → Backup & restore (issue #56): the download card, the restore
+   * flow (file picker, add/replace modes, destructive confirmation, counts
+   * summary) and their toasts. 400s from the restore endpoint map to
+   * `invalidBundle`; raw server strings never reach the UI.
+   */
+  backup: {
+    /** Download card. */
+    downloadTitle: 'Download your data',
+    downloadHint:
+      'Exports every portfolio with its transactions, the referenced assets (metadata, exposure, manual prices) and the currencies in use as a single JSON file. Provider data (Yahoo prices, FX history) is excluded — it is refetched after a restore.',
+    downloadAction: 'Download backup',
+    downloaded: 'Backup downloaded',
+    downloadFailed: 'Backup download failed',
+    /** Restore card. */
+    restoreTitle: 'Restore from a backup',
+    restoreHint:
+      'Pick a backup file created by this app. Assets are global: existing ones are reused, missing ones are recreated.',
+    chooseFile: 'Choose backup file',
+    chooseAnotherFile: 'Choose another file',
+    restorePickHint: 'Select a backup JSON file to choose how it should be imported.',
+    selectedFile: 'Selected file:',
+    /** Import-strategy radios. */
+    modeAdd: 'Add to current data',
+    modeAddHint: 'Portfolios are imported as new ones; nothing you already have is touched.',
+    modeReplace: 'Replace current data',
+    modeReplaceHint:
+      'Deletes your existing portfolios and their transactions first, then imports. Assets are never deleted.',
+    restoreAction: 'Restore',
+    done: 'Backup restored',
+    restoreFailed: 'Restore failed',
+    invalidFile: 'That file is not a valid JSON document.',
+    invalidBundle: 'The file is not a supported backup bundle (check its format or version).',
+    /** Inline counts summary after a successful restore. */
+    resultTitle: 'Import result',
+    resultPortfolios: 'Portfolios created',
+    resultTransactions: 'Transactions created',
+    resultAssetsCreated: 'Assets created',
+    resultAssetsReused: 'Assets reused',
+    /** Replace-mode confirmation dialog. */
+    confirmTitle: 'Replace current data?',
+    confirmMessage:
+      'This deletes your existing portfolios and their transactions before importing the backup. This cannot be undone.',
   },
   /**
    * Allocation surfaces (EPIC K bug-fix, progressive D1 sweep): the wealth
@@ -517,6 +575,109 @@ export const en = {
     statusRateLimited: 'Rate limited',
     statusFailure: 'Failure',
     loadFailed: 'Failed to fetch health data',
+  },
+  /**
+   * Admin area (issue #57 Phase A): the shared gate state, the Users page
+   * (role/status badges, row actions, dialogs and toasts) and the server
+   * settings page. Badge labels localize the raw backend enums; unexpected
+   * values fall back to the raw string at the call site.
+   */
+  admin: {
+    /** Forbidden empty state on every gated `/admin/*` route. */
+    forbiddenTitle: 'Admins only',
+    forbiddenHint: 'You do not have access to this area.',
+    /** Users page (title reuses `nav.users`, headers `login.email`,
+     *  `chartView.colName`, `positions.colStatus`, `common.colActions`). */
+    usersSubtitle: 'Approve registrations, manage roles and reset passwords.',
+    colRole: 'Role',
+    colCreated: 'Created',
+    /** Role badge/select labels (`owner` is legacy: shown, never assignable). */
+    roleOwner: 'Owner',
+    roleAdmin: 'Admin',
+    roleEditor: 'Editor',
+    roleViewer: 'Viewer',
+    /** Status badge labels. */
+    statusActive: 'Active',
+    statusPending: 'Pending',
+    statusDisabled: 'Disabled',
+    /** Row-action tooltips; the `*Named` keys are the accessible names. */
+    approve: 'Approve',
+    disable: 'Disable',
+    enable: 'Re-enable',
+    resetPassword: 'Reset password',
+    approveNamed: 'Approve {email}',
+    disableNamed: 'Disable {email}',
+    enableNamed: 'Re-enable {email}',
+    resetNamed: 'Reset password for {email}',
+    roleNamed: 'Role for {email}',
+    /** Footnote under the table explaining the legacy role. */
+    ownerNote: 'The legacy Owner role behaves like Admin and cannot be assigned to new accounts.',
+    /** Row-action outcome toasts. */
+    approved: 'User approved',
+    userEnabled: 'User enabled',
+    userDisabled: 'User disabled',
+    roleUpdated: 'Role updated',
+    passwordReset: 'Password reset',
+    /** Failure fallbacks and mapped API errors (409/404). */
+    loadFailed: 'Failed to load users',
+    loadFailedHint: 'Check the connection and try again.',
+    empty: 'No users found.',
+    updateFailed: 'Update failed',
+    resetFailed: 'Password reset failed',
+    lastAdmin: 'The server must keep at least one active admin.',
+    userNotFound: 'User not found.',
+    /** Disable confirmation dialog. */
+    disableTitle: 'Disable user',
+    disableConfirm: 'Disable {email}? They will not be able to sign in until re-enabled.',
+    /** Password-reset dialog (field label/hint reuse `password.*`). */
+    resetTitle: 'Reset password for {email}',
+    resetHint: "Sets a new password for this account; the user should change it after signing in.",
+    /** Server settings page (title reuses `nav.serverSettings`). */
+    settingsSubtitle: 'Server-wide preferences, applied immediately.',
+    autoApprove: 'Auto-approve new registrations',
+    autoApproveHint:
+      'When on, new accounts can sign in immediately. When off, an admin must approve them from the Users page.',
+    lastUpdated: 'Last updated {time}',
+    settingSaved: 'Setting saved',
+    settingSaveFailed: 'Could not save the setting',
+    settingsLoadFailed: 'Failed to load server settings',
+    /**
+     * Server backup page (#57 Phase D; title reuses `nav.serverBackup`).
+     * The restore is server-wide and destructive — typed confirmation gates
+     * it and the re-login warning is part of the success result. Failure
+     * toasts surface the backend message on purpose (a failed restore must
+     * be readable, not hunted in server logs); this key is only the
+     * no-message fallback.
+     */
+    dbSubtitle: 'Full-database backup and restore for this server.',
+    dbDownloadTitle: 'Download a full dump',
+    dbDownloadHint:
+      'Streams the entire server database — every user, portfolio, asset and setting — as a custom-format PostgreSQL archive. Keep the file safe: it contains all accounts on this instance.',
+    dbDownloadAction: 'Download database dump',
+    dbDownloaded: 'Database dump downloaded',
+    dbDownloadFailed: 'Database dump failed',
+    dbRestoreTitle: 'Restore from a dump',
+    dbRestoreDanger:
+      'Destructive: this replaces every account and every piece of data on this server, and your session may end in the process.',
+    dbRestoreHint:
+      'Replaces the entire database with the uploaded archive (custom format, produced by the download above). Every table is rewritten — users included.',
+    dbChooseFile: 'Choose dump file',
+    dbChooseAnotherFile: 'Choose another file',
+    dbRestorePickHint: 'Select a .dump archive created by this page to restore it.',
+    dbRestoreAction: 'Restore database',
+    /** Type-to-confirm dialog of the destructive restore. */
+    dbConfirmTitle: 'Replace the whole database?',
+    dbConfirmWarning:
+      'This rewrites every table from the archive — users included. Current sessions and tokens may stop working and you will likely need to log in again. There is no undo: this replaces the server-wide database, not just your account.',
+    dbConfirmTypeLabel: 'Type {phrase} to confirm',
+    dbConfirmPhrase: 'REPLACE',
+    dbRestored: 'Database restored',
+    dbDumpSize: 'Restored {bytes} from the archive.',
+    dbReloginNotice:
+      'The users table was part of the archive: log in again so your session matches the restored data.',
+    dbRestoreFailed: 'Database restore failed',
+    /** Shown while a dump or restore is in flight (server-wide, slow-safe). */
+    dbLongOperation: 'Server-wide operation: large databases can take a while — keep this page open.',
   },
   /** First-run checklist replacing the empty-wealth EmptyState (D8). */
   checklist: {

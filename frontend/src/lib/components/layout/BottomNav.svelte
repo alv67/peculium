@@ -3,6 +3,7 @@
   import { page } from '$app/state'
   import { resolve } from '$app/paths'
   import { t } from '$lib/i18n/index.svelte'
+  import { isAdmin } from '$lib/stores/auth.svelte'
   import { cx } from '../ui/utils'
 
   /**
@@ -42,8 +43,14 @@
   ] as const
 
   // Routes hosted by the More sheet (kept aligned with SidebarNav's
-  // admin/settings sections — the single config point of decision D7).
-  const moreTos = ['/admin/health', '/settings'] as const
+  // admin/settings sections — the single config point of decision D7). The
+  // admin management routes join the list only for admin accounts, matching
+  // the entries the sheet actually renders (#57).
+  const moreTos = $derived([
+    '/admin/health',
+    '/settings',
+    ...(isAdmin() ? ['/admin/users', '/admin/settings', '/admin/backup'] : []),
+  ])
 
   function matches(to: string, pathname: string): boolean {
     if (to === '/') return pathname === '/'
