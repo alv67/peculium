@@ -1,10 +1,12 @@
 /**
  * Base-aware URL helpers.
  *
- * The site is deployed under a base path (project GitHub Pages: `/peculium`).
- * Every internal link and asset in the site MUST be produced through
- * `withBase()` (or go through `import.meta.env.BASE_URL` directly) so that
- * moving to a custom domain (`base: '/'`) is only an astro.config change.
+ * The site is deployed either under a base path (project GitHub Pages:
+ * `/peculium`) or at the root of a custom domain (`base: '/'`, e.g.
+ * peculium.dev). Every internal link and asset in the site MUST be produced
+ * through `withBase()` (or go through `import.meta.env.BASE_URL` directly) so
+ * that switching between the two deployment cases is only an astro.config
+ * change.
  */
 
 /** The configured site base without a trailing slash, e.g. `/peculium` or ``. */
@@ -21,7 +23,8 @@ export function withBase(path: string): string {
   if (/^(https?:|mailto:)/.test(path)) return path;
   const base = basePrefix();
   const normalized = path.startsWith('/') ? path : `/${path}`;
-  if (base === '' || normalized === '/') return `${base}/`;
+  if (normalized === '/') return `${base}/`;
+  if (base === '') return normalized;
   if (normalized === base || normalized.startsWith(`${base}/`)) return normalized;
   return `${base}${normalized}`;
 }
