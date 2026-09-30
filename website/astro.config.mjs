@@ -1,14 +1,11 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 
-// Project Pages site (https://<owner>.github.io/<repo>/).
-//
-// When the custom domain (peculium.dev) lands, change ONLY this block to:
-//   site: 'https://peculium.dev',
-//   base: '/',
-// and add a `CNAME` file (`peculium.dev`) under `public/` — see README.md.
-// Every internal link/asset in the site goes through import.meta.env.BASE_URL,
-// so nothing else needs to change.
+// Custom-domain site published at https://peculium.dev/, served at the root
+// (base '/'). `public/CNAME` holds `peculium.dev` so GitHub Pages keeps the
+// domain on every deploy.
+// Every internal link/asset in the site goes through import.meta.env.BASE_URL
+// (via withBase() in src/lib/base.ts), so the URLs stay correct under any base.
 export default defineConfig({
   output: 'static',
   site: 'https://peculium.dev',
