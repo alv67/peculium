@@ -158,9 +158,11 @@ The server startup sequence is:
    and common behaviors are added to all requests: logging, error recovery,
    an ID to trace every request, a 30-second timeout and CORS handling (the
    rules that allow the frontend to call the API).
-5. **Routes** — the endpoints are connected to the functions that handle
-   them. Some endpoints are public (`/auth/*`), the others require
-   authentication (see the chapter on authentication). Outside `/api/v1`,
+ 5. **Routes** — the endpoints are connected to the functions that handle
+    them. Some endpoints are public (`/auth/*`), the others require
+    authentication with a valid token belonging to an active account (see the
+    chapter on authentication), and the `/api/v1/admin/*` ones also require an
+    admin role. Outside `/api/v1`,
    `GET /healthz` is a public liveness probe: it answers
    `{"status":"ok"}` with HTTP 200 and does not touch the database or
    Redis.
@@ -220,11 +222,11 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 ## 6. The database
 
 The migrations (`backend/migrations/`, files numbered from `000001` to
-`000018`) build the schema. The main tables:
+`000019`) build the schema. The main tables:
 
 | Table | Contains | Explanation |
 |---|---|---|
-| `users` | the users | email, name, password hash, role, base currency (`base_currency`, default EUR) |
+| `users` | the users | email, name, password hash, role, account status (`active`, `pending`, `disabled`), base currency (`base_currency`, default EUR) |
 | `assets` | the securities | ticker, name, type (stock, ETF, crypto...), investment class, price source, currency, exchange, sector, industry |
 | `portfolios` | the portfolios | a portfolio belongs to a user and has a currency |
 | `portfolio_shares` | the sharing | who else can see a portfolio (and with what role) |
@@ -240,6 +242,7 @@ The migrations (`backend/migrations/`, files numbered from `000001` to
 | `portfolio_series` | per-portfolio series | portfolio value and cost for each day |
 | `asset_series` | per-security series | value and cost of each security for each day |
 | `health_events` | the price-health events | records of stale/failed price updates on the health page |
+| `server_settings` | the server options | a single row: registration auto-approval (chapter 14) |
 
 Two fundamental ideas about the database:
 
@@ -909,6 +912,84 @@ Passwords are stored as **bcrypt hashes** (not in plain text).
 > password is recomputed and compared with the stored one. So even if someone
 > steals the database, they cannot read the passwords.
 
+### Account status and registration approval
+
+Every account carries a **status** — `active`, `pending` (waiting for
+approval) or `disabled` — and the status travels with the user object
+returned by register, login and `GET /users/me`.
+
+- The **first registrant** on an empty server becomes the active `admin`
+  automatically. This happens inside one transaction that first locks the
+  settings row, so two simultaneous signups can never both be treated as the
+  first user.
+- Following registrants get the `viewer` role. With the server setting
+  `auto_approve_registrations` **on** (the default) they are `active` right
+  away; with it **off** they are `pending`. Registration always succeeds —
+  the status in the response is what tells the UI to show "waiting for
+  approval".
+- Login accepts only `active` accounts: a `pending` one is rejected with 403
+  "account pending approval", a `disabled` one with 403 "account disabled"
+  (the same rules apply to refreshing a token pair).
+
+After the JWT check, a second middleware loads the account behind the token
+id on **every** protected request and lets it through only while the stored
+status is `active`: an unknown or deleted user gets 401, a non-active one
+403. Approving or disabling an account therefore takes effect immediately,
+even for tokens issued before the change.
+
+### Admin area
+
+Roles `owner` and `admin` are the administrator roles (an `owner` — the role
+default of the schema — counts as admin everywhere); `editor` and `viewer`
+are normal users. The admin endpoints sit under `/api/v1/admin`, behind the
+JWT middleware, the active-status middleware and an admin gate that answers
+403 for non-admins:
+
+| Endpoint | Does |
+|---|---|
+| `GET /admin/users` | lists every account: id, email, name, role, status, created_at (the password hash is never exposed) |
+| `PATCH /admin/users/{id}` | sets `role` and/or `status` (validated against the enums); refuses to demote or disable the **last active admin** with 409 |
+| `POST /admin/users/{id}/reset-password` | sets a new password for the account (minimum 8 characters, no current password needed) |
+| `GET /admin/settings` | reads the server settings (`auto_approve_registrations`, `updated_at`) |
+| `PATCH /admin/settings` | updates `auto_approve_registrations` |
+| `GET /admin/db/backup` | downloads a full database dump as a file attachment |
+| `POST /admin/db/restore` | replaces the whole database from an uploaded dump (destructive, requires confirmation) |
+
+### Database backup and restore (`GET /admin/db/backup`, `POST /admin/db/restore`)
+
+These two endpoints work on the **entire PostgreSQL database** (every table,
+every user) by running the `pg_dump` / `pg_restore` client tools, which the
+backend server image ships (`postgresql16-client`, PostgreSQL 16); the worker
+image does not carry them. The connection coordinates come from the same DB
+configuration the app uses; the password reaches the tools through the
+`PGPASSWORD` environment variable (never on the command line) and the TLS
+setting through `PGSSLMODE`.
+
+`GET /admin/db/backup` runs `pg_dump -Fc` — a full dump in the PostgreSQL
+**custom format** (compressed, restorable selectively) — and pipes the tool's
+output straight into the HTTP response, without ever holding the whole archive
+in memory. The response is a download: `Content-Type: application/octet-stream`
+and `Content-Disposition: attachment` with the file name
+`peculium-db-<YYYY-MM-DD>.dump` (UTC date). If `pg_dump` fails before any of
+the archive has reached the client, the answer is a 500 with a generic
+"database backup failed" message — tool output and credentials are never
+leaked; a failure after streaming has begun can only surface as a truncated
+download.
+
+`POST /admin/db/restore` accepts the archive as a **multipart form upload** in
+the `dump` file field, together with the explicit confirmation
+`confirm=replace` (as a form field or a query parameter): restoring **replaces
+the entire database**, so the request is rejected with 400 without that exact
+confirmation, as is a request with no dump file. The upload is written to a
+temporary file (removed afterwards) and fed to
+`pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, which drops and
+recreates the objects it finds in the archive. Success answers a JSON summary
+(`status`, `mode`, `dump_bytes`, `message`); failure answers 500 carrying the
+`pg_restore` error output with the database password masked, so the admin can
+read what went wrong. Because the archive contains the `users` table too, a
+restore rewrites the accounts: existing sessions and tokens may reference rows
+that are gone, and the summary message tells the admin to **log in again**.
+
 ---
 
 ## 15. Atomic operations — `WithTx`
@@ -957,6 +1038,60 @@ constraints: name falls back to the ticker, type to `stock`, currency to
 it also falls back to `yahoo`. A document whose `version` is newer than what
 the importer understands is rejected with a clear 400
 (`unsupported export version N`) instead of a generic failure.
+
+### Per-user backup and restore (`GET /backup`, `POST /backup/restore`)
+
+`GET /backup` streams the whole data of the authenticated user as a single
+downloadable JSON bundle (`peculium-backup-<email>-<date>.json`). Like the
+portfolio export, the document is **versioned** (the `version` field,
+currently `1`) and **additive**: optional fields may be missing on import,
+and a bundle newer than what the server understands is rejected with a 400
+(`unsupported backup version N`). The bundle carries:
+
+- `user` — the email and name of the account it came from (informational)
+  plus its **base currency**, the one user setting restore applies;
+- `currencies` — the supported-currency entries in use: the base currency
+  and every portfolio and asset currency;
+- `portfolios` — one standard portfolio-export document per portfolio the
+  user **owns** (portfolios shared into the account are not duplicated);
+  each entry is self-contained and also importable on its own through the
+  portfolio import endpoint;
+- `assets` — the per-asset data no provider can refetch, keyed by ticker:
+  the identity metadata, the **exposure** (country, region and sector rows
+  plus, in the `*_source` fields, the provenance of every saved dimension)
+  and the **manual price rows**.
+
+Yahoo prices, FX history and health events are deliberately excluded: they
+are provider data, refilled by the fetcher and the worker on the restored
+server.
+
+`POST /backup/restore?mode=add|replace` writes the bundle back onto the
+authenticated account — the intended scenario is a server re-initialized
+from scratch, where the user has recreated the account by hand. The body is
+the bundle JSON itself. The mode decides what happens to existing data:
+
+- `add` (the default when `mode` is omitted) is non-destructive: every
+  portfolio of the bundle is imported as a new one and existing data is
+  left untouched;
+- `replace` first deletes the portfolios the user owns — CASCADE removes
+  their transactions with them — and then imports the bundle. There is no
+  server-side confirmation for `replace`: the client UI confirms before
+  calling.
+
+Assets are global and shared between users, so restore **never deletes**
+any: an already-stored ticker is reused as-is — its shared identity
+metadata is not overwritten — and a missing one is created from the bundle
+with the same importer defaults the portfolio import applies. Exposure is
+restored only for dimensions that actually carry rows (a dimension absent
+from the bundle leaves the stored one untouched), and manual prices upsert
+on `(asset, date)`. Currency entries add missing codes to the global
+whitelist and never modify existing ones. The whole restore runs in a
+single transaction, and once it commits the series of every created
+portfolio is recomputed.
+
+The response is a summary of the operation: the `mode` applied and the
+counts `portfolios_created`, `transactions_created`, `assets_created` and
+`assets_reused`.
 
 ---
 
@@ -1026,15 +1161,16 @@ backend/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
 │   ├── geo/geo.go          # macro-regions, GICS sectors, canonical ISO countries, country→region mapping
-│   ├── handler/            # HTTP layer (auth.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # HTTP layer (auth.go, admin.go, admin_db.go, backup.go, portfolio.go, settings.go, ...)
+│   ├── middleware/         # per-request account checks: active status + admin gate
 │   ├── model/              # data structures with JSON tags
 │   ├── position/           # AVCO engine (State, Apply, Walk)
 │   ├── price/              # Yahoo client (yahoo.go, spark.go, meta.go, throttle.go, report.go, ...) + JustETF/Morningstar fetchers
-│   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + WithTx + DBTX)
+│   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
-│   └── service/            # business logic (service.go)
-├── migrations/             # versioned SQL (000001..000018)
+│   └── service/            # business logic (service.go, admin.go, backup.go, dbmaint.go)
+├── migrations/             # versioned SQL (000001..000019)
 └── go.mod
 ```
 

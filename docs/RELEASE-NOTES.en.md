@@ -1,5 +1,14 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- Admins can now back up and restore the whole server database from the new **Admin → Server backup** page: download a complete database dump, and restore the instance from one — the destructive replace asks you to type an explicit confirmation, and the app reminds you that every account is replaced, so you may need to log in again
+- New Settings → Backup & restore page: download all of your data — portfolios, transactions, assets with their exposure and manual prices — as a single JSON file, and restore it choosing whether to **add** it to your current data or **replace** it (replace asks for an explicit confirmation first, and your assets are never deleted)
+- New **Admin area** for admin accounts: a **Users** page to review every account with its role and status, approve pending registrations, disable and re-enable accounts, change roles, and set a new password for a user who lost theirs; plus a **Server settings** page. On a brand-new server the first registered account becomes the administrator
+- New server setting **Auto-approve new registrations** (on by default): when it is off, new sign-ups stay pending until an administrator approves them
+- The login page now explains exactly what is going on when an account is still awaiting approval or has been disabled, instead of a generic error, and a finished registration immediately tells you if an administrator's approval is required first
+
 ## v0.6.1 — 23 Sep 2026
 
 ### Features

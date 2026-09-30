@@ -20,6 +20,7 @@ type ExposureRepository interface {
 	FindSectorsByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[string][]model.ExposureRow, error)
 	FindCountriesByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[string][]model.ExposureRow, error)
 	FindProvenance(ctx context.Context, assetID uuid.UUID) (map[string]model.ExposureProvenance, error)
+	FindProvenanceByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[string]map[string]model.ExposureProvenance, error)
 	SetProvenance(ctx context.Context, assetID uuid.UUID, dimension, source string) error
 }
 
@@ -187,6 +188,40 @@ func (r *exposureRepo) FindProvenance(ctx context.Context, assetID uuid.UUID) (m
 			return nil, err
 		}
 		out[dimension] = prov
+	}
+	return out, rows.Err()
+}
+
+// FindProvenanceByAssets returns the persisted provenance of each exposure
+// dimension for a set of assets in a single query, keyed by asset id string
+// and then by dimension name. Assets whose dimensions were never saved are
+// absent from the map.
+func (r *exposureRepo) FindProvenanceByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[string]map[string]model.ExposureProvenance, error) {
+	if len(assetIDs) == 0 {
+		return map[string]map[string]model.ExposureProvenance{}, nil
+	}
+	rows, err := r.db.Query(ctx,
+		`SELECT asset_id, dimension, source, updated_at FROM asset_exposure_provenance WHERE asset_id = ANY($1::uuid[]) ORDER BY asset_id, dimension`,
+		assetIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]map[string]model.ExposureProvenance{}
+	for rows.Next() {
+		var assetID uuid.UUID
+		var dimension string
+		var prov model.ExposureProvenance
+		if err := rows.Scan(&assetID, &dimension, &prov.Source, &prov.UpdatedAt); err != nil {
+			return nil, err
+		}
+		key := assetID.String()
+		if out[key] == nil {
+			out[key] = map[string]model.ExposureProvenance{}
+		}
+		out[key][dimension] = prov
 	}
 	return out, rows.Err()
 }
