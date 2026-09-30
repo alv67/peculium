@@ -51,7 +51,9 @@ The last tab exports your whole workspace — every portfolio and transaction,
 the referenced assets with their metadata, exposure and the
 [manual prices](/manual/daily-use) you entered, plus the currencies in use —
 as a single JSON file, and restores it. Provider data (Yahoo prices, FX
-history) is deliberately left out: it is refetched after a restore.
+history) is deliberately left out: it is refetched after a restore. The full
+walkthrough — including the admin-level server dump — is in
+[Backup & restore](/manual/backup).
 
 Preferences decided, account secured: for how the prices behind the numbers
 are kept fresh, see [Data & sync](/manual/data-sync).

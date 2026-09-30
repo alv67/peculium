@@ -52,7 +52,8 @@ transazione, gli asset correlati con metadati, esposizione e i
 [prezzi manuali](/it/manual/daily-use) inseriti, più le valute in uso — come
 un unico file JSON, e lo ripristina. I dati dei provider (prezzi Yahoo,
 storico cambi) sono esclusi di proposito: dopo un ripristino vengono
-recuperati di nuovo.
+recuperati di nuovo. La descrizione completa — dump del server lato admin
+incluso — è in [Backup e ripristino](/it/manual/backup).
 
 Preferenze decise, account al sicuro: per come i prezzi dietro i numeri
 restano aggiornati, guarda [Dati e sincronizzazione](/it/manual/data-sync).
