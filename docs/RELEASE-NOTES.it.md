@@ -1,6 +1,6 @@
 # Release Notes
 
-## v1.0.0 — 30 Sep 2026
+## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)
 
 ### Nuove funzionalità
 - Gli amministratori ora possono fare il backup e il ripristino dell'intero database di server dalla nuova pagina **Admin → Backup del server**: scarica un dump completo del database e ripristina l'istanza da uno — la sostituzione distruttiva chiede una conferma scritta esplicita, e l'app ricorda che tutti gli account vengono sostituiti, quindi potrebbe servire un nuovo login
