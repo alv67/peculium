@@ -8,7 +8,7 @@
 
 | Livello | Tecnologia | Motivazione |
 |---------|-----------|-------------|
-| **Backend** | Go 1.23 (con Chi) | Performance, binary singolo, container minimale, ideale per homelab |
+| **Backend** | Go 1.25 (con Chi) | Performance, binary singolo, container minimale, ideale per homelab |
 | **Frontend** | SvelteKit 2 + Svelte 5 + TypeScript + Vite | SPA moderna, runes API, routing basato su file |
 | **Database** | PostgreSQL 16 | Dati finanziari relazionali, CTE per statistiche |
 | **Cache/Jobs** | Redis 7 | Rate-limiting Yahoo, caching prezzi |
@@ -187,16 +187,17 @@ peculium/
 
 ---
 
-## Stato attuale (23 Set 2026)
+## Stato attuale (30 Set 2026)
 
-**Release v0.6.1** pubblicata su `main` (bug release: stato aggiornamento prezzi globale
-nell'header — stampa cliccabile e fascia qualità dati su ogni pagina —, traduzione completa IT/EN
-delle schermate rimanenti, fix UX mobile di menu entità, drill-down allocazioni, tooltip grafici e
-command palette).
+**Release v1.0.0** pubblicata su `main` (prima release ufficiale col nome Peculium: area Admin
+con governance utenti e impostazioni server, backup e ripristino per-utente e a livello server,
+messaggi di login chiari per account in approvazione/disattivati, e prima distribuzione come
+immagini pull-only su GHCR per linux/amd64 e arm64; incluse le patch di sicurezza Dependabot).
 Precedenti release: **v0.1.0** (25 Ago 2026), **v0.2.0** (30 Ago 2026, EPIC A + EPIC B),
 **v0.3.0** (11 Set 2026, asset editing overhaul), **v0.4.0** (13 Set 2026, design system & dark
-mode, EPIC D/E), **v0.5.0** (17 Set 2026, EPIC I — dashboard & portfolio v2) e **v0.6.0**
-(21 Set 2026, EPIC K — redesign UX/UI).
+mode, EPIC D/E), **v0.5.0** (17 Set 2026, EPIC I — dashboard & portfolio v2), **v0.6.0**
+(21 Set 2026, EPIC K — redesign UX/UI) e **v0.6.1** (23 Set 2026, bug release con stato
+aggiornamento prezzi globale nell'header e traduzione IT/EN completa).
 
 Fase 0 e Fase 1 completate (incluso EPIC A — data correctness & security). Lo sviluppo attivo
 procede su `develop`. Realizzate in EPIC B: la **pagina dettaglio asset** (#45, B.10),

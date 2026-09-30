@@ -1,10 +1,10 @@
-# Peculium — Stato Progetto (17 Set 2026)
+# Peculium — Stato Progetto (30 Set 2026)
 
 ## Infrastruttura
 
 | Servizio | Stack | Note |
 |----------|-------|------|
-| Backend | Go 1.23 + Chi + pgx + golang-migrate | Containerizzato |
+| Backend | Go 1.25 + Chi + pgx + golang-migrate | Containerizzato |
 | Frontend | SvelteKit 5 + TypeScript + Tailwind + ECharts | Containerizzato (nginx) |
 | Database | PostgreSQL 16 | Con docker volume |
 | Cache | Redis 7 | Caching dashboard/series, rate-limit Yahoo |
@@ -41,7 +41,15 @@ spostato nell'header globale (stampa cliccabile + fascia qualità dati su ogni p
 completa IT/EN di dashboard, dettaglio portafoglio, liste, modali, Impostazioni e pagina Health
 (con etichette tipo/classe/fonte asset locale-aware), fix mobile di menu entità, drill-down
 allocazioni, tooltip dei grafici e command palette.
-Flusso: branch → PR su `develop` → merge → tag `v0.1.x`/`v0.2.0`/`v0.3.0`/`v0.4.0`/`v0.5.0`/`v0.6.0`/`v0.6.1` su `main`.
+**v1.0.0** — prima release ufficiale col nome **Peculium** (30 Set 2026): **area Admin**
+(gestione utenti — ruoli, approvazione delle registrazioni, disattivazione/riattivazione, reset
+password — e impostazioni server), **backup e ripristino** per-utente (JSON, modalità Aggiungi o
+Sostituisci) e a livello server (dump completo del database con conferma distruttiva), messaggi di
+login chiari per account in approvazione o disattivati, e prima release distribuita come
+**immagini pull-only su GHCR** (anche per linux/arm64); include le patch di sicurezza Dependabot
+(golang.org/x/crypto, pgx, go-redis, chi, js-yaml, brace-expansion, devalue) e l'allineamento del
+backend a **Go 1.25**.
+Flusso: branch → PR su `develop` → merge → tag `v0.1.0`…`v0.6.1`/`v1.0.0` su `main`.
 
 ## Fase 0 — ✅ Completata
 
