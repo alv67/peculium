@@ -1,0 +1,59 @@
+---
+/**
+ * Shell for the user manual: Base layout + a sidebar TOC listing every
+ * chapter of the active locale in `order`. The existing language switcher
+ * (from Base) links the same chapter in the other locale, since EN/IT
+ * chapters share their file slug (`quickstart.md` in both).
+ */
+import Base from './Base.astro';
+import { getCollection } from 'astro:content';
+import { withBase, localePath } from '../lib/base';
+import { UI, type Locale } from '../lib/i18n';
+
+interface Props {
+  locale: Locale;
+  /** Locale-root-relative path, e.g. '/manual' or '/manual/quickstart'. */
+  path: string;
+  title: string;
+  description?: string;
+  /** Slug of the active chapter (unset on the landing page). */
+  active?: string;
+}
+
+const { locale, path, title, description = '', active } = Astro.props;
+const t = UI[locale];
+
+const chapters = (
+  await getCollection('manual', ({ id }) => id.startsWith(`${locale}/manual/`))
+)
+  .sort((a, b) => a.data.order - b.data.order)
+  .map((c) => ({ slug: c.id.split('/').pop()!, title: c.data.title }));
+---
+
+<Base {locale} {path} {title} {description}>
+  <div class="mx-auto grid max-w-5xl gap-10 px-4 py-10 md:grid-cols-[13rem_minmax(0,1fr)]">
+    <aside>
+      <nav aria-label={t.navLabel.manual}>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          <a href={withBase(localePath('/manual', locale))}>{t.navLabel.manual}</a>
+        </p>
+        <ol class="mt-3 space-y-1.5 text-sm">
+          {chapters.map((c) => (
+            <li>
+              <a
+                href={withBase(localePath(`/manual/${c.slug}`, locale))}
+                aria-current={active === c.slug ? 'page' : undefined}
+                class={
+                  active === c.slug
+                    ? 'font-semibold text-brand dark:text-brand-dark'
+                    : 'text-slate-600 transition-colors hover:text-brand dark:text-slate-300 dark:hover:text-brand-dark'
+                }
+              >{c.title}</a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </aside>
+    <div class="min-w-0"><slot /></div>
+  </div>
+</Base>

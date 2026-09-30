@@ -13,6 +13,7 @@ export const NAV = {
   install: '/install',
   releases: '/releases',
   features: '/features',
+  manual: '/manual',
 } as const;
 
 export type NavKey = keyof typeof NAV;
@@ -58,6 +59,7 @@ export const UI: Record<Locale, Strings> = {
       install: 'Install',
       releases: 'Releases',
       features: 'Features',
+      manual: 'Manual',
     },
     switchLangLabel: 'Italiano',
     githubLabel: 'GitHub repository',
@@ -132,6 +134,7 @@ export const UI: Record<Locale, Strings> = {
       install: 'Installazione',
       releases: 'Release',
       features: 'Funzionalità',
+      manual: 'Manuale',
     },
     switchLangLabel: 'English',
     githubLabel: 'Repository GitHub',
