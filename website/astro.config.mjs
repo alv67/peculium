@@ -11,8 +11,8 @@ import { defineConfig } from 'astro/config';
 // so nothing else needs to change.
 export default defineConfig({
   output: 'static',
-  site: 'https://alv67.github.io',
-  base: '/peculium',
+  site: 'https://peculium.dev',
+  base: '/',
   trailingSlash: 'ignore',
   i18n: {
     locales: ['en', 'it'],
