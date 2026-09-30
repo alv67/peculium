@@ -45,11 +45,11 @@
   // Routes hosted by the More sheet (kept aligned with SidebarNav's
   // admin/settings sections — the single config point of decision D7). The
   // admin management routes join the list only for admin accounts, matching
-  // the entries the sheet actually renders (#57 Phase A).
+  // the entries the sheet actually renders (#57).
   const moreTos = $derived([
     '/admin/health',
     '/settings',
-    ...(isAdmin() ? ['/admin/users', '/admin/settings'] : []),
+    ...(isAdmin() ? ['/admin/users', '/admin/settings', '/admin/backup'] : []),
   ])
 
   function matches(to: string, pathname: string): boolean {

@@ -46,7 +46,7 @@ func (f *fakeSettingsRepo) UpdateAutoApprove(ctx context.Context, autoApprove bo
 
 func newAdminTestService(u *fakeUserRepo, st *fakeSettingsRepo) *Service {
 	repos := &repository.Repository{User: u, Settings: st}
-	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil)
+	return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 }
 
 func TestRegister_FirstUserBecomesActiveAdmin(t *testing.T) {

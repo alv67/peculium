@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata postgresql16-client
 COPY --from=builder /server /server
 COPY --from=builder /app/migrations /migrations
 

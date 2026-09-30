@@ -964,6 +964,44 @@ e un cancello admin che risponde 403 ai non-admin:
 | `POST /admin/users/{id}/reset-password` | imposta una nuova password per l'account (minimo 8 caratteri, senza chiedere la corrente) |
 | `GET /admin/settings` | legge le impostazioni di server (`auto_approve_registrations`, `updated_at`) |
 | `PATCH /admin/settings` | aggiorna `auto_approve_registrations` |
+| `GET /admin/db/backup` | scarica il dump completo del database come allegato |
+| `POST /admin/db/restore` | sostituisce l'intero database a partire da un dump caricato (distruttivo, richiede conferma) |
+
+### Backup e ripristino del database (`GET /admin/db/backup`, `POST /admin/db/restore`)
+
+Questi due endpoint agiscono sull'**intero database PostgreSQL** (ogni tabella,
+ogni utente) eseguendo i tool client `pg_dump` / `pg_restore`, che l'immagine
+server del backend include (`postgresql16-client`, PostgreSQL 16); l'immagine
+del worker non li contiene. Le coordinate di connessione vengono dalla stessa
+configurazione DB dell'applicazione; la password arriva ai tool attraverso la
+variabile d'ambiente `PGPASSWORD` (mai sulla riga di comando) e l'impostazione
+TLS attraverso `PGSSLMODE`.
+
+`GET /admin/db/backup` esegue `pg_dump -Fc` — un dump completo nel **custom
+format** di PostgreSQL (compresso, ripristinabile in modo selettivo) e canalizza
+l'output del tool direttamente nella risposta HTTP, senza mai tenere l'intero
+archivio in memoria. La risposta è un download: `Content-Type:
+application/octet-stream` e `Content-Disposition: attachment` con nome file
+`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Se `pg_dump` fallisce prima che una
+parte dell'archivio raggiunga il client, la risposta è un 500 con un messaggio
+generico "database backup failed": l'output dei tool e le credenziali non sono
+mai esposti; un fallimento avvenuto dopo l'inizio dello streaming può
+manifestarsi solo come download troncato.
+
+`POST /admin/db/restore` accetta l'archivio come **caricamento multipart** nel
+campo file `dump`, insieme alla conferma esplicita `confirm=replace` (come
+campo del form o parametro di query): il ripristino **sostituisce l'intero
+database**, quindi la richiesta è rifiutata con 400 senza quell'esatta
+conferma, così come una richiesta senza dump file. Il caricamento viene scritto
+in un file temporaneo (rimosso dopo l'uso) e passato a
+`pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, che elimina e
+ricrea gli oggetti presenti nell'archivio. In caso di successo la risposta è un
+riepilogo JSON (`status`, `mode`, `dump_bytes`, `message`); in caso di fallimento
+un 500 che riporta l'output errore di `pg_restore` con la password del database
+mascherata, così che l'admin capisca cosa non funziona. Poiché l'archivio
+contiene anche la tabella `users`, un ripristino riscrive gli account: sessioni
+e token già emessi possono riferire righe non più esistenti, e il messaggio del
+riepilogo avvisa l'admin di **effettuare di nuovo il login**.
 
 ---
 
@@ -1140,7 +1178,7 @@ backend/
 │   ├── auth/jwt.go         # JWT: generazione, validazione, middleware
 │   ├── config/config.go    # variabili d'ambiente + DSN di connessione
 │   ├── geo/geo.go          # macro-regioni, settori GICS, paesi ISO canonici, mappatura paese→regione
-│   ├── handler/            # livello HTTP (auth.go, admin.go, backup.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # livello HTTP (auth.go, admin.go, admin_db.go, backup.go, portfolio.go, settings.go, ...)
 │   ├── middleware/         # controlli d'account per richiesta: stato attivo + cancello admin
 │   ├── model/              # strutture dati con tag JSON
 │   ├── position/           # motore AVCO (State, Apply, Walk)
@@ -1148,7 +1186,7 @@ backend/
 │   ├── repository/         # query SQL (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
-│   └── service/            # logica di business (service.go, admin.go, backup.go)
+│   └── service/            # logica di business (service.go, admin.go, backup.go, dbmaint.go)
 ├── migrations/             # SQL versionato (000001..000019)
 └── go.mod
 ```

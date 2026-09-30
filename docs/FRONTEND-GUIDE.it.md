@@ -204,7 +204,8 @@ frontend/
         │                   #   backup e ripristino
         └── admin/          # area "Admin": health/ (dashboard prezzi,
                             #   "Dati e sincronizzazione", aperta a tutti)
-                            #   più users/ + settings/ (solo amministratori)
+                            #   più users/ + settings/ + backup/ (solo
+                            #   amministratori)
 ```
 
 > **Non esiste una pagina `/register` separata**: la pagina di login contiene un
@@ -293,7 +294,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | | byAsset | `GET /prices/{assetId}?full=1` |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
-| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings` (tutti riservati agli amministratori: 403 per gli altri ruoli) |
+| `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (allegato `.dump` in streaming), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (tutti riservati agli amministratori: 403 per gli altri ruoli) |
 | `api` (generico) | get/post/put/patch/delete | il client grezzo, usato dalla pagina health per `GET /health/prices` |
 
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
@@ -765,8 +766,9 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
 - La sezione **Admin** della sidebar renderizza da un unico punto di
   configurazione `adminItems` dentro `SidebarNav`: **"Dati e
   sincronizzazione"** (`nav.dataSync`, route `/admin/health`) è aperta a
-  tutti, mentre le voci di gestione **Utenti** (`/admin/users`, `nav.users`)
-  e **Impostazioni server** (`/admin/settings`, `nav.serverSettings`) compaiono
+  tutti, mentre le voci di gestione **Utenti** (`/admin/users`, `nav.users`),
+  **Impostazioni server** (`/admin/settings`, `nav.serverSettings`) e **Backup
+  del server** (`/admin/backup`, `nav.serverBackup`) compaiono
   solo per gli account amministratore — `isAdmin()` (da
   `lib/stores/auth.svelte.ts`) tratta il `role` di sessione `owner`/`admin`
   come equivalente ad admin. `/admin` reindirizza a `/admin/users`, e ogni
@@ -787,7 +789,8 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   focusabili, pattern APG) su una `role="listbox"` raggruppata con tre sezioni
   `role="group"` rese solo se non vuote: **Vai a** (Panoramica, Portafogli,
   Asset, Dati e sincronizzazione, Impostazioni + le cinque sottosezioni, più
-  Utenti e Impostazioni server per gli account amministratore, poi
+  Utenti, Impostazioni server e Backup del server per gli account
+  amministratore, poi
   ogni portafoglio da `portfolioApi.list()`), **Asset** (gli asset registrati
   da `assetApi.list()` — nome più hint col ticker — seguiti da una riga live
   "Cerca su Yahoo …" alimentata da un `assetApi.lookup()` con debounce di
@@ -874,7 +877,7 @@ essere visibili su ogni pagina.
    asset, i tab del dettaglio asset, tutte le modali (crea portafoglio/asset,
    importa portafoglio, aggiungi transazione, modifica esposizione), le pagine
    Impostazioni, la pagina Stato sincronizzazione prezzi, le pagine admin
-   Utenti e Impostazioni server e le superfici
+   Utenti, Impostazioni server e Backup del server e le superfici
    allocazione/esposizione (`allocation.*`, `exposure.*`, il drill-down
    `drill.*`, le serie e gli stati vuoti dei grafici `chartView.*`, il
    `ProvenanceBadge` `provenance.*`) — più le etichette di tipo/classe/fonte
@@ -1643,7 +1646,8 @@ dell'intervallo), con un pulsante "Refresh Now".
 
 La home di gestione per gli account amministratore, raggiungibile dalla
 sezione Admin della sidebar, dal foglio "Altro" del telefono e dal pannello
-comandi — che renderizzano le sue voci (`Utenti`, `Impostazioni server`) solo
+comandi — che renderizzano le sue voci (`Utenti`, `Impostazioni server`,
+`Backup del server`) solo
 quando `isAdmin()`. `/admin` (`routes/admin/+page.svelte`) è un redirect a
 `/admin/users` (`replaceState`, così non resta mai nella cronologia). Il
 contenuto delle pagine è avvolto da `AdminGate`
@@ -1695,3 +1699,33 @@ attiva i nuovi account accedono subito, se disattiva le registrazioni nascono
 `pending` e un amministratore le approva dalla pagina Utenti. Il toggle si
 applica subito (PATCH ottimistica al cambio, ritratta con toast d'errore se
 fallisce) e un timbro "Ultimo aggiornamento" sta sotto l'etichetta.
+
+### `/admin/backup` — Backup del server (`routes/admin/backup/+page.svelte`)
+
+Dump e ripristino dell'intero database di server (`adminApi.dbBackup` /
+`adminApi.dbRestore`, endpoint riservati agli amministratori e pagina avvolta
+da `AdminGate`). La card **Scarica** trasmette un dump completo `pg_dump`
+(formato custom) via `GET /admin/db/backup` (`application/octet-stream`,
+allegato `peculium-db-<date>.dump`) con lo stesso percorso blob autenticato
+grezzo del backup per-utente: è il `Content-Disposition` del server a dare il
+nome del file salvato. La card **Ripristina** sceglie un file `.dump` (il
+client non ispeziona mai il binario; valida il server) e blocca la richiesta
+dietro una conferma scritta: un `Modal` danger (`admin.dbConfirmWarning`
+porta l'avviso completo — ogni tabella riscritta, utenti inclusi, sessione
+possibilmente invalidata) il cui pulsante di conferma si abilita solo quando
+l'amministratore digita esattamente la frase di conferma
+(`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per lingua). Il caricamento
+è `POST /admin/db/restore` in `multipart/form-data` con
+l'archivio nel campo file `dump` e il letterale `confirm=replace` come campo
+del form (`Content-Type` volutamente non impostato, così il browser lo deriva
+con il boundary). Il successo risponde `{status, mode, dump_bytes, message}`:
+toast più pannello inline con la dimensione dell'archivio ripristinato e un
+avviso persistente di nuovo login, poiché la tabella utenti fa parte
+dell'archivio e la sessione corrente potrebbe non corrispondere più ai dati
+ripristinati. Gli errori riportano deliberatamente il messaggio del backend
+(400 per conferma/file mancanti, 500 con lo stderr sanificato di
+`pg_restore` — un ripristino parzialmente applicato deve essere leggibile
+nella UI); solo gli errori di rete senza status ripiegano sul generico
+localizzato. Entrambe le operazioni hanno 30 minuti di margine lato server: i
+pulsanti mostrano lo spinner e la pagina riporta un avviso "tieni aperta
+questa pagina".

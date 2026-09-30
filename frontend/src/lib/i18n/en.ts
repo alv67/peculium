@@ -99,6 +99,8 @@ export const en = {
     /** Admin-area entries (#57 Phase A): rendered only for admin accounts. */
     users: 'Users',
     serverSettings: 'Server settings',
+    /** Server-wide database backup entry (#57 Phase D). */
+    serverBackup: 'Server backup',
     settings: 'Settings',
     /** Sidebar section headers (visible only when the sidebar is expanded). */
     sectionAdmin: 'Admin',
@@ -639,6 +641,43 @@ export const en = {
     settingSaved: 'Setting saved',
     settingSaveFailed: 'Could not save the setting',
     settingsLoadFailed: 'Failed to load server settings',
+    /**
+     * Server backup page (#57 Phase D; title reuses `nav.serverBackup`).
+     * The restore is server-wide and destructive — typed confirmation gates
+     * it and the re-login warning is part of the success result. Failure
+     * toasts surface the backend message on purpose (a failed restore must
+     * be readable, not hunted in server logs); this key is only the
+     * no-message fallback.
+     */
+    dbSubtitle: 'Full-database backup and restore for this server.',
+    dbDownloadTitle: 'Download a full dump',
+    dbDownloadHint:
+      'Streams the entire server database — every user, portfolio, asset and setting — as a custom-format PostgreSQL archive. Keep the file safe: it contains all accounts on this instance.',
+    dbDownloadAction: 'Download database dump',
+    dbDownloaded: 'Database dump downloaded',
+    dbDownloadFailed: 'Database dump failed',
+    dbRestoreTitle: 'Restore from a dump',
+    dbRestoreDanger:
+      'Destructive: this replaces every account and every piece of data on this server, and your session may end in the process.',
+    dbRestoreHint:
+      'Replaces the entire database with the uploaded archive (custom format, produced by the download above). Every table is rewritten — users included.',
+    dbChooseFile: 'Choose dump file',
+    dbChooseAnotherFile: 'Choose another file',
+    dbRestorePickHint: 'Select a .dump archive created by this page to restore it.',
+    dbRestoreAction: 'Restore database',
+    /** Type-to-confirm dialog of the destructive restore. */
+    dbConfirmTitle: 'Replace the whole database?',
+    dbConfirmWarning:
+      'This rewrites every table from the archive — users included. Current sessions and tokens may stop working and you will likely need to log in again. There is no undo: this replaces the server-wide database, not just your account.',
+    dbConfirmTypeLabel: 'Type {phrase} to confirm',
+    dbConfirmPhrase: 'REPLACE',
+    dbRestored: 'Database restored',
+    dbDumpSize: 'Restored {bytes} from the archive.',
+    dbReloginNotice:
+      'The users table was part of the archive: log in again so your session matches the restored data.',
+    dbRestoreFailed: 'Database restore failed',
+    /** Shown while a dump or restore is in flight (server-wide, slow-safe). */
+    dbLongOperation: 'Server-wide operation: large databases can take a while — keep this page open.',
   },
   /** First-run checklist replacing the empty-wealth EmptyState (D8). */
   checklist: {

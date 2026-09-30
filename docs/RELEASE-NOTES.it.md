@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Nuove funzionalità
+- Gli amministratori ora possono fare il backup e il ripristino dell'intero database di server dalla nuova pagina **Admin → Backup del server**: scarica un dump completo del database e ripristina l'istanza da uno — la sostituzione distruttiva chiede una conferma scritta esplicita, e l'app ricorda che tutti gli account vengono sostituiti, quindi potrebbe servire un nuovo login
 - Nuova pagina Impostazioni → Backup e ripristino: scarica tutti i tuoi dati — portafogli, transazioni, asset con esposizione e prezzi manuali — in un unico file JSON, e ripristinali scegliendo se **aggiungerli** ai dati attuali o **sostituirli** (la sostituzione chiede una conferma esplicita, e i tuoi asset non vengono mai eliminati)
 - Nuova **area Admin** per gli account amministratore: una pagina **Utenti** per vedere ogni account con ruolo e stato, approvare le registrazioni in sospeso, disattivare e riattivare account, cambiare i ruoli e impostare una nuova password a chi ha perso la propria; più una pagina **Impostazioni server**. Su un server appena installato il primo account registrato diventa amministratore
 - Nuova impostazione server **Approvazione automatica delle nuove registrazioni** (attiva per impostazione predefinita): quando è spenta, le nuove registrazioni restano in approvazione finché un amministratore non le approva

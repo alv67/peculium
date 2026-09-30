@@ -873,41 +873,57 @@ export interface BackupRestoreSummary {
   assets_reused: number
 }
 
-/** Raw bytes of `GET /backup` plus the server-suggested file name parsed
- * from `Content-Disposition` (`null` when the header is absent). */
+/** Raw bytes of an attachment endpoint plus the server-suggested file name
+ * parsed from `Content-Disposition` (`null` when the header is absent). */
 export interface BackupDownload {
   blob: Blob
   filename: string | null
 }
 
+/** Summary returned by `POST /admin/db/restore` (#57 Phase D): the server
+ * confirms the mode applied and the received archive size, and always
+ * carries the re-login warning (`message`). */
+export interface DBRestoreSummary {
+  status: string
+  mode: string
+  dump_bytes: number
+  message: string
+}
+
 /**
- * Per-user backup & restore (`/api/v1/backup`). `download` deliberately
- * bypasses `request` — that helper JSON-parses its body, while here the
- * bundle must arrive as a `Blob` and the server filename lives in a response
- * header — but shares its auth header, its 401 → refresh → retry flow and
- * its error shape. `restore` POSTs the bundle object read from the chosen
- * file: the server owns format/version validation (400 for anything it does
- * not understand) and answers with the counts summary.
+ * Authenticated file download shared by `backupApi.download` and
+ * `adminApi.dbBackup`: deliberately a raw fetch instead of `request` (which
+ * JSON-parses bodies and would destroy the bytes), but with the same auth
+ * header, the same 401 → refresh → retry flow and the same error shape. The
+ * suggested name comes from `Content-Disposition` (`attachment;
+ * filename="…"`), with the same tolerant quote/charset handling the backends
+ * that emit it use.
+ */
+async function downloadAttachment(path: string): Promise<BackupDownload> {
+  const url = buildUrl(path)
+  const headers: Record<string, string> = {}
+  const token = localStorage.getItem('access_token')
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  let res = await fetch(url, { method: 'GET', headers })
+  if (res.status === 401 && (await tryRefreshToken(headers))) {
+    res = await fetch(url, { method: 'GET', headers })
+  }
+  if (!res.ok) throw await errorFrom(res)
+
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^";]+)"?/.exec(disposition)
+  return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
+}
+
+/**
+ * Per-user backup & restore (`/api/v1/backup`). `download` delegates to the
+ * shared `downloadAttachment` helper; `restore` POSTs the bundle object read
+ * from the chosen file: the server owns format/version validation (400 for
+ * anything it does not understand) and answers with the counts summary.
  */
 export const backupApi = {
-  download: async (): Promise<BackupDownload> => {
-    const url = buildUrl('/backup')
-    const headers: Record<string, string> = {}
-    const token = localStorage.getItem('access_token')
-    if (token) headers.Authorization = `Bearer ${token}`
-
-    let res = await fetch(url, { method: 'GET', headers })
-    if (res.status === 401 && (await tryRefreshToken(headers))) {
-      res = await fetch(url, { method: 'GET', headers })
-    }
-    if (!res.ok) throw await errorFrom(res)
-
-    // Same charset/quote handling as the backend's `backupFilename`:
-    // `attachment; filename="peculium-backup-<email>-<date>.json"`.
-    const disposition = res.headers.get('Content-Disposition') ?? ''
-    const match = /filename="?([^";]+)"?/.exec(disposition)
-    return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
-  },
+  download: (): Promise<BackupDownload> => downloadAttachment('/backup'),
   restore: (bundle: unknown, mode: BackupRestoreMode) =>
     request<BackupRestoreSummary>('/backup/restore', { method: 'POST', params: { mode }, body: bundle }),
 }
@@ -929,4 +945,37 @@ export const adminApi = {
       method: 'PATCH',
       body: { auto_approve_registrations: autoApproveRegistrations },
     }),
+  // Server database dump (`GET /admin/db/backup`): streamed
+  // `application/octet-stream` attachment (`peculium-db-<date>.dump`), so it
+  // shares the raw `downloadAttachment` path like the per-user backup.
+  dbBackup: (): Promise<BackupDownload> => downloadAttachment('/admin/db/backup'),
+  /**
+   * Server database restore (#57 Phase D): DESTRUCTIVE — replaces the whole
+   * database (users included) from a custom-format dump. Multipart POST with
+   * the archive in the `dump` file field and the literal `confirm=replace`
+   * form field (the handler also accepts it as a query param; the field is
+   * the contract this client keeps). `Content-Type` must stay unset so fetch
+   * derives it from the `FormData` with the multipart boundary. A 400
+   * answers a missing confirmation/file; a 500 carries the sanitized
+   * `pg_restore` error on purpose — the admin must read what failed, so
+   * pages surface `error.message` for that status. The successful session
+   * may itself be invalidated by the replaced users table: the summary's
+   * `message` warns about re-login.
+   */
+  dbRestore: async (file: File): Promise<DBRestoreSummary> => {
+    const url = buildUrl('/admin/db/restore')
+    const form = new FormData()
+    form.append('confirm', 'replace')
+    form.append('dump', file)
+    const headers: Record<string, string> = {}
+    const token = localStorage.getItem('access_token')
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    let res = await fetch(url, { method: 'POST', headers, body: form })
+    if (res.status === 401 && (await tryRefreshToken(headers))) {
+      res = await fetch(url, { method: 'POST', headers, body: form })
+    }
+    if (!res.ok) throw await errorFrom(res)
+    return (await res.json()) as DBRestoreSummary
+  },
 }

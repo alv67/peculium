@@ -3,6 +3,7 @@
     Activity,
     Banknote,
     Briefcase,
+    DatabaseBackup,
     LayoutDashboard,
     ServerCog,
     Settings,
@@ -27,9 +28,9 @@
    * carry `labelKey`s and every render (text + collapsed aria/title) reads
    * the reactive locale, so switching language re-renders the nav in place.
    *
-   * The Admin section's management entries (Users, Server settings) render
-   * only for admin-equivalent roles (#57 Phase A); `isAdmin()` reads the
-   * session, so the derived admin list re-computes on any role change.
+   * The Admin section's management entries (Users, Server settings, Server
+   * backup) render only for admin-equivalent roles (#57); `isAdmin()` reads
+   * the session, so the derived admin list re-computes on any role change.
    *
    * The active entry is the item whose path is the *longest* prefix of the
    * current URL (with `/` matching exactly): only one link ever gets
@@ -51,12 +52,13 @@
 
   // Decision D7: this is the *single* config point for the "Data & Sync"
   // (ex "Health") entry — route, label key and icon live only here. The
-  // admin management entries (#57 Phase A) join the same "Admin" section but
+  // admin management entries (#57) join the same "Admin" section but
   // render only for `owner`/`admin` accounts; Data & Sync stays open to every
   // user (its `/health/prices` endpoint is not admin-gated).
   const adminOnlyItems = [
     { to: '/admin/users', labelKey: 'nav.users', icon: Users as IconType },
     { to: '/admin/settings', labelKey: 'nav.serverSettings', icon: ServerCog as IconType },
+    { to: '/admin/backup', labelKey: 'nav.serverBackup', icon: DatabaseBackup as IconType },
   ] as const
 
   const healthItems = [

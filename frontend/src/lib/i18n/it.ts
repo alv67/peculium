@@ -84,6 +84,8 @@ export const it = {
     /** Voci dell'area Admin (#57 Fase A): renderizzate solo per amministratori. */
     users: 'Utenti',
     serverSettings: 'Impostazioni server',
+    /** Voce di backup del database di server (#57 Fase D). */
+    serverBackup: 'Backup del server',
     settings: 'Impostazioni',
     sectionAdmin: 'Admin',
     sectionSettings: 'Impostazioni',
@@ -605,6 +607,44 @@ export const it = {
     settingSaved: 'Impostazione salvata',
     settingSaveFailed: 'Salvataggio impostazione non riuscito',
     settingsLoadFailed: 'Caricamento impostazioni server non riuscito',
+    /**
+     * Pagina Backup del server (#57 Fase D; il titolo riusa
+     * `nav.serverBackup`). Il ripristino è distruttivo e riguarda l'intero
+     * server: una conferma scritta lo blocca e l'avviso di nuovo login fa
+     * parte del risultato di successo. I toast di errore riportano
+     * deliberatamente il messaggio del backend (un ripristino fallito deve
+     * essere leggibile, non cercato nei log di server); questa chiave è solo
+     * il fallback senza messaggio.
+     */
+    dbSubtitle: 'Backup e ripristino dell\'intero database di questo server.',
+    dbDownloadTitle: 'Scarica un dump completo',
+    dbDownloadHint:
+      'Trasmette l\'intero database del server — tutti gli utenti, portafogli, asset e impostazioni — come archivio PostgreSQL in formato custom. Custodisci il file: contiene tutti gli account di questa istanza.',
+    dbDownloadAction: 'Scarica dump del database',
+    dbDownloaded: 'Dump del database scaricato',
+    dbDownloadFailed: 'Download del dump non riuscito',
+    dbRestoreTitle: 'Ripristina da un dump',
+    dbRestoreDanger:
+      'Distruttivo: sostituisce ogni account e ogni dato di questo server, e la tua sessione potrebbe chiudersi nel processo.',
+    dbRestoreHint:
+      'Sostituisce l\'intero database con l\'archivio caricato (formato custom, prodotto dal download qui sopra). Ogni tabella viene riscritta — utenti inclusi.',
+    dbChooseFile: 'Scegli file di dump',
+    dbChooseAnotherFile: 'Scegli un altro file',
+    dbRestorePickHint: 'Seleziona un archivio .dump creato da questa pagina per ripristinarlo.',
+    dbRestoreAction: 'Ripristina il database',
+    /** Dialogo di conferma scritta del ripristino distruttivo. */
+    dbConfirmTitle: 'Sostituire l\'intero database?',
+    dbConfirmWarning:
+      'Questa operazione riscrive ogni tabella dall\'archivio — utenti inclusi. Le sessioni e i token correnti potrebbero non funzionare più e probabilmente dovrai effettuare di nuovo il login. Non c\'è annullamento: sostituisce il database dell\'intero server, non solo il tuo account.',
+    dbConfirmTypeLabel: 'Scrivi {phrase} per confermare',
+    dbConfirmPhrase: 'SOSTITUISCI',
+    dbRestored: 'Database ripristinato',
+    dbDumpSize: 'Ripristinati {bytes} dall\'archivio.',
+    dbReloginNotice:
+      'La tabella utenti faceva parte dell\'archivio: effettua di nuovo il login per allineare la sessione ai dati ripristinati.',
+    dbRestoreFailed: 'Ripristino del database non riuscito',
+    /** Mostrato durante un dump o un ripristino (lato server, lento-safe). */
+    dbLongOperation: 'Operazione sull\'intero server: database grandi possono richiedere tempo — tieni aperta questa pagina.',
   },
   checklist: {
     title: 'Configura il tuo patrimonio',

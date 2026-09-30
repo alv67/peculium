@@ -952,6 +952,43 @@ JWT middleware, the active-status middleware and an admin gate that answers
 | `POST /admin/users/{id}/reset-password` | sets a new password for the account (minimum 8 characters, no current password needed) |
 | `GET /admin/settings` | reads the server settings (`auto_approve_registrations`, `updated_at`) |
 | `PATCH /admin/settings` | updates `auto_approve_registrations` |
+| `GET /admin/db/backup` | downloads a full database dump as a file attachment |
+| `POST /admin/db/restore` | replaces the whole database from an uploaded dump (destructive, requires confirmation) |
+
+### Database backup and restore (`GET /admin/db/backup`, `POST /admin/db/restore`)
+
+These two endpoints work on the **entire PostgreSQL database** (every table,
+every user) by running the `pg_dump` / `pg_restore` client tools, which the
+backend server image ships (`postgresql16-client`, PostgreSQL 16); the worker
+image does not carry them. The connection coordinates come from the same DB
+configuration the app uses; the password reaches the tools through the
+`PGPASSWORD` environment variable (never on the command line) and the TLS
+setting through `PGSSLMODE`.
+
+`GET /admin/db/backup` runs `pg_dump -Fc` — a full dump in the PostgreSQL
+**custom format** (compressed, restorable selectively) — and pipes the tool's
+output straight into the HTTP response, without ever holding the whole archive
+in memory. The response is a download: `Content-Type: application/octet-stream`
+and `Content-Disposition: attachment` with the file name
+`peculium-db-<YYYY-MM-DD>.dump` (UTC date). If `pg_dump` fails before any of
+the archive has reached the client, the answer is a 500 with a generic
+"database backup failed" message — tool output and credentials are never
+leaked; a failure after streaming has begun can only surface as a truncated
+download.
+
+`POST /admin/db/restore` accepts the archive as a **multipart form upload** in
+the `dump` file field, together with the explicit confirmation
+`confirm=replace` (as a form field or a query parameter): restoring **replaces
+the entire database**, so the request is rejected with 400 without that exact
+confirmation, as is a request with no dump file. The upload is written to a
+temporary file (removed afterwards) and fed to
+`pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, which drops and
+recreates the objects it finds in the archive. Success answers a JSON summary
+(`status`, `mode`, `dump_bytes`, `message`); failure answers 500 carrying the
+`pg_restore` error output with the database password masked, so the admin can
+read what went wrong. Because the archive contains the `users` table too, a
+restore rewrites the accounts: existing sessions and tokens may reference rows
+that are gone, and the summary message tells the admin to **log in again**.
 
 ---
 
@@ -1124,7 +1161,7 @@ backend/
 │   ├── auth/jwt.go         # JWT: generation, validation, middleware
 │   ├── config/config.go    # environment variables + connection DSN
 │   ├── geo/geo.go          # macro-regions, GICS sectors, canonical ISO countries, country→region mapping
-│   ├── handler/            # HTTP layer (auth.go, admin.go, backup.go, portfolio.go, settings.go, ...)
+│   ├── handler/            # HTTP layer (auth.go, admin.go, admin_db.go, backup.go, portfolio.go, settings.go, ...)
 │   ├── middleware/         # per-request account checks: active status + admin gate
 │   ├── model/              # data structures with JSON tags
 │   ├── position/           # AVCO engine (State, Apply, Walk)
@@ -1132,7 +1169,7 @@ backend/
 │   ├── repository/         # SQL queries (repository.go = "hub" + asset.go + exposure.go + settings.go + WithTx + DBTX)
 │   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
-│   └── service/            # business logic (service.go, admin.go, backup.go)
+│   └── service/            # business logic (service.go, admin.go, backup.go, dbmaint.go)
 ├── migrations/             # versioned SQL (000001..000019)
 └── go.mod
 ```
