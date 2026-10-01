@@ -8,14 +8,13 @@ export async function getStaticPaths() {
   const chapters = await getCollection('manual', ({ id }) => id.startsWith('it/manual/'));
   return chapters.map((entry) => ({
     params: { chapter: entry.id.split('/').pop()! },
-    props: { entry },
+    props: { entry, slug: entry.id.split('/').pop()! },
   }));
 }
 
-const { entry } = Astro.props;
+const { entry, slug } = Astro.props;
 const { Content } = await render(entry);
 const t = UI.it;
-const slug = entry.id.split('/').pop()!;
 ---
 
 <ManualLayout

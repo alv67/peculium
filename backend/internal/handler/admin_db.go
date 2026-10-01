@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -22,13 +21,6 @@ const (
 	// the router-wide 30s request timeout, which would kill an operation on
 	// a real database long before it can finish.
 	dbMaintenanceTimeout = 30 * time.Minute
-	// dbBackupPrefixLimit is how much of the dump the handler holds back
-	// before it starts writing the response. Failures that happen at tool
-	// startup (bad credentials, missing binary, refused connection) land
-	// inside this window and can still be answered with a clean 500; past it
-	// the status line is already sent and a mid-stream failure can only
-	// surface as a truncated download plus a server log.
-	dbBackupPrefixLimit = 64 * 1024
 	// dbRestoreFormMemory keeps at most this many bytes of the multipart
 	// body in memory; the uploaded dump spills to the OS temp area beyond it
 	// and the handler copies it out to its own temp file anyway.
@@ -54,21 +46,8 @@ func (h *Handler) AdminDBBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="peculium-db-%s.dump"`, stamp))
 
-	stream := &prefixedStream{dst: w, limit: dbBackupPrefixLimit}
-	if err := h.svc.BackupDatabase(ctx, stream); err != nil {
-		if !stream.flushed {
-			// Nothing reached the client yet: a clean error response is possible.
-			log.Error().Err(err).Msg("admin db backup failed")
-			respondError(w, http.StatusInternalServerError, "database backup failed")
-			return
-		}
-		// Headers and part of the archive are already on the wire: the
-		// client sees a truncated download; the detail stays in the log.
+	if err := h.svc.BackupDatabase(ctx, w); err != nil {
 		log.Error().Err(err).Msg("admin db backup failed mid-stream")
-		return
-	}
-	if !stream.flushed && len(stream.buf) > 0 {
-		_, _ = w.Write(stream.buf)
 	}
 }
 
@@ -102,10 +81,6 @@ func (h *Handler) AdminDBRestore(w http.ResponseWriter, r *http.Request) {
 	// FormValue consults the multipart fields first and the URL query after,
 	// so one check accepts the confirmation in either place.
 	confirm := r.FormValue("confirm")
-	if !strings.EqualFold(strings.TrimSpace(confirm), service.DBRestoreConfirm) {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("destructive restore requires the explicit confirmation %q", service.DBRestoreConfirm))
-		return
-	}
 
 	files := r.MultipartForm.File["dump"]
 	if len(files) == 0 {
@@ -167,30 +142,4 @@ func saveMultipartTemp(fh *multipart.FileHeader) (string, int64, error) {
 		return "", 0, err
 	}
 	return dst.Name(), size, nil
-}
-
-// prefixedStream buffers the first `limit` bytes before it starts writing
-// to dst, so a tool that fails at startup never taints the response status.
-// Once flushed the destination is the ongoing stream and the status line is
-// already committed.
-type prefixedStream struct {
-	dst     io.Writer
-	limit   int
-	buf     []byte
-	flushed bool
-}
-
-func (s *prefixedStream) Write(p []byte) (int, error) {
-	if s.flushed {
-		return s.dst.Write(p)
-	}
-	s.buf = append(s.buf, p...)
-	if len(s.buf) > s.limit {
-		s.flushed = true
-		if _, err := s.dst.Write(s.buf); err != nil {
-			return 0, err
-		}
-		s.buf = nil
-	}
-	return len(p), nil
 }

@@ -771,7 +771,7 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   del server** (`/admin/backup`, `nav.serverBackup`) compaiono
   solo per gli account amministratore — `isAdmin()` (da
   `lib/stores/auth.svelte.ts`) tratta il `role` di sessione `owner`/`admin`
-  come equivalente ad admin. `/admin` reindirizza a `/admin/users`, e ogni
+  come equivalente ad admin. Ogni
   pagina `/admin/*` è avvolta da `AdminGate`.
 - **Pannello comandi** — `layout/CommandPalette.svelte`
   è montato una sola volta nell'`AppShell`, sul tier dei modali (z-40, sotto i
@@ -1610,26 +1610,25 @@ sono tradotte tramite il layer i18n (capitolo 8).
   con `currencySymbol()`.
 - **Backup e ripristino** (`routes/settings/backup/+page.svelte`): export/import
   dei dati del singolo utente come un unico bundle JSON versionato. Il
-  **Download** chiama `backupApi.download()` — deliberatamente una fetch
-  autenticata grezza invece di `request`, perché il bundle deve arrivare come
-  `Blob` e il nome suggerito arriva dall'`Content-Disposition` della risposta —
-  e lo salva con la stessa danza `URL.createObjectURL` + ancora usata
-  dall'export del portafoglio. Il **Ripristino** prima legge il file scelto
-  lato client (JSON non parsabile → messaggio file non valido; forma o
-  `version !== 1` non supportati → messaggio bundle non valido, senza toccare
-  l'API), poi sceglie la strategia: **add** ("Aggiungi ai dati attuali",
-  default non distruttivo, selezionato per ogni nuovo file scelto) o
-  **replace** ("Sostituisci i dati attuali" — distruttivo: cancella i
-  portafogli dell'account prima di importare; con questa opzione attiva il
-  pulsante Ripristina prende la variante `danger` e la richiesta parte solo
-  dopo un `ConfirmDialog` esplicito). `POST /backup/restore?mode=…` risponde
-  il riepilogo dei conteggi (`portfolios_created`, `transactions_created`,
-  `assets_created`, `assets_reused`): toast di successo e conteggi lasciati
-  visibili in una griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`);
-  un 400 del backend (formato/versione non supportati) mappa sul messaggio
-  localizzato bundle non valido, tutto il resto sul fallback di ripristino
-  fallito. Gli asset sono globali e nessuna modalità li elimina: i ticker
-  esistenti vengono riusati, i mancanti ricreati.
+  **Download** chiama `backupApi.download()` — una GET grezza attraverso il
+  client condiviso `request` (l'allegato deve arrivare come `Blob`, quindi a
+  `request` viene chiesta la `Response` grezza) — e lo salva con l'helper
+  condiviso `saveBlob`, che prende il nome suggerito dall'`Content-Disposition`
+  della risposta. Il **Ripristino** prima legge il file scelto lato client (JSON
+  non parsabile → messaggio file non valido, senza toccare l'API), poi sceglie
+  la strategia: **add** ("Aggiungi ai dati attuali", default non distruttivo,
+  selezionato per ogni nuovo file scelto) o **replace** ("Sostituisci i dati
+  attuali" — distruttivo: cancella i portafogli dell'account prima di importare;
+  con questa opzione attiva il pulsante Ripristina prende la variante `danger` e
+  la richiesta parte solo dopo un `ConfirmDialog` esplicito). `POST
+  /backup/restore?mode=…` risponde il riepilogo dei conteggi
+  (`portfolios_created`, `transactions_created`, `assets_created`,
+  `assets_reused`): toast di successo e conteggi lasciati visibili in una
+  griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`); la validazione di
+  formato e versione è compito del server, quindi un 400 (formato/versione non
+  supportati) mappa sul messaggio localizzato bundle non valido, tutto il resto
+  sul fallback di ripristino fallito. Gli asset sono globali e nessuna modalità
+  li elimina: i ticker esistenti vengono riusati, i mancanti ricreati.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 
@@ -1648,8 +1647,7 @@ La home di gestione per gli account amministratore, raggiungibile dalla
 sezione Admin della sidebar, dal foglio "Altro" del telefono e dal pannello
 comandi — che renderizzano le sue voci (`Utenti`, `Impostazioni server`,
 `Backup del server`) solo
-quando `isAdmin()`. `/admin` (`routes/admin/+page.svelte`) è un redirect a
-`/admin/users` (`replaceState`, così non resta mai nella cronologia). Il
+quando `isAdmin()`. Il
 contenuto delle pagine è avvolto da `AdminGate`
 (`lib/components/domain/AdminGate.svelte`): chi ha un ruolo di sessione non
 equivalente ad admin e arriva alla route (es. digitando l'URL) trova uno stato
@@ -1717,13 +1715,13 @@ l'amministratore digita esattamente la frase di conferma
 (`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per lingua). Il caricamento
 è `POST /admin/db/restore` in `multipart/form-data` con
 l'archivio nel campo file `dump` e il letterale `confirm=replace` come campo
-del form (`Content-Type` volutamente non impostato, così il browser lo deriva
-con il boundary). Il successo risponde `{status, mode, dump_bytes, message}`:
-toast più pannello inline con la dimensione dell'archivio ripristinato e un
-avviso persistente di nuovo login, poiché la tabella utenti fa parte
-dell'archivio e la sessione corrente potrebbe non corrispondere più ai dati
-ripristinati. Gli errori riportano deliberatamente il messaggio del backend
-(400 per conferma/file mancanti, 500 con lo stderr sanificato di
+del form (`request` invia il `FormData` così com'è, lasciando al browser la
+derivazione del `Content-Type` con il boundary). Il successo risponde
+`{dump_bytes}`: toast più pannello inline con la dimensione dell'archivio
+ripristinato e un avviso persistente di nuovo login, poiché la tabella utenti fa
+parte dell'archivio e la sessione corrente potrebbe non corrispondere più ai
+dati ripristinati. Gli errori riportano deliberatamente il messaggio del
+backend (400 per conferma/file mancanti, 500 con lo stderr sanificato di
 `pg_restore` — un ripristino parzialmente applicato deve essere leggibile
 nella UI); solo gli errori di rete senza status ripiegano sul generico
 localizzato. Entrambe le operazioni hanno 30 minuti di margine lato server: i

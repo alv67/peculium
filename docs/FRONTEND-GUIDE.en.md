@@ -725,8 +725,8 @@ JS state and CSS never disagree.
   (`/admin/settings`, `nav.serverSettings`) and **Server backup**
   (`/admin/backup`, `nav.serverBackup`) render only for admin accounts —
   `isAdmin()` (from `lib/stores/auth.svelte.ts`) treats the session `role`
-  `owner`/`admin` as admin-equivalent. `/admin` itself redirects to
-  `/admin/users`, and every `/admin/*` page content is wrapped in `AdminGate`.
+  `owner`/`admin` as admin-equivalent. Every `/admin/*` page content is
+  wrapped in `AdminGate`.
 - **Command palette** — `layout/CommandPalette.svelte`
   mounts once in `AppShell` on the modal tier (z-40, under the z-50 toasts).
   The ⌘K/Ctrl+K chord is a `<svelte:window>` handler inside the component
@@ -1532,24 +1532,24 @@ are translated through the i18n layer (chapter 8).
   (409 = in use or protected). Symbols rendered with `currencySymbol()`.
 - **Backup & restore** (`routes/settings/backup/+page.svelte`): per-user data
   export/import as a single versioned JSON bundle. **Download** calls
-  `backupApi.download()` — deliberately a raw authenticated fetch instead of
-  `request`, because the bundle must arrive as a `Blob` and the suggested name
-  comes from the response's `Content-Disposition` — and saves it through the
-  same `URL.createObjectURL` anchor dance as the portfolio export. **Restore**
+  `backupApi.download()` — a raw GET through the shared `request` client (the
+  attachment must arrive as a `Blob`, so `request` is asked for the raw
+  `Response`) — and saves it through the shared `saveBlob` helper, which takes
+  the suggested name from the response's `Content-Disposition`. **Restore**
   first reads the chosen file client-side (unparseable JSON → invalid-file
-  message; object shape or `version !== 1` → invalid-bundle message, neither
-  touching the API), then picks the strategy: **add** ("Add to current data",
-  the non-destructive default, selected for every freshly chosen file) or
-  **replace** ("Replace current data" — destructive: it wipes the account's
-  portfolios before importing, the Restore button takes the `danger` variant
-  while it is selected and the request only goes out after an explicit
+  message, without touching the API), then picks the strategy: **add** ("Add to
+  current data", the non-destructive default, selected for every freshly chosen
+  file) or **replace** ("Replace current data" — destructive: it wipes the
+  account's portfolios before importing, the Restore button takes the `danger`
+  variant while it is selected and the request only goes out after an explicit
   `ConfirmDialog`). `POST /backup/restore?mode=…` answers the counts summary
   (`portfolios_created`, `transactions_created`, `assets_created`,
   `assets_reused`): success toasts and the counts stay visible as an inline
-  `<dl>` grid (2 columns on phones, 4 from `sm`); a server 400 (unsupported
-  format/version) maps to the localized invalid-bundle message, everything
-  else to the generic restore-failure one. Assets are global and never
-  deleted by any mode: existing tickers are reused, missing ones recreated.
+  `<dl>` grid (2 columns on phones, 4 from `sm`); the server owns format and
+  version validation, so a 400 (unsupported format/version) maps to the
+  localized invalid-bundle message, everything else to the generic
+  restore-failure one. Assets are global and never deleted by any mode:
+  existing tickers are reused, missing ones recreated.
 
 ### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
 
@@ -1566,9 +1566,8 @@ and a range label), with a "Refresh Now" button.
 
 The management home for admin accounts, linked from the sidebar's Admin
 section, the phone More sheet and the command palette — all of which render
-its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`. `/admin`
-(`routes/admin/+page.svelte`) is a redirect to `/admin/users` (`replaceState`,
-so it never stays in history). Page content is wrapped in `AdminGate`
+its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`.
+Page content is wrapped in `AdminGate`
 (`lib/components/domain/AdminGate.svelte`): anyone whose session role is not
 admin-equivalent and lands on the route (e.g. by typing the URL) gets an
 "Admins only" forbidden empty state instead of the page; the backend answers
@@ -1630,14 +1629,14 @@ rewritten, users included, sessions possibly invalidated) whose confirm
 button only enables once the admin types the exact confirmation phrase
 (`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per locale). The upload is
 `POST /admin/db/restore` as `multipart/form-data` with the archive in the
-`dump` file field and the literal `confirm=replace` as a form field
-(`Content-Type` deliberately left unset so the browser derives it with the
-boundary). Success answers `{status, mode, dump_bytes, message}`: a toast
-plus an inline panel with the restored archive size and a persistent
-re-login notice, since the users table is part of the archive and the
-current session may no longer match the restored data. Failures surface the
-backend message on purpose (400 for a missing confirmation/file, 500 with
-the sanitized `pg_restore` stderr — a partially applied restore must be
-readable in the UI); only status-less network errors fall back to the
-localized generic. Both operations bound to the server's 30-minute window:
-the buttons spin and the page shows a "keep this page open" hint.
+`dump` file field and the literal `confirm=replace` as a form field (`request`
+sends the `FormData` as-is, leaving `Content-Type` for the browser to derive
+with the boundary). Success answers `{dump_bytes}`: a toast plus an inline
+panel with the restored archive size and a persistent re-login notice, since
+the users table is part of the archive and the current session may no longer
+match the restored data. Failures surface the backend message on purpose (400
+for a missing confirmation/file, 500 with the sanitized `pg_restore` stderr — a
+partially applied restore must be readable in the UI); only status-less network
+errors fall back to the localized generic. Both operations bound to the
+server's 30-minute window: the buttons spin and the page shows a "keep this
+page open" hint.

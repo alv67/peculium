@@ -30,26 +30,15 @@ func (h *Handler) UpdateAdminUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Role   *string `json:"role"`
-		Status *string `json:"status"`
+		Role   *model.Role   `json:"role"`
+		Status *model.Status `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	var role *model.Role
-	if req.Role != nil {
-		rr := model.Role(*req.Role)
-		role = &rr
-	}
-	var status *model.Status
-	if req.Status != nil {
-		ss := model.Status(*req.Status)
-		status = &ss
-	}
-
-	user, err := h.svc.UpdateUser(r.Context(), uid, role, status)
+	user, err := h.svc.UpdateUser(r.Context(), uid, req.Role, req.Status)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidInput):

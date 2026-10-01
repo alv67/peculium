@@ -982,11 +982,10 @@ format** di PostgreSQL (compresso, ripristinabile in modo selettivo) e canalizza
 l'output del tool direttamente nella risposta HTTP, senza mai tenere l'intero
 archivio in memoria. La risposta è un download: `Content-Type:
 application/octet-stream` e `Content-Disposition: attachment` con nome file
-`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Se `pg_dump` fallisce prima che una
-parte dell'archivio raggiunga il client, la risposta è un 500 con un messaggio
-generico "database backup failed": l'output dei tool e le credenziali non sono
-mai esposti; un fallimento avvenuto dopo l'inizio dello streaming può
-manifestarsi solo come download troncato.
+`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Gli header dell'allegato vengono
+inviati prima che il tool parta, quindi un fallimento di `pg_dump` si manifesta
+come download troncato e il dettaglio ripulito finisce nel log del server:
+l'output dei tool e le credenziali non sono mai esposti al client.
 
 `POST /admin/db/restore` accetta l'archivio come **caricamento multipart** nel
 campo file `dump`, insieme alla conferma esplicita `confirm=replace` (come
@@ -996,12 +995,12 @@ conferma, così come una richiesta senza dump file. Il caricamento viene scritto
 in un file temporaneo (rimosso dopo l'uso) e passato a
 `pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, che elimina e
 ricrea gli oggetti presenti nell'archivio. In caso di successo la risposta è un
-riepilogo JSON (`status`, `mode`, `dump_bytes`, `message`); in caso di fallimento
-un 500 che riporta l'output errore di `pg_restore` con la password del database
-mascherata, così che l'admin capisca cosa non funziona. Poiché l'archivio
-contiene anche la tabella `users`, un ripristino riscrive gli account: sessioni
-e token già emessi possono riferire righe non più esistenti, e il messaggio del
-riepilogo avvisa l'admin di **effettuare di nuovo il login**.
+riepilogo JSON (`dump_bytes`); in caso di fallimento un 500 che riporta l'output
+errore di `pg_restore` con la password del database mascherata, così che l'admin
+capisca cosa non funziona. Poiché l'archivio contiene anche la tabella `users`,
+un ripristino riscrive gli account: sessioni e token già emessi possono
+riferire righe non più esistenti, e l'admin viene avvisato di **effettuare di
+nuovo il login**.
 
 ---
 

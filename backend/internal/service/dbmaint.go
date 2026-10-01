@@ -62,7 +62,7 @@ func (m *ExecDBMaintainer) env() []string {
 
 func (m *ExecDBMaintainer) Dump(ctx context.Context, w io.Writer) error {
 	args := []string{"-Fc", "--no-password", "-h", m.db.Host, "-p", strconv.Itoa(m.db.Port), "-U", m.db.User, m.db.Name}
-	return m.run(ctx, "pg_dump", m.dumpBin, args, m.db.Password, func(cmd *exec.Cmd) { cmd.Stdout = w })
+	return m.run(ctx, "pg_dump", m.dumpBin, args, m.db.Password, w)
 }
 
 func (m *ExecDBMaintainer) Restore(ctx context.Context, path string) error {
@@ -74,14 +74,15 @@ func (m *ExecDBMaintainer) Restore(ctx context.Context, path string) error {
 // run executes one client tool with its stderr captured (capped) and folded
 // into the returned error with the password masked, so the admin can see why
 // a command failed without the dump leaking the credential through a tool
-// message that echoes the connection attempt.
-func (m *ExecDBMaintainer) run(ctx context.Context, tool, bin string, args []string, secret string, tune func(*exec.Cmd)) error {
+// message that echoes the connection attempt. A non-nil stdout receives the
+// tool's standard output.
+func (m *ExecDBMaintainer) run(ctx context.Context, tool, bin string, args []string, secret string, stdout io.Writer) error {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = m.env()
 	stderr := &cappedWriter{max: dbStderrLimit}
 	cmd.Stderr = stderr
-	if tune != nil {
-		tune(cmd)
+	if stdout != nil {
+		cmd.Stdout = stdout
 	}
 	if err := cmd.Run(); err != nil {
 		msg := sanitizeSecret(strings.TrimSpace(stderr.String()), secret)
@@ -125,9 +126,6 @@ func sanitizeSecret(text, secret string) string {
 // BackupDatabase streams a full custom-format dump of the application
 // database into w.
 func (s *Service) BackupDatabase(ctx context.Context, w io.Writer) error {
-	if s.db == nil {
-		return fmt.Errorf("%w: database maintenance is not configured", ErrDBMaintenance)
-	}
 	return s.db.Dump(ctx, w)
 }
 
@@ -138,9 +136,6 @@ func (s *Service) BackupDatabase(ctx context.Context, w io.Writer) error {
 func (s *Service) RestoreDatabase(ctx context.Context, path, confirm string) error {
 	if !strings.EqualFold(strings.TrimSpace(confirm), DBRestoreConfirm) {
 		return fmt.Errorf("%w: restoring requires the explicit confirmation %q", ErrInvalidInput, DBRestoreConfirm)
-	}
-	if s.db == nil {
-		return fmt.Errorf("%w: database maintenance is not configured", ErrDBMaintenance)
 	}
 	return s.db.Restore(ctx, path)
 }
