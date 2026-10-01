@@ -69,8 +69,8 @@ const year = new Date().getFullYear();
           <span>{t.siteName}</span>
         </a>
 
-        <nav class="order-3 -mx-1 w-full overflow-x-auto md:order-none md:mx-0 md:w-auto" aria-label={t.siteName}>
-          <ul class="flex items-center gap-1 whitespace-nowrap text-sm">
+        <nav class="order-3 -mx-1 w-full md:order-none md:mx-0 md:w-auto" aria-label={t.siteName}>
+          <ul class="flex flex-wrap items-center gap-1 text-sm">
             {navItems.map((item) => (
               <li>
                 <a
