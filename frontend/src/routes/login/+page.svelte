@@ -1,6 +1,7 @@
 <script lang="ts">
   import { toast } from '$lib/stores/toast.svelte'
   import { login, register } from '$lib/stores/auth.svelte'
+  import { errorStatus } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Field from '$lib/components/ui/Field.svelte'
@@ -85,10 +86,7 @@
         await login(email, password)
       }
     } catch (err: unknown) {
-      const status =
-        err instanceof Error && 'status' in err
-          ? (err as Error & { status: number }).status
-          : undefined
+      const status = errorStatus(err)
       const raw = err instanceof Error ? err.message : ''
       // The backend answers sign-ins on non-active accounts with 403 +
       // "account pending approval" / "account disabled" (#57): surface those

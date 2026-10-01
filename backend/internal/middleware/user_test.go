@@ -153,16 +153,13 @@ func TestRequireAdmin_RoleChangeTakesEffectOnExistingToken(t *testing.T) {
 	}
 }
 
-func TestRequireAdmin_FallsBackToClaims(t *testing.T) {
+func TestRequireAdmin_WithoutLoadedUserIsUnauthorized(t *testing.T) {
+	// RequireAdmin always runs after RequireActiveUser: no loaded user means
+	// the chain was misordered, so it must fail closed rather than trust the
+	// token claim.
 	rec := httptest.NewRecorder()
 	RequireAdmin(http.HandlerFunc(okBody)).ServeHTTP(rec, requestWithClaims(string(model.RoleOwner)))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 via claim fallback", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	RequireAdmin(http.HandlerFunc(okBody)).ServeHTTP(rec, requestWithClaims("editor"))
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403", rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }

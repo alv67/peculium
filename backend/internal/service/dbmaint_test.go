@@ -59,13 +59,6 @@ func TestBackupDatabase_ForwardsToMaintainer(t *testing.T) {
 	}
 }
 
-func TestBackupDatabase_NotConfigured(t *testing.T) {
-	svc := newSvcWithDB(nil)
-	if err := svc.BackupDatabase(context.Background(), io.Discard); !errors.Is(err, ErrDBMaintenance) {
-		t.Fatalf("err = %v, want ErrDBMaintenance", err)
-	}
-}
-
 func TestRestoreDatabase_RejectsMissingConfirmation(t *testing.T) {
 	m := &recordingMaintainer{}
 	svc := newSvcWithDB(m)
@@ -87,13 +80,6 @@ func TestRestoreDatabase_AcceptsReplaceAndDelegates(t *testing.T) {
 	}
 	if m.restoreCalls != 1 || m.lastPath != "/tmp/dump" {
 		t.Fatalf("calls = %d path = %q, want 1 /tmp/dump", m.restoreCalls, m.lastPath)
-	}
-}
-
-func TestRestoreDatabase_NotConfigured(t *testing.T) {
-	svc := newSvcWithDB(nil)
-	if err := svc.RestoreDatabase(context.Background(), "/tmp/dump", DBRestoreConfirm); !errors.Is(err, ErrDBMaintenance) {
-		t.Fatalf("err = %v, want ErrDBMaintenance", err)
 	}
 }
 

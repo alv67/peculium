@@ -28,7 +28,6 @@ import (
 type fakeDBMaintainer struct {
 	dumpPayload []byte
 	dumpErr     error
-	dumpFailAt  int // when > 0, dumpErr fires after this many bytes were written
 
 	restoreErr      error
 	restoredPath    string
@@ -37,12 +36,6 @@ type fakeDBMaintainer struct {
 }
 
 func (f *fakeDBMaintainer) Dump(ctx context.Context, w io.Writer) error {
-	if f.dumpFailAt > 0 {
-		if _, err := w.Write(bytes.Repeat([]byte("x"), f.dumpFailAt)); err != nil {
-			return err
-		}
-		return f.dumpErr
-	}
 	if f.dumpErr != nil {
 		return f.dumpErr
 	}
@@ -118,42 +111,37 @@ func TestAdminDBBackup_StreamsDumpAndSetsHeaders(t *testing.T) {
 	}
 }
 
-func TestAdminDBBackup_FailureBeforeFlushMapsTo500WithoutLeakingSecrets(t *testing.T) {
+func TestAdminDBBackup_FailureMapsTo500WithoutLeakingSecrets(t *testing.T) {
 	boom := fmt.Errorf("%w: pg_dump failed: password SUPERSECRETPW rejected", service.ErrDBMaintenance)
 	h := newDBAdminHandler(&fakeDBMaintainer{dumpErr: boom})
 
 	rec := httptest.NewRecorder()
 	h.AdminDBBackup(rec, adminRequest(http.MethodGet, "/api/v1/admin/db/backup", nil, ""))
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
+	// Headers are committed before the tool runs: a failed dump reaches the
+	// client as an empty/truncated download, the sanitized detail goes to the
+	// log. The status must not flip to 500 over an already-started stream.
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (stream already committed)", rec.Code)
 	}
 	if body := rec.Body.String(); strings.Contains(body, "SUPERSECRETPW") {
 		t.Errorf("response leaked the secret: %q", body)
 	}
-	var got map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("error body not JSON: %v", err)
-	}
-	if got["error"] != "database backup failed" {
-		t.Errorf("error message = %q, want the generic backup failure message", got["error"])
-	}
 }
 
-func TestAdminDBBackup_FailureMidStreamCannotChangeStatus(t *testing.T) {
-	h := newDBAdminHandler(&fakeDBMaintainer{dumpFailAt: dbBackupPrefixLimit + 1, dumpErr: service.ErrDBMaintenance})
+func TestAdminDBBackup_TruncatedOnToolFailure(t *testing.T) {
+	h := newDBAdminHandler(&fakeDBMaintainer{dumpErr: service.ErrDBMaintenance})
 
 	rec := httptest.NewRecorder()
 	h.AdminDBBackup(rec, adminRequest(http.MethodGet, "/api/v1/admin/db/backup", nil, ""))
 
-	// Headers were committed before the tool failed: the client receives a
-	// truncated download, the detail goes to the log. The status must not
-	// flip to 500 over an already-written body.
+	// A tool that never writes leaves the client with an empty body and the
+	// attachment headers; nothing to log to the client.
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (truncated stream)", rec.Code)
 	}
-	if rec.Body.Len() <= dbBackupPrefixLimit {
-		t.Errorf("streamed body = %d bytes, want the prefix already flushed", rec.Body.Len())
+	if rec.Body.Len() != 0 {
+		t.Errorf("streamed body = %d bytes, want 0", rec.Body.Len())
 	}
 }
 

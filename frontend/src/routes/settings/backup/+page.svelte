@@ -3,6 +3,8 @@
   import { toast } from '$lib/stores/toast.svelte'
   import {
     backupApi,
+    errorStatus,
+    saveBlob,
     type BackupRestoreMode,
     type BackupRestoreSummary,
   } from '$lib/services/api'
@@ -41,26 +43,11 @@
   let confirmOpen = $state(false)
   let result = $state<BackupRestoreSummary | null>(null)
 
-  function errorStatus(err: unknown): number | undefined {
-    return err instanceof Error && 'status' in err
-      ? (err as Error & { status: number }).status
-      : undefined
-  }
-
   async function downloadBackup(): Promise<void> {
     downloading = true
     try {
       const { blob, filename } = await backupApi.download()
-      // Same create/revoke dance as the portfolio export (client-side blob
-      // download); the name only ever comes from the server's
-      // Content-Disposition or a local date-stamped fallback.
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download =
-        filename || `peculium-backup-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(blob, `peculium-backup-${new Date().toISOString().split('T')[0]}.json`, filename)
       toast.success(t('backup.downloaded'))
     } catch {
       // A 401 was already handled by the refresh flow inside `backupApi`;
@@ -78,8 +65,8 @@
     input.value = ''
     if (!file) return
     result = null
-    // JSON.parse and the shape gate get distinct messages: an unparseable
-    // file is `invalidFile`, parseable-but-wrong is `invalidBundle`.
+    // An unparseable file gets its own message; the server owns format and
+    // version validation for anything that does parse (400 → invalidBundle).
     let parsed: unknown
     try {
       parsed = JSON.parse(await file.text()) as unknown
@@ -87,20 +74,6 @@
       bundle = null
       bundleName = ''
       toast.error(t('backup.invalidFile'))
-      return
-    }
-    // Light client-side gate mirroring the server's own checks: a bundle
-    // must be an object at the supported format version (anything else is
-    // a guaranteed 400 — say so before touching the API).
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      Array.isArray(parsed) ||
-      (parsed as { version?: unknown }).version !== 1
-    ) {
-      bundle = null
-      bundleName = ''
-      toast.error(t('backup.invalidBundle'))
       return
     }
     bundle = parsed

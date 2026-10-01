@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Download, Upload } from 'lucide-svelte'
   import { toast } from '$lib/stores/toast.svelte'
-  import { adminApi, type DBRestoreSummary } from '$lib/services/api'
+  import { adminApi, errorStatus, saveBlob, type DBRestoreSummary } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import AdminGate from '$lib/components/domain/AdminGate.svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -48,13 +48,7 @@
     downloading = true
     try {
       const { blob, filename } = await adminApi.dbBackup()
-      // Same create/revoke anchor dance as the per-user backup download.
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename || `peculium-db-${new Date().toISOString().split('T')[0]}.dump`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(blob, `peculium-db-${new Date().toISOString().split('T')[0]}.dump`, filename)
       toast.success(t('admin.dbDownloaded'))
     } catch {
       toast.error(t('admin.dbDownloadFailed'))
@@ -96,7 +90,9 @@
       // Server-side failures (400/500) carry the message the admin must read;
       // errors without an HTTP status (network) fall back to the generic one.
       const message =
-        err instanceof Error && 'status' in err && err.message ? err.message : t('admin.dbRestoreFailed')
+        errorStatus(err) && err instanceof Error && err.message
+          ? err.message
+          : t('admin.dbRestoreFailed')
       toast.error(message)
     } finally {
       restoring = false
@@ -107,13 +103,8 @@
    * the money/percent centralization rules of `lib/format.ts` don't apply. */
   function formatBytes(bytes: number): string {
     const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    let value = bytes
-    let unit = 0
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024
-      unit += 1
-    }
-    return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`
+    const i = Math.min(units.length - 1, Math.max(0, Math.floor(Math.log2(bytes + 1) / 10)))
+    return `${i === 0 ? bytes : (bytes / 1024 ** i).toFixed(1)} ${units[i]}`
   }
 </script>
 

@@ -20,7 +20,7 @@ interface Props {
   active?: string;
 }
 
-const { locale, path, title, description = '', active } = Astro.props;
+const { locale, path, title, description, active } = Astro.props;
 const t = UI[locale];
 
 const chapters = (

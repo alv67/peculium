@@ -592,6 +592,11 @@ interface RequestOptions {
   method?: string
   body?: unknown
   params?: Record<string, string>
+  /** Multipart body: sent as-is (no JSON encoding, no Content-Type so fetch
+   * derives the boundary). Overrides `body`. */
+  form?: FormData
+  /** Return the raw `Response` instead of parsing JSON (for file downloads). */
+  raw?: boolean
 }
 
 function buildUrl(path: string, params?: Record<string, string>): string {
@@ -635,6 +640,27 @@ async function tryRefreshToken(headers: Record<string, string>): Promise<boolean
   return false
 }
 
+/** The HTTP status carried by an error built by `errorFrom`, if any (network
+ * errors and other plain `Error`s have none). Shared by every page that maps
+ * specific statuses to localized messages. */
+export function errorStatus(err: unknown): number | undefined {
+  return err instanceof Error && 'status' in err
+    ? (err as Error & { status: number }).status
+    : undefined
+}
+
+/** Trigger a browser download for a blob, falling back to `fallbackName`
+ * when the server did not suggest a filename. Shared by the backup/export
+ * flows. */
+export function saveBlob(blob: Blob, fallbackName: string, filename: string | null): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename || fallbackName
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /** Build the `Error` for a failed response: the backend `{"error": …}` body
  * when present (never the raw body of a non-JSON failure), plus the HTTP
  * status on the error object so pages can map specific codes. */
@@ -672,14 +698,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
   }
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = {}
+  if (!options.form) headers['Content-Type'] = 'application/json'
   const token = localStorage.getItem('access_token')
   if (token) headers.Authorization = `Bearer ${token}`
 
   const init = (): RequestInit => ({
     method,
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.form ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
   })
 
   let res = await fetch(url, init())
@@ -694,6 +721,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     // Do not cache failures (4xx/5xx): the normal throw/retry flow applies.
     throw await errorFrom(res)
   }
+
+  if (options.raw) return res as T
 
   if (res.status === 204) return undefined as T
 
@@ -863,10 +892,9 @@ export const settingsApi = {
  * the backend default); `replace` deletes the user's portfolios first. */
 export type BackupRestoreMode = 'add' | 'replace'
 
-/** Summary returned by `POST /backup/restore` (`mode` echoes what was applied;
- * extra fields are tolerated by the structural type). */
+/** Summary returned by `POST /backup/restore` (extra fields are tolerated by
+ * the structural type). */
 export interface BackupRestoreSummary {
-  mode: string
   portfolios_created: number
   transactions_created: number
   assets_created: number
@@ -880,37 +908,21 @@ export interface BackupDownload {
   filename: string | null
 }
 
-/** Summary returned by `POST /admin/db/restore` (#57 Phase D): the server
- * confirms the mode applied and the received archive size, and always
- * carries the re-login warning (`message`). */
+/** Summary returned by `POST /admin/db/restore` (#57 Phase D). */
 export interface DBRestoreSummary {
-  status: string
-  mode: string
   dump_bytes: number
-  message: string
 }
 
 /**
  * Authenticated file download shared by `backupApi.download` and
- * `adminApi.dbBackup`: deliberately a raw fetch instead of `request` (which
- * JSON-parses bodies and would destroy the bytes), but with the same auth
- * header, the same 401 → refresh → retry flow and the same error shape. The
+ * `adminApi.dbBackup`: a raw GET through `request` (auth header, 401 →
+ * refresh → retry and error shape included) whose body is kept as bytes. The
  * suggested name comes from `Content-Disposition` (`attachment;
  * filename="…"`), with the same tolerant quote/charset handling the backends
  * that emit it use.
  */
 async function downloadAttachment(path: string): Promise<BackupDownload> {
-  const url = buildUrl(path)
-  const headers: Record<string, string> = {}
-  const token = localStorage.getItem('access_token')
-  if (token) headers.Authorization = `Bearer ${token}`
-
-  let res = await fetch(url, { method: 'GET', headers })
-  if (res.status === 401 && (await tryRefreshToken(headers))) {
-    res = await fetch(url, { method: 'GET', headers })
-  }
-  if (!res.ok) throw await errorFrom(res)
-
+  const res = await request<Response>(path, { raw: true })
   const disposition = res.headers.get('Content-Disposition') ?? ''
   const match = /filename="?([^";]+)"?/.exec(disposition)
   return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
@@ -954,28 +966,15 @@ export const adminApi = {
    * database (users included) from a custom-format dump. Multipart POST with
    * the archive in the `dump` file field and the literal `confirm=replace`
    * form field (the handler also accepts it as a query param; the field is
-   * the contract this client keeps). `Content-Type` must stay unset so fetch
-   * derives it from the `FormData` with the multipart boundary. A 400
-   * answers a missing confirmation/file; a 500 carries the sanitized
-   * `pg_restore` error on purpose — the admin must read what failed, so
-   * pages surface `error.message` for that status. The successful session
-   * may itself be invalidated by the replaced users table: the summary's
-   * `message` warns about re-login.
+   * the contract this client keeps). A 400 answers a missing
+   * confirmation/file; a 500 carries the sanitized `pg_restore` error on
+   * purpose — the admin must read what failed, so pages surface
+   * `error.message` for that status.
    */
-  dbRestore: async (file: File): Promise<DBRestoreSummary> => {
-    const url = buildUrl('/admin/db/restore')
+  dbRestore: (file: File): Promise<DBRestoreSummary> => {
     const form = new FormData()
     form.append('confirm', 'replace')
     form.append('dump', file)
-    const headers: Record<string, string> = {}
-    const token = localStorage.getItem('access_token')
-    if (token) headers.Authorization = `Bearer ${token}`
-
-    let res = await fetch(url, { method: 'POST', headers, body: form })
-    if (res.status === 401 && (await tryRefreshToken(headers))) {
-      res = await fetch(url, { method: 'POST', headers, body: form })
-    }
-    if (!res.ok) throw await errorFrom(res)
-    return (await res.json()) as DBRestoreSummary
+    return request<DBRestoreSummary>('/admin/db/restore', { method: 'POST', form })
   },
 }

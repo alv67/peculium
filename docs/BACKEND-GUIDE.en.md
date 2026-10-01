@@ -970,11 +970,10 @@ setting through `PGSSLMODE`.
 output straight into the HTTP response, without ever holding the whole archive
 in memory. The response is a download: `Content-Type: application/octet-stream`
 and `Content-Disposition: attachment` with the file name
-`peculium-db-<YYYY-MM-DD>.dump` (UTC date). If `pg_dump` fails before any of
-the archive has reached the client, the answer is a 500 with a generic
-"database backup failed" message — tool output and credentials are never
-leaked; a failure after streaming has begun can only surface as a truncated
-download.
+`peculium-db-<YYYY-MM-DD>.dump` (UTC date). The attachment headers are
+committed before the tool runs, so a `pg_dump` failure surfaces as a truncated
+download and the sanitized detail goes to the server log — tool output and
+credentials are never leaked to the client.
 
 `POST /admin/db/restore` accepts the archive as a **multipart form upload** in
 the `dump` file field, together with the explicit confirmation
@@ -984,11 +983,11 @@ confirmation, as is a request with no dump file. The upload is written to a
 temporary file (removed afterwards) and fed to
 `pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, which drops and
 recreates the objects it finds in the archive. Success answers a JSON summary
-(`status`, `mode`, `dump_bytes`, `message`); failure answers 500 carrying the
-`pg_restore` error output with the database password masked, so the admin can
-read what went wrong. Because the archive contains the `users` table too, a
-restore rewrites the accounts: existing sessions and tokens may reference rows
-that are gone, and the summary message tells the admin to **log in again**.
+(`dump_bytes`); failure answers 500 carrying the `pg_restore` error output with
+the database password masked, so the admin can read what went wrong. Because
+the archive contains the `users` table too, a restore rewrites the accounts:
+existing sessions and tokens may reference rows that are gone, and the admin is
+told to **log in again**.
 
 ---
 
