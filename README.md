@@ -65,6 +65,19 @@ dispatched manually are published under their own tag (e.g. `rc-2026-10-03`)
 and never move `latest`; set `PECULIUM_VERSION` to that tag to run them on an
 existing database.
 
+To publish a test/RC build from `develop`:
+
+```bash
+make rc                        # dispatches rc-<today> from develop and prints the pull command
+make rc REF=develop            # explicit ref (this is the default)
+make rc VERSION=rc-custom      # explicit image tag instead of rc-<today>
+```
+
+`gh workflow run` uses the repository default branch unless `--ref` is given, so
+`make rc` passes `--ref develop` for you. Without it a manual dispatch would
+build `main`, not `develop`. The `VERSION` value is only the image tag, never the
+ref to build.
+
 > Requires Podman (or Docker) with Compose support.
 
 ## Testing

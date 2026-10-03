@@ -2,7 +2,7 @@ COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose versi
 
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
 
-.PHONY: dev build up down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell help
+.PHONY: dev build up down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell rc help
 
 up: ## Start all services (dev stack)
 	$(COMPOSE_DEV) up --build -d
@@ -45,6 +45,14 @@ test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio im
 
 db-shell: ## Connect to postgres (dev stack)
 	$(COMPOSE_DEV) exec postgres psql -U peculium peculium
+
+RC_REF ?= develop
+RC_VERSION ?= rc-$(shell date +%Y-%m-%d)
+
+rc: ## Dispatch a test/RC image build from a branch (RC_REF=develop, RC_VERSION=rc-<today>)
+	gh workflow run publish-images.yml --ref $(RC_REF) -f version=$(RC_VERSION)
+	@echo "Dispatched $(RC_VERSION) from $(RC_REF). Run it with:"
+	@echo "  PECULIUM_VERSION=$(RC_VERSION) docker compose pull && PECULIUM_VERSION=$(RC_VERSION) docker compose up -d"
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
