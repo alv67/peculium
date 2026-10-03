@@ -1,11 +1,16 @@
 COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose > /dev/null 2>&1; then echo "docker-compose"; elif command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; else echo "podman-compose"; fi)
 
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
+COMPOSE_RELEASE := $(COMPOSE) -f docker-compose.yml
 
-.PHONY: dev build up down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell rc help
+.PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell rc help
 
 up: ## Start all services (dev stack)
 	$(COMPOSE_DEV) up --build -d
+
+up-release: ## Start release stack, force-pulling images from GHCR
+	$(COMPOSE_RELEASE) pull
+	$(COMPOSE_RELEASE) up -d --force-recreate
 
 down: ## Stop all services (dev stack)
 	$(COMPOSE_DEV) down
