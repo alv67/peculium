@@ -74,14 +74,14 @@ None of the test tags (`develop`, `rc-*`) ever move `latest`. Set
 To publish a test build from `develop`:
 
 ```bash
-make rc                        # dispatch from develop; publishes the rolling :develop tag
-make rc REF=develop            # explicit ref (this is the default)
-make rc VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) for pinning
+make publish                        # dispatch from develop; publishes the rolling :develop tag
+make publish RC_REF=develop         # explicit ref (this is the default)
+make publish RC_VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) for pinning
 ```
 
 `gh workflow run` uses the repository default branch unless `--ref` is given, so
-`make rc` passes `--ref develop` for you. Without it a manual dispatch would
-build `main`, not `develop`. The `VERSION` value is only an extra image tag,
+`make publish` passes `--ref develop` for you. Without it a manual dispatch would
+build `main`, not `develop`. The `RC_VERSION` value is only an extra image tag,
 never the ref to build.
 
 > Requires Podman (or Docker) with Compose support.

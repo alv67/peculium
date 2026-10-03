@@ -3,7 +3,7 @@ COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose versi
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
 COMPOSE_RELEASE := $(COMPOSE) -f docker-compose.yml
 
-.PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell rc help
+.PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell publish help
 
 up: ## Start all services (dev stack)
 	$(COMPOSE_DEV) up --build -d
@@ -54,7 +54,7 @@ db-shell: ## Connect to postgres (dev stack)
 RC_REF ?= develop
 RC_VERSION ?=
 
-rc: ## Dispatch a test image build from a branch (RC_REF=develop, RC_VERSION=extra tag)
+publish: ## Dispatch an image build from a branch (RC_REF=develop, RC_VERSION=extra tag)
 	gh workflow run publish-images.yml --ref $(RC_REF) -f version=$(RC_VERSION)
 	@echo "Dispatched from $(RC_REF). :$(RC_REF) is published; run it with:"
 	@echo "  PECULIUM_VERSION=$(RC_REF) docker compose pull && PECULIUM_VERSION=$(RC_REF) docker compose up -d"
