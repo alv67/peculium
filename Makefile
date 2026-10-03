@@ -52,12 +52,13 @@ db-shell: ## Connect to postgres (dev stack)
 	$(COMPOSE_DEV) exec postgres psql -U peculium peculium
 
 RC_REF ?= develop
-RC_VERSION ?= rc-$(shell date +%Y-%m-%d)
+RC_VERSION ?=
 
-rc: ## Dispatch a test/RC image build from a branch (RC_REF=develop, RC_VERSION=rc-<today>)
+rc: ## Dispatch a test image build from a branch (RC_REF=develop, RC_VERSION=extra tag)
 	gh workflow run publish-images.yml --ref $(RC_REF) -f version=$(RC_VERSION)
-	@echo "Dispatched $(RC_VERSION) from $(RC_REF). Run it with:"
-	@echo "  PECULIUM_VERSION=$(RC_VERSION) docker compose pull && PECULIUM_VERSION=$(RC_VERSION) docker compose up -d"
+	@echo "Dispatched from $(RC_REF). :$(RC_REF) is published; run it with:"
+	@echo "  PECULIUM_VERSION=$(RC_REF) docker compose pull && PECULIUM_VERSION=$(RC_REF) docker compose up -d"
+	@if [ -n "$(RC_VERSION)" ]; then echo "  (also tagged $(RC_VERSION))"; fi
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

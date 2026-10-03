@@ -59,24 +59,30 @@ Secrets are generated on first boot and stored in the `peculium_secrets` volume
 (back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
 release.
 
-Published image tags: `latest` (the most recent release), the release tag
-(`v1.0.0`, …) and `sha-<commit>` for each built release. Test/RC builds
-dispatched manually are published under their own tag (e.g. `rc-2026-10-03`)
-and never move `latest`; set `PECULIUM_VERSION` to that tag to run them on an
-existing database.
+Published image tags:
 
-To publish a test/RC build from `develop`:
+- `latest` — the most recent release (from a `v*` tag on `main`);
+- the release tag (`v1.0.0`, …);
+- `develop` — a rolling tag for the latest build dispatched from the
+  `develop` branch (unstable, moved on every dispatch);
+- `rc-<date>` — a named test/RC build (via the dispatch `version` input);
+- `sha-<commit>` — the exact commit of any build, always published for pinning.
+
+None of the test tags (`develop`, `rc-*`) ever move `latest`. Set
+`PECULIUM_VERSION` to one of them to run it on an existing database.
+
+To publish a test build from `develop`:
 
 ```bash
-make rc                        # dispatches rc-<today> from develop and prints the pull command
+make rc                        # dispatch from develop; publishes the rolling :develop tag
 make rc REF=develop            # explicit ref (this is the default)
-make rc VERSION=rc-custom      # explicit image tag instead of rc-<today>
+make rc VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) for pinning
 ```
 
 `gh workflow run` uses the repository default branch unless `--ref` is given, so
 `make rc` passes `--ref develop` for you. Without it a manual dispatch would
-build `main`, not `develop`. The `VERSION` value is only the image tag, never the
-ref to build.
+build `main`, not `develop`. The `VERSION` value is only an extra image tag,
+never the ref to build.
 
 > Requires Podman (or Docker) with Compose support.
 
