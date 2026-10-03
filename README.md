@@ -59,6 +59,12 @@ Secrets are generated on first boot and stored in the `peculium_secrets` volume
 (back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
 release.
 
+Published image tags: `latest` (the most recent release), the release tag
+(`v1.0.0`, …) and `sha-<commit>` for each built release. Test/RC builds
+dispatched manually are published under their own tag (e.g. `rc-2026-10-03`)
+and never move `latest`; set `PECULIUM_VERSION` to that tag to run them on an
+existing database.
+
 > Requires Podman (or Docker) with Compose support.
 
 ## Testing
