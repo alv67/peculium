@@ -28,15 +28,15 @@ func NewHealthRepository(db *pgxpool.Pool) HealthRepository {
 
 func (r *healthRepo) RecordEvent(ctx context.Context, event *model.HealthEvent) error {
 	_, err := r.db.Exec(ctx,
-		`INSERT INTO health_events (id, asset_id, event_type, status, code, message, duration_ms, error_code, created_at) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		event.ID, event.AssetID, event.EventType, event.Status, event.Code, event.Message, event.DurationMs, event.ErrorCode, event.CreatedAt)
+		`INSERT INTO health_events (id, asset_id, event_type, status, code, message, duration_ms, error_code, created_at, job_id) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		event.ID, event.AssetID, event.EventType, event.Status, event.Code, event.Message, event.DurationMs, event.ErrorCode, event.CreatedAt, event.JobID)
 	return err
 }
 
 func (r *healthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*model.HealthEvent, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT id, asset_id, event_type, status, code, message, duration_ms, error_code, created_at 
+		`SELECT id, asset_id, event_type, status, code, message, duration_ms, error_code, created_at, job_id 
 		 FROM health_events 
 		 ORDER BY created_at DESC 
 		 LIMIT $1 OFFSET $2`, limit, offset)
@@ -49,7 +49,7 @@ func (r *healthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*m
 	for rows.Next() {
 		e := &model.HealthEvent{}
 		var assetID *uuid.UUID
-		err := rows.Scan(&e.ID, &assetID, &e.EventType, &e.Status, &e.Code, &e.Message, &e.DurationMs, &e.ErrorCode, &e.CreatedAt)
+		err := rows.Scan(&e.ID, &assetID, &e.EventType, &e.Status, &e.Code, &e.Message, &e.DurationMs, &e.ErrorCode, &e.CreatedAt, &e.JobID)
 		if err != nil {
 			return nil, err
 		}
