@@ -14,10 +14,11 @@ import (
 
 	"github.com/alv67/peculium/internal/cache"
 	"github.com/alv67/peculium/internal/config"
+	"github.com/alv67/peculium/internal/model"
 	"github.com/alv67/peculium/internal/price"
 	"github.com/alv67/peculium/internal/repository"
-	"github.com/alv67/peculium/internal/service"
 	"github.com/alv67/peculium/internal/series"
+	"github.com/alv67/peculium/internal/service"
 )
 
 func main() {
@@ -52,6 +53,7 @@ func main() {
 	repos := repository.New(dbPool, repository.NewLookupCache(cacheClient))
 	c := cache.New(cacheClient)
 	healthSvc := service.NewHealthService(repos)
+	jobSvc := service.NewJobService(repos)
 
 	fetcher := price.NewYahooFetcher(repos, cfg.PriceFetchInterval,
 		price.WithMinInterval(cfg.YahooMinInterval),
@@ -60,6 +62,35 @@ func main() {
 	)
 
 	log.Info().Dur("interval", cfg.PriceFetchInterval).Msg("price worker started")
+
+	// Job queue consumer. Each claimed job runs on its own detached context
+	// (see service.JobRunner), so the loop is only bound to the worker's
+	// lifetime ctx for claiming and polling.
+	jobRunner := service.NewJobRunner(repos.Job, service.DefaultJobTimeout)
+	// ponytail: phase 1 placeholders only — they acknowledge and finish jobs.
+	// Phase 2 replaces each with the real executor (Yahoo fetch/backfill,
+	// exposure, meta, splits), which reports progress via repos.Job.
+	placeholder := func(_ context.Context, job *model.Job) (string, error) {
+		log.Info().Str("job_id", job.ID.String()).Str("type", job.Type).Msg("job executed (placeholder)")
+		return model.JobStatusDone, nil
+	}
+	for _, t := range []string{
+		model.JobTypePriceRefresh, model.JobTypeHistoryBackfill,
+		model.JobTypeExposureFetch, model.JobTypeMetaBackfill, model.JobTypeSplitsFetch,
+	} {
+		jobRunner.Register(t, placeholder)
+	}
+	go jobRunner.Loop(ctx, service.DefaultJobPollInterval)
+
+	pruneJobs := func() {
+		n, err := jobSvc.DeleteFinishedBefore(ctx, time.Now().Add(-service.JobRetention))
+		if err != nil {
+			log.Warn().Err(err).Msg("job retention sweep failed")
+		} else if n > 0 {
+			log.Info().Int64("deleted", n).Msg("pruned finished jobs")
+		}
+	}
+	pruneJobs()
 
 	ticker := time.NewTicker(cfg.PriceFetchInterval)
 	defer ticker.Stop()
@@ -85,6 +116,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			log.Info().Msg("fetching prices...")
+			pruneJobs()
 			if err := fetcher.FetchAll(ctx); err != nil {
 				log.Warn().Err(err).Msg("price fetch failed")
 			} else if err := series.RecomputeAll(ctx, repos); err != nil {
