@@ -59,6 +59,31 @@ Secrets are generated on first boot and stored in the `peculium_secrets` volume
 (back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
 release.
 
+Published image tags:
+
+- `latest` — the most recent release (from a `v*` tag on `main`);
+- the release tag (`v1.0.0`, …);
+- `develop` — a rolling tag for the latest build dispatched from the
+  `develop` branch (unstable, moved on every dispatch);
+- `rc-<date>` — a named test/RC build (via the dispatch `version` input);
+- `sha-<commit>` — the exact commit of any build, always published for pinning.
+
+None of the test tags (`develop`, `rc-*`) ever move `latest`. Set
+`PECULIUM_VERSION` to one of them to run it on an existing database.
+
+To publish a test build from `develop`:
+
+```bash
+make publish                        # dispatch from develop; publishes the rolling :develop tag
+make publish RC_REF=develop         # explicit ref (this is the default)
+make publish RC_VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) for pinning
+```
+
+`gh workflow run` uses the repository default branch unless `--ref` is given, so
+`make publish` passes `--ref develop` for you. Without it a manual dispatch would
+build `main`, not `develop`. The `RC_VERSION` value is only an extra image tag,
+never the ref to build.
+
 > Requires Podman (or Docker) with Compose support.
 
 ## Testing

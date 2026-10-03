@@ -1,11 +1,16 @@
 COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose > /dev/null 2>&1; then echo "docker-compose"; elif command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; else echo "podman-compose"; fi)
 
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
+COMPOSE_RELEASE := $(COMPOSE) -f docker-compose.yml
 
-.PHONY: dev build up down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell help
+.PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell publish help
 
 up: ## Start all services (dev stack)
 	$(COMPOSE_DEV) up --build -d
+
+up-release: ## Start release stack, force-pulling images from GHCR
+	$(COMPOSE_RELEASE) pull
+	$(COMPOSE_RELEASE) up -d --force-recreate
 
 down: ## Stop all services (dev stack)
 	$(COMPOSE_DEV) down
@@ -45,6 +50,15 @@ test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio im
 
 db-shell: ## Connect to postgres (dev stack)
 	$(COMPOSE_DEV) exec postgres psql -U peculium peculium
+
+RC_REF ?= develop
+RC_VERSION ?=
+
+publish: ## Dispatch an image build from a branch (RC_REF=develop, RC_VERSION=extra tag)
+	gh workflow run publish-images.yml --ref $(RC_REF) -f version=$(RC_VERSION)
+	@echo "Dispatched from $(RC_REF). :$(RC_REF) is published; run it with:"
+	@echo "  PECULIUM_VERSION=$(RC_REF) docker compose pull && PECULIUM_VERSION=$(RC_REF) docker compose up -d"
+	@if [ -n "$(RC_VERSION)" ]; then echo "  (also tagged $(RC_VERSION))"; fi
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
