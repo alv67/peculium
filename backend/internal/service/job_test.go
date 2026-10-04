@@ -24,6 +24,15 @@ type fakeJobRepo struct {
 var _ repository.JobRepository = (*fakeJobRepo)(nil)
 
 func (f *fakeJobRepo) Enqueue(ctx context.Context, job *model.Job) (*model.Job, error) {
+	// Mirrors the repository-side dedup backed by uq_jobs_one_open_per_target:
+	// an already-open job with the same type and target is returned instead
+	// of stacking a duplicate.
+	for _, j := range f.jobs {
+		if j.Type == job.Type && j.TargetType == job.TargetType && sameTargetID(j.TargetID, job.TargetID) &&
+			(j.Status == model.JobStatusQueued || j.Status == model.JobStatusRunning) {
+			return j, nil
+		}
+	}
 	queued := &model.Job{
 		ID: uuid.New(), Type: job.Type, TargetType: job.TargetType, TargetID: job.TargetID,
 		Status: model.JobStatusQueued, Total: job.Total, RequestedBy: job.RequestedBy,
@@ -31,6 +40,14 @@ func (f *fakeJobRepo) Enqueue(ctx context.Context, job *model.Job) (*model.Job, 
 	}
 	f.jobs = append(f.jobs, queued)
 	return queued, nil
+}
+
+// sameTargetID compares nullable polymorphic target ids (NULL == NULL).
+func sameTargetID(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func (f *fakeJobRepo) ClaimNext(ctx context.Context) (*model.Job, error) {
@@ -259,6 +276,57 @@ func TestJobServicePaginationAndNotFound(t *testing.T) {
 	}
 	if repo.lastListLimit != 50 || repo.lastListOffset != 0 {
 		t.Fatalf("clamped page = %d/%d, want default 50/0", repo.lastListLimit, repo.lastListOffset)
+	}
+}
+
+func TestJobEnqueueDedupsOpenTarget(t *testing.T) {
+	svc, repo := newFakeJobSvc()
+	ctx := context.Background()
+	target := uuid.New()
+
+	first, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.ID != first.ID || len(repo.jobs) != 1 {
+		t.Fatalf("dedup miss: ids %v/%v, %d rows", first.ID, again.ID, len(repo.jobs))
+	}
+
+	other := uuid.New()
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &other}); err != nil {
+		t.Fatal(err)
+	}
+	if len(repo.jobs) != 2 {
+		t.Fatalf("rows = %d, want 2 (different asset target)", len(repo.jobs))
+	}
+
+	// NULL-target (global) jobs dedup against each other too.
+	g1, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeMetaBackfill, TargetType: model.JobTargetGlobal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g2, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeMetaBackfill, TargetType: model.JobTargetGlobal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g2.ID != g1.ID {
+		t.Fatalf("global dedup miss: %v != %v", g2.ID, g1.ID)
+	}
+
+	// A finished job frees the slot for the next request.
+	if err := repo.Finish(ctx, first.ID, model.JobStatusDone, ""); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.ID == first.ID {
+		t.Fatal("finished job must not block a new enqueue")
 	}
 }
 

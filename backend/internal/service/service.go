@@ -142,7 +142,10 @@ type Service struct {
 	seriesMaxPoints  int
 	stalePriceDays   int
 	Health           *HealthService
-	db               DBMaintainer
+	// Jobs backs the async job-queue routes; built from the same repos so
+	// handlers and the worker share one queue facade.
+	Jobs *JobService
+	db   DBMaintainer
 }
 
 func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetcher, etfFetcher price.ETFFetcher, lookupCacheTTL time.Duration, exposureCacheTTL time.Duration, c *cache.Cache, seriesMaxPoints int, stalePriceDays int, health *HealthService, db DBMaintainer) *Service {
@@ -152,7 +155,7 @@ func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetch
 	if stalePriceDays <= 0 {
 		stalePriceDays = 7
 	}
-	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health, db: db}
+	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health, Jobs: NewJobService(repos), db: db}
 }
 
 // cached implements the read-through cache pattern: it reads the current data
@@ -2658,7 +2661,9 @@ func (s *Service) BackfillAssetHistory(ctx context.Context, id uuid.UUID) error 
 // possible via PATCH, but a subsequent backfill restores the issuer domicile.
 // Sector is normalized to its canonical GICS form, so legacy non-canonical
 // values are corrected too. Failures are reported per asset without aborting.
-func (s *Service) BackfillAssetMeta(ctx context.Context) (*model.MetaBackfillReport, error) {
+// progress, when non-nil (the job executor passes one), is called after every
+// asset with the running processed/total counts.
+func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed, total int)) (*model.MetaBackfillReport, error) {
 	assets, err := s.repos.Asset.AllStocks(ctx)
 	if err != nil {
 		return nil, err
@@ -2668,7 +2673,10 @@ func (s *Service) BackfillAssetMeta(ctx context.Context) (*model.MetaBackfillRep
 		Processed: len(assets),
 		Errors:    []string{},
 	}
-	for _, a := range assets {
+	for i, a := range assets {
+		if progress != nil {
+			progress(i+1, len(assets))
+		}
 		sector, industry, country, err := s.fetcher.FetchAssetProfile(ctx, a.Ticker)
 		if err != nil {
 			report.Failed++

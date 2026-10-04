@@ -1,7 +1,5 @@
 # Release Notes
 
-<<<<<<< Updated upstream
-=======
 ## Unreleased
 
 ### Nuove funzionalità
@@ -9,7 +7,6 @@
 - L'aggiornamento prezzi e il re-download completo dello storico o dei metadati di un asset ora girano in background invece di tenere aperta la richiesta: l'azione ritorna subito e l'app segue il lavoro in corso, quindi una connessione lenta o una collezione grande non fanno più bloccare o fallire l'operazione in silenzio
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 
->>>>>>> Stashed changes
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)
 
 ### Nuove funzionalità

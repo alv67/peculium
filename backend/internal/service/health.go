@@ -63,7 +63,17 @@ func normalizeHealthPage(limit, offset int) (int, int) {
 	return limit, offset
 }
 
+// RecordEvent stores a provider-interaction event. While a job executor
+// runs, its id is bound to the context (JobRunner) and stamped here — the
+// single chokepoint every event flows through — so the health page can
+// correlate failures with the queue row that caused them. Request-path
+// events carry no job and stay NULL.
 func (s *HealthService) RecordEvent(ctx context.Context, event *model.HealthEvent) error {
+	if event.JobID == nil {
+		if id, ok := JobIDFromContext(ctx); ok {
+			event.JobID = &id
+		}
+	}
 	return s.repos.Health.RecordEvent(ctx, event)
 }
 

@@ -290,8 +290,9 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | | backfillHistory, sync | `POST /assets/{id}/backfill-history`, `POST /assets/sync` |
 | `transactionApi` | list, create | `GET /portfolios/{id}/transactions?limit=&offset=&type=&asset_id=&from=&to=` (restituisce l'involucro `TransactionPage` — `transactions`, `total`, `limit`/`offset` applicati; limite di default 20, max 100, ordine per data decrescente; i filtri opzionali e combinabili `type` (buy/sell/dividend/split/fee), `asset_id` (uuid) e i limiti `from`/`to` `YYYY-MM-DD` inclusivi restringono le righe **e** il `total` restituito), `POST /portfolios/{id}/transactions` |
 | | update, remove | `PATCH/DELETE /transactions/{id}` |
-| `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce il `RefreshReport`) |
+| `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce un 202 `JobEnqueued`; poi `jobsApi.wait`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
+| `jobsApi` | get, list, wait | `GET /jobs/{id}`, `GET /jobs?limit=&offset=`, e `wait` (polling fino allo stato `done`/`failed`/`partial`; usato dal refresh prezzi e dai backfill degli asset) |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (allegato `.dump` in streaming), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (tutti riservati agli amministratori: 403 per gli altri ruoli) |
@@ -300,7 +301,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
 `DashboardSummary`,
-`ActiveBreakdown`, `ClosedBreakdown`, `RefreshReport`, `AssetQuote`,
+`ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`, `AssetQuote`,
 `AssetExposure`, `PortfolioHistory`, `AssetPositionSeries`,
 `PortfolioExportDocument`, ...) rispecchiano i modelli del backend. I
 valori monetari arrivano come **stringhe** (es. `"1234.56"`) per evitare errori
@@ -960,26 +961,35 @@ al mount — su qualunque pagina d'ingresso, deep-link inclusi — chiama
 `refreshPrices()` dallo store condiviso `$lib/stores/priceRefresh.svelte`. Quello
 store è il **percorso di refresh unico** dell'app (il trigger automatico dello
 shell, il controllo nell'header, il Fab e la palette comandi passano tutti di
-qui), quindi trigger concorrenti si de-duplicano in una sola POST e un contatore
-`revision` condiviso permette alle pagine che mostrano prezzi di rifare il fetch
-al termine. Il `RefreshReport` restituito guida lo store e i toast di avviso:
+qui), quindi trigger concorrenti si de-duplicano in un solo accodamento e un
+contatore `revision` condiviso permette alle pagine che mostrano prezzi di rifare
+il fetch al termine.
 
-- `rate_limited` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
-  aggiornati";
-- altrimenti, se `issues.length > 0` → "N aggiornamenti prezzi non riusciti
-  (Yahoo)";
-- il toast di successo semplice scatta solo sui trigger manuali, mentre una
-  POST fallita tinge il controllo nell'header e compare nella strip qualità
-  invece di un toast sul run automatico.
+Il refresh è asincrono: `refreshPrices()` fa POST a `/prices/refresh`, riceve un
+202 `{job_id, status}` e poi `jobsApi.wait(job_id)` interroga `GET /jobs/{id}`
+finché il job non raggiunge uno stato terminale. L'esito del job guida lo store
+e i toast di avviso:
+
+- `done` → successo (il toast semplice scatta solo sui trigger manuali);
+- `partial` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
+  aggiornati" (alcune quotazioni sono fallite a monte);
+- `failed` (o polling in timeout) → esito fallito che tinge il controllo
+  nell'header e compare nella strip qualità invece di un toast sul run
+  automatico.
 
 L'esito è reattivo e a livello di modulo, quindi sopravvive alla navigazione
-SPA: `finished_at` guida il **`PriceRefreshButton`** sempre visibile nell'header
-("Prezzi alle HH:MM", cliccabile per aggiornare le quotazioni su richiesta),
-mentre l'esito rate-limit / issues / fallimento e i contatori `fx_missing_*`
+SPA: il `finished_at` del job guida il **`PriceRefreshButton`** sempre visibile
+nell'header ("Prezzi alle HH:MM", cliccabile per aggiornare le quotazioni su
+richiesta), mentre l'esito parziale / fallito e i contatori `fx_missing_*`
 della dashboard (rispecchiati nello store `dashboardStatus`, seminato dallo shell
 così da essere disponibili anche fuori dalla dashboard) alimentano la
 **`DataQualityStrip`**, resa globalmente come sottile banda sticky sotto
 l'header e mostrata solo quando c'è qualcosa da segnalare.
+
+Lo stesso schema accoda-poi-interroga sostiene il **backfill dello storico
+completo** dell'asset (`backfillHistory`): quando il job è `done`/`partial` la
+pagina rifà il fetch dei prezzi, e un fallimento nel recupero degli split
+dentro un backfill altrimenti riuscito emerge come avviso `partial`.
 
 ---
 

@@ -678,21 +678,39 @@ through two "brakes":
 If Redis is unreachable, the counter is disabled and the app proceeds anyway
 (it takes more risk, but it does not get stuck).
 
+### Long fetching runs as a queued job
+
+The operations that talk to an external site and can take a long time
+(a price refresh, a full history backfill, the global metadata backfill) do
+**not** run inside the HTTP request. The request only **queues a job** and
+answers `202 Accepted` with `{"job_id": …, "status": "queued"}`; the worker
+drains the queue with its own context, so a slow provider or a large database
+can never exceed the request timeout.
+
+- `POST /prices/refresh` (optionally `?portfolio_id=`) queues a `price_refresh`.
+- `POST /assets/{id}/backfill-history` queues a `history_backfill` (full price
+  history **plus** the asset's split metadata).
+- `POST /assets/backfill-meta` queues a `meta_backfill`.
+- A second request for the same job while one is still queued or running
+  returns that open job instead of stacking a duplicate (deduplicated by
+  type + target).
+- The client follows progress by polling `GET /jobs/{id}` (and `GET /jobs` for
+  the recent list). A job is `queued`/`running` while open and ends
+  `done`/`failed`/`partial`; `processed`/`total` report per-item progress.
+
+The provider-facing calls queued this way are the same ones described below;
+the queue only moves *where* they run, not what they do. Read-only previews
+(`fetch-exposure`, `fetch-etf-exposure`, `fetch-morningstar-exposure`) stay
+synchronous because the caller needs their result inline.
+
 ### Reporting problems
 
-When the user asks for a price update (`POST /prices/refresh`), the response
-is not just the list of updated securities: it is a **report** with:
-
-- `refreshed` — the securities updated successfully;
-- `issues` — the problems, each with a stable code:
-  `rate_limited` (Yahoo refused because of too many calls), `http_<status>`
-  (a specific HTTP error) or `error`;
-- `rate_limited` — a quick summary: "was there a rate limit block?";
-- `finished_at` — when the refresh run completed (UTC timestamp; the dashboard
-  shows it as "Prices updated: …").
-
-The frontend uses this report to show a non-blocking warning if some update
-failed.
+Price-update outcomes are recorded in the **health log** (`health_events`):
+per-asset issues carry a stable code — `rate_limited` (Yahoo refused because
+of too many calls), `http_<status>` (a specific HTTP error) or `error` — and
+events raised while a job runs are tagged with that job's id, so the
+Admin → Data & Sync page can correlate a failure with the queue row that
+produced it. `GET /health/prices` serves the summary and the recent events.
 
 ### History and splits
 

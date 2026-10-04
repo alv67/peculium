@@ -4,7 +4,7 @@
 -- per-item progress so later phases can report and resume.
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type TEXT NOT NULL, -- 'price_refresh', 'history_backfill', 'exposure_fetch', 'meta_backfill', 'splits_fetch'
+    type TEXT NOT NULL, -- 'price_refresh', 'history_backfill', 'meta_backfill', 'splits_fetch'
     target_type TEXT, -- 'asset' | 'portfolio' | 'global'
     target_id UUID, -- no FK: polymorphic reference keyed by target_type
     status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'done', 'failed', 'partial')),

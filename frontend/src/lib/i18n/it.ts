@@ -110,8 +110,7 @@ export const it = {
     comingSoon: 'In arrivo',
     refreshSuccess: 'Prezzi aggiornati',
     refreshError: 'Aggiornamento dei prezzi non riuscito',
-    refreshRateLimited: 'Yahoo Finance sta limitando le richieste: alcuni prezzi potrebbero non essere aggiornati',
-    refreshIssues: '{count} aggiornamenti prezzi non riusciti (Yahoo)',
+    refreshPartial: 'Alcuni aggiornamenti prezzi non sono riusciti (Yahoo)',
   },
   user: {
     accountMenu: 'Menu account',
@@ -495,8 +494,7 @@ export const it = {
   },
   quality: {
     fxMissing: '{amount} esclusi — cambio mancante ({count} posizioni)',
-    rateLimited: 'Alcuni prezzi non aggiornati (limitazione Yahoo)',
-    refreshIssues: '{count} aggiornamenti prezzi non riusciti',
+    refreshPartial: 'Alcuni prezzi non aggiornati',
     refreshFailed: 'Aggiornamento prezzi non riuscito: i valori potrebbero essere obsoleti',
   },
   freshness: {
@@ -940,6 +938,7 @@ export const it = {
     metaRefreshFailed: 'Aggiornamento non riuscito',
     backfillDone: 'Storico prezzi aggiornato',
     backfillFailed: 'Backfill non riuscito',
+    backfillPartial: 'Storico prezzi aggiornato, split non recuperati',
     countriesPrefilledJustEtf: 'Paesi precompilati da JustETF',
     countriesSectorsPrefilledMorningstar: 'Paesi e settori precompilati da Morningstar',
     regionsPrefilledMorningstar: 'Regioni precompilate da Morningstar',

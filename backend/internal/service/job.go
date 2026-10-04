@@ -64,6 +64,21 @@ func (s *JobService) DeleteFinishedBefore(ctx context.Context, cutoff time.Time)
 	return s.repos.Job.DeleteFinishedBefore(ctx, cutoff)
 }
 
+// jobIDKey tags a context with the job being executed. HealthService reads it
+// so every event recorded while a job runs is attributed to its queue row.
+type jobIDKey struct{}
+
+// WithJobID binds the job id to ctx for health-event attribution downstream.
+func WithJobID(ctx context.Context, jobID uuid.UUID) context.Context {
+	return context.WithValue(ctx, jobIDKey{}, jobID)
+}
+
+// JobIDFromContext returns the job id bound by WithJobID, if any.
+func JobIDFromContext(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(jobIDKey{}).(uuid.UUID)
+	return id, ok
+}
+
 // JobExecutor runs a single claimed job. It reports its terminal status via
 // the returned string (done/partial/failed); an error is recorded on the job.
 // A returned status of "" is treated as done. The context passed in is the
@@ -104,9 +119,11 @@ func (r *JobRunner) RunOnce(ctx context.Context) (ran bool, err error) {
 
 	// Each job runs on its own context with a generous timeout, detached from
 	// the caller so a long fetch is not cut by the server's request deadline.
+	// The job id is bound to it so health events recorded deep inside the
+	// fetchers are attributed to this job.
 	// ponytail: no checkpoint resume yet; add it when an executor needs to
 	// survive worker restarts mid-run.
-	jobCtx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	jobCtx, cancel := context.WithTimeout(WithJobID(context.Background(), job.ID), r.timeout)
 	defer cancel()
 
 	status, execErr := exec(jobCtx, job)

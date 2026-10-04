@@ -12,6 +12,8 @@ import (
 
 // JobRepository backs the Postgres job queue drained by the worker.
 type JobRepository interface {
+	// Enqueue inserts a job, returning the already-open (queued/running) job
+	// of the same type and target instead of stacking duplicates.
 	Enqueue(ctx context.Context, job *model.Job) (*model.Job, error)
 	// ClaimNext atomically marks the oldest queued job as running and returns
 	// it, or (nil, nil) when there is nothing to do. FOR UPDATE SKIP LOCKED
@@ -38,6 +40,11 @@ func NewJobRepository(db DBTX) JobRepository {
 
 const jobColumns = `id, type, target_type, target_id, status, total, processed, checkpoint, error, requested_by, created_at, started_at, finished_at`
 
+// zeroUUID stands in for a NULL target_id in the dedup comparisons, mirroring
+// the uq_jobs_one_open_per_target index: SQL NULLs are never equal to each
+// other, so the global (targetless) jobs need a value that is.
+const zeroUUID = `'00000000-0000-0000-0000-000000000000'::uuid`
+
 func scanJob(row interface{ Scan(dest ...any) error }) (*model.Job, error) {
 	j := &model.Job{}
 	var checkpoint []byte
@@ -50,10 +57,40 @@ func scanJob(row interface{ Scan(dest ...any) error }) (*model.Job, error) {
 	return j, nil
 }
 
+// Enqueue stores a new job, deduplicated: when an identical job (same type
+// and target) is already queued or running, that open job is returned instead
+// of a duplicate row being created. The dedup rides on the partial unique
+// index (see migration 000021) so it is atomic under concurrent enqueues —
+// no locking transaction — with ON CONFLICT DO NOTHING plus a re-read of the
+// winner.
 func (r *jobRepo) Enqueue(ctx context.Context, job *model.Job) (*model.Job, error) {
+	created, err := r.insertJob(ctx, job)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return created, err
+	}
+	existing, err := scanJob(r.db.QueryRow(ctx,
+		`SELECT `+jobColumns+` FROM jobs
+		 WHERE type = $1
+		   AND COALESCE(target_type, '') = COALESCE($2, '')
+		   AND COALESCE(target_id, `+zeroUUID+`) = COALESCE($3, `+zeroUUID+`)
+		   AND status IN ('queued', 'running')
+		 ORDER BY created_at, id
+		 LIMIT 1`,
+		job.Type, job.TargetType, job.TargetID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The open duplicate finished inside the race window between the
+		// rejected INSERT and the lookup: the slot is free again, so one
+		// retry inserts the new job.
+		return r.insertJob(ctx, job)
+	}
+	return existing, err
+}
+
+func (r *jobRepo) insertJob(ctx context.Context, job *model.Job) (*model.Job, error) {
 	row := r.db.QueryRow(ctx,
 		`INSERT INTO jobs (type, target_type, target_id, total, requested_by)
 		 VALUES ($1, $2, $3, $4, $5)
+		 ON CONFLICT DO NOTHING
 		 RETURNING `+jobColumns,
 		job.Type, job.TargetType, job.TargetID, job.Total, job.RequestedBy)
 	return scanJob(row)

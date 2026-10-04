@@ -130,8 +130,7 @@ export const en = {
     /** Fab refresh feedback (toasts). */
     refreshSuccess: 'Prices updated',
     refreshError: 'Price refresh failed',
-    refreshRateLimited: 'Yahoo Finance is rate-limiting requests: some prices may be stale',
-    refreshIssues: '{count} price updates failed (Yahoo)',
+    refreshPartial: 'Some price updates failed (Yahoo)',
   },
   user: {
     /** Compact icon-only trigger (rail / mobile header). */
@@ -528,8 +527,7 @@ export const en = {
    */
   quality: {
     fxMissing: '{amount} excluded — missing FX ({count} holdings)',
-    rateLimited: 'Some prices not updated (Yahoo rate limit)',
-    refreshIssues: '{count} price updates failed',
+    refreshPartial: 'Some prices not updated',
     refreshFailed: 'Price refresh failed — values may be stale',
   },
   /** Freshness stamp near the hero (spec §8.5), from the session refresh. */
@@ -1023,6 +1021,7 @@ export const en = {
     metaRefreshFailed: 'Update failed',
     backfillDone: 'Price history updated',
     backfillFailed: 'Backfill failed',
+    backfillPartial: 'Price history updated, but stock splits could not be fetched',
     countriesPrefilledJustEtf: 'Countries prefilled from JustETF',
     countriesSectorsPrefilledMorningstar: 'Countries and sectors prefilled from Morningstar',
     regionsPrefilledMorningstar: 'Regions prefilled from Morningstar',
