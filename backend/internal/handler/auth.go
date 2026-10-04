@@ -519,9 +519,12 @@ func (h *Handler) FetchETFExposure(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, exposure)
 }
 
+// FetchMorningstarExposure previews the Morningstar exposure for an asset.
+// It stays synchronous (unlike the queued long jobs) because the caller needs
+// the result inline to prefill the exposure form: nothing is persisted here,
+// only the resolved ISIN.
 func (h *Handler) FetchMorningstarExposure(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	uid, err := parseUUID(id)
+	uid, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "invalid asset id")
 		return
@@ -576,38 +579,24 @@ func (h *Handler) DeriveAssetRegions(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string][]model.ExposureRow{"regions": regions})
 }
 
+// BackfillAssetHistory queues the full price-history (+ split metadata)
+// backfill for one asset; the asset existence is validated by the executor,
+// which fails the job on an unknown id.
 func (h *Handler) BackfillAssetHistory(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	uid, err := parseUUID(id)
+	uid, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "invalid asset id")
 		return
 	}
-
-	if err := h.svc.BackfillAssetHistory(r.Context(), uid); err != nil {
-		if err == service.ErrAssetNotFound {
-			respondError(w, http.StatusNotFound, "asset not found")
-			return
-		}
-		log.Error().Err(err).Msg("backfill asset history failed")
-		respondError(w, http.StatusInternalServerError, "backfill failed")
-		return
-	}
-
-	respond(w, http.StatusOK, map[string]string{"status": "ok"})
+	h.enqueueJob(w, r, &model.Job{
+		Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &uid,
+	})
 }
 
-// BackfillAssetMeta fills missing country/sector metadata for every stock asset
-// and returns a report of the changes applied.
+// BackfillAssetMeta queues the global stock-metadata backfill; the worker
+// reports processed/total on the job while it walks the assets.
 func (h *Handler) BackfillAssetMeta(w http.ResponseWriter, r *http.Request) {
-	report, err := h.svc.BackfillAssetMeta(r.Context())
-	if err != nil {
-		log.Error().Err(err).Msg("backfill asset meta failed")
-		respondError(w, http.StatusInternalServerError, "backfill failed")
-		return
-	}
-
-	respond(w, http.StatusOK, report)
+	h.enqueueJob(w, r, &model.Job{Type: model.JobTypeMetaBackfill, TargetType: model.JobTargetGlobal})
 }
 
 func (h *Handler) CreateAsset(w http.ResponseWriter, r *http.Request) {

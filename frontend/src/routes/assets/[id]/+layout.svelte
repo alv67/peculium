@@ -10,6 +10,7 @@
   import type { MessageKey } from '$lib/i18n/index.svelte'
   import {
     assetApi,
+    jobsApi,
     portfolioApi,
     pricesApi,
     type Asset,
@@ -387,16 +388,26 @@
     }
   }
 
-  // Backfill sincrono: il POST può impiegare alcuni secondi, ma al 200 la cache
-  // GET del client è già stata invalidata (ogni non-GET svuota la cache), quindi
-  // il refetch di byAsset ritorna lo storico completo e aggiornato.
+  // Backfill asincrono: il POST accoda un job (202) e `backfillingHistory`
+  // copre l'attesa del polling. L'enqueue ha già invalidato la cache GET del
+  // client, quindi il refetch di byAsset ritorna lo storico completo; `partial`
+  // significa storico ok ma split non recuperati.
   async function backfillHistory(): Promise<void> {
     if (!id) return
     backfillingHistory = true
     try {
-      await assetApi.backfillHistory(id)
-      prices = await pricesApi.byAsset(id)
-      toast.success(t('asset.backfillDone'))
+      const { job_id } = await assetApi.backfillHistory(id)
+      const job = await jobsApi.wait(job_id)
+      if (job.status === 'done' || job.status === 'partial') {
+        prices = await pricesApi.byAsset(id)
+      }
+      if (job.status === 'done') {
+        toast.success(t('asset.backfillDone'))
+      } else if (job.status === 'partial') {
+        toast.warning(t('asset.backfillPartial'))
+      } else {
+        throw new Error(job.error || t('asset.backfillFailed'))
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('asset.backfillFailed')
       toast.error(message)

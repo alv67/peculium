@@ -742,6 +742,10 @@ func (h *Handler) GetDashboardPerformance(w http.ResponseWriter, r *http.Request
 	respond(w, http.StatusOK, perf)
 }
 
+// RefreshPrices queues a price-refresh job for the worker: portfolio-scoped
+// when ?portfolio_id= is present and the caller can access that portfolio,
+// global otherwise. Access checks stay synchronous — only the fetching moves
+// to the queue.
 func (h *Handler) RefreshPrices(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetClaims(r.Context())
 	if claims == nil {
@@ -749,7 +753,7 @@ func (h *Handler) RefreshPrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var portfolioID *uuid.UUID
+	job := &model.Job{Type: model.JobTypePriceRefresh, TargetType: model.JobTargetGlobal}
 	if pid := r.URL.Query().Get("portfolio_id"); pid != "" {
 		uid, err := parseUUID(pid)
 		if err != nil {
@@ -760,15 +764,9 @@ func (h *Handler) RefreshPrices(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		portfolioID = &uid
+		job.TargetType = model.JobTargetPortfolio
+		job.TargetID = &uid
 	}
 
-	report, err := h.svc.RefreshPrices(r.Context(), portfolioID)
-	if err != nil {
-		log.Error().Err(err).Msg("refresh prices failed")
-		respondError(w, http.StatusInternalServerError, "refresh failed")
-		return
-	}
-
-	respond(w, http.StatusOK, report)
+	h.enqueueJob(w, r, job)
 }

@@ -162,6 +162,8 @@ type fakeAssetRepo struct {
 	// assets backs FindByIDs so the history/sync paths can be tested with a
 	// mix of price sources.
 	assets []*model.Asset
+	// stocks backs AllStocks for the meta-backfill paths.
+	stocks []*model.Asset
 	// updateCalls and lastUpdate record asset writes so tests can assert the
 	// exposure fetches persist nothing but the auto-resolved ISIN.
 	updateCalls int
@@ -201,7 +203,7 @@ func (f *fakeAssetRepo) ListYahoo(ctx context.Context) ([]*model.Asset, error) {
 	return nil, nil
 }
 func (f *fakeAssetRepo) AllStocks(ctx context.Context) ([]*model.Asset, error) {
-	return nil, nil
+	return f.stocks, nil
 }
 func (f *fakeAssetRepo) MarkPricesFetched(ctx context.Context, ids []uuid.UUID, at time.Time) error {
 	return nil

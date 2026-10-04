@@ -689,21 +689,42 @@ quindi attraverso due "freni":
 Se Redis non è raggiungibile, il contatore viene disattivato e si procede
 comunque (si rischia di più, ma l'app non si blocca).
 
+### Le operazioni lunghe girano come job in coda
+
+Le operazioni che parlano con un sito esterno e possono durare a lungo (un
+aggiornamento prezzi, un backfill completo dello storico, il backfill globale
+dei metadati) **non** girano dentro la richiesta HTTP. La richiesta si limita ad
+**accodare un job** e risponde `202 Accepted` con
+`{"job_id": …, "status": "queued"}`; il worker svuota la coda con un contesto
+proprio, così un provider lento o un database grande non possono mai superare il
+timeout della richiesta.
+
+- `POST /prices/refresh` (con `?portfolio_id=` opzionale) accoda un `price_refresh`.
+- `POST /assets/{id}/backfill-history` accoda un `history_backfill` (storico
+  prezzi completo **più** i metadati split dell'asset).
+- `POST /assets/backfill-meta` accoda un `meta_backfill`.
+- Una seconda richiesta per lo stesso job mentre uno è ancora in coda o in
+  esecuzione restituisce quel job aperto invece di impilarne un duplicato
+  (dedup per tipo + target).
+- Il client segue l'avanzamento interrogando `GET /jobs/{id}` (e `GET /jobs`
+  per la lista recente). Un job è `queued`/`running` mentre è aperto e termina
+  `done`/`failed`/`partial`; `processed`/`total` riportano l'avanzamento per
+  elemento.
+
+Le chiamate verso il provider accodate in questo modo sono le stesse descritte
+sotto; la coda cambia solo *dove* girano, non cosa fanno. Le anteprime di sola
+lettura (`fetch-exposure`, `fetch-etf-exposure`, `fetch-morningstar-exposure`)
+restano sincrone perché il chiamante ha bisogno del risultato immediato.
+
 ### Riportare i problemi
 
-Quando l'utente chiede un aggiornamento prezzi (`POST /prices/refresh`), la
-risposta non è solo la lista dei titoli aggiornati: è un **report** con:
-
-- `refreshed` — i titoli aggiornati con successo;
-- `issues` — i problemi, ognuno con un codice stabile:
-  `rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
-  (un errore HTTP specifico) o `error`;
-- `rate_limited` — un riepilogo rapido: "c'è stato un blocco da rate limit?";
-- `finished_at` — quando l'aggiornamento è terminato (timestamp UTC; la
-  dashboard lo mostra come "Prices updated: …").
-
-Il frontend usa questo report per mostrare un avviso non bloccante se qualche
-aggiornamento è fallito.
+Gli esiti degli aggiornamenti prezzi finiscono nel **log di health**
+(`health_events`): i problemi per-asset portano un codice stabile —
+`rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
+(un errore HTTP specifico) o `error` — e gli eventi emessi mentre gira un job
+sono marcati con l'id di quel job, così la pagina
+Admin → Data & Sync può correlare un fallimento con la riga della coda che
+l'ha prodotto. `GET /health/prices` serve il riepilogo e gli eventi recenti.
 
 ### Storico e split
 

@@ -551,17 +551,30 @@ export interface Dashboard {
   summary?: DashboardSummary
 }
 
-export interface FetchIssue {
-  symbol: string
-  code: string
-  message: string
+/** Body of a job-enqueue endpoint (HTTP 202): poll `job_id` via `jobsApi`. */
+export interface JobEnqueued {
+  job_id: string
+  status: Job['status']
 }
 
-export interface RefreshReport {
-  refreshed: string[]
-  issues: FetchIssue[]
-  rate_limited: boolean
-  finished_at: string
+/** Queue job tracked through `GET /jobs/{id}`: long external-site work
+ * (price refresh, history/meta backfills) runs out of band and reports
+ * progress here. `status` is `queued`/`running` while open, `done`/`failed`/
+ * `partial` once terminal. */
+export interface Job {
+  id: string
+  type: string
+  /** `asset` | `portfolio` | `global` (plus the optional uuid `target_id`). */
+  target_type?: string
+  target_id?: string
+  status: 'queued' | 'running' | 'done' | 'failed' | 'partial'
+  total: number
+  processed: number
+  error?: string
+  requested_by?: string
+  created_at: string
+  started_at?: string
+  finished_at?: string
 }
 
 export interface AuthResponse {
@@ -597,6 +610,9 @@ interface RequestOptions {
   form?: FormData
   /** Return the raw `Response` instead of parsing JSON (for file downloads). */
   raw?: boolean
+  /** Skip the GET cache on reads of mutable resources (job status polling
+   * would otherwise replay the same cached answer for the whole TTL). */
+  noCache?: boolean
 }
 
 function buildUrl(path: string, params?: Record<string, string>): string {
@@ -688,6 +704,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   // mutation.
   if (method !== 'GET') {
     getCache.clear()
+  } else if (options.noCache) {
+    // Read-through: never served from, nor written into, the cache.
   } else {
     const cached = getCache.get(cacheKey)
     if (cached) {
@@ -727,7 +745,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (res.status === 204) return undefined as T
 
   const data: T = await res.json()
-  if (method === 'GET') {
+  if (method === 'GET' && !options.noCache) {
     getCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS })
   }
   return cloneCached<T>(data)
@@ -831,7 +849,7 @@ export const assetApi = {
       body: { countries },
     }),
   backfillHistory: (id: string) =>
-    request<{ status: string }>(`/assets/${id}/backfill-history`, { method: 'POST' }),
+    request<JobEnqueued>(`/assets/${id}/backfill-history`, { method: 'POST' }),
   remove: (id: string) => request<void>(`/assets/${id}`, { method: 'DELETE' }),
   sync: () => request<{ status: string }>('/assets/sync', { method: 'POST' }),
 }
@@ -873,11 +891,38 @@ export const transactionApi = {
 
 export const pricesApi = {
   refresh: (portfolioId?: string) =>
-    request<RefreshReport>('/prices/refresh', {
+    request<JobEnqueued>('/prices/refresh', {
       method: 'POST',
       params: portfolioId ? { portfolio_id: portfolioId } : {},
     }),
   byAsset: (assetId: string) => request<Price[]>(`/prices/${assetId}?full=1`),
+}
+
+const JOB_TERMINAL_STATUSES: Job['status'][] = ['done', 'failed', 'partial']
+
+export const jobsApi = {
+  get: (id: string) => request<Job>(`/jobs/${id}`, { noCache: true }),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const query: Record<string, string> = {}
+    if (params?.limit !== undefined) query.limit = String(params.limit)
+    if (params?.offset !== undefined) query.offset = String(params.offset)
+    return request<Job[]>('/jobs', { params: query, noCache: true })
+  },
+  /** Poll `get` until the job reaches a terminal status (done/failed/partial)
+   * or the timeout lapses. On timeout it RESOLVES with the last observed
+   * (still-open) job instead of throwing: every caller already maps any
+   * non-terminal/non-done status to its localized failure toast, so nothing
+   * would translate a thrown string, and a slow job keeps its progress data
+   * readable by the caller either way. */
+  wait: async (id: string, opts?: { intervalMs?: number; timeoutMs?: number }): Promise<Job> => {
+    const intervalMs = opts?.intervalMs ?? 2000
+    const deadline = Date.now() + (opts?.timeoutMs ?? 5 * 60_000)
+    for (;;) {
+      const job = await jobsApi.get(id)
+      if (JOB_TERMINAL_STATUSES.includes(job.status) || Date.now() >= deadline) return job
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+  },
 }
 
 export const settingsApi = {

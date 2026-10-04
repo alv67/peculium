@@ -14,7 +14,6 @@ import (
 
 	"github.com/alv67/peculium/internal/cache"
 	"github.com/alv67/peculium/internal/config"
-	"github.com/alv67/peculium/internal/model"
 	"github.com/alv67/peculium/internal/price"
 	"github.com/alv67/peculium/internal/repository"
 	"github.com/alv67/peculium/internal/series"
@@ -63,23 +62,20 @@ func main() {
 
 	log.Info().Dur("interval", cfg.PriceFetchInterval).Msg("price worker started")
 
+	// The full Service backs the job executors: claimed jobs then run the
+	// exact code paths the HTTP handlers used to run inline, so no fetch/
+	// persist logic is duplicated here. jwtAuth and the DB maintainer are
+	// nil because no job type authenticates tokens or touches maintenance.
+	svc := service.New(repos, nil, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL),
+		cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc, nil)
+
 	// Job queue consumer. Each claimed job runs on its own detached context
 	// (see service.JobRunner), so the loop is only bound to the worker's
 	// lifetime ctx for claiming and polling.
 	jobRunner := service.NewJobRunner(repos.Job, service.DefaultJobTimeout)
-	// ponytail: phase 1 placeholders only — they acknowledge and finish jobs.
-	// Phase 2 replaces each with the real executor (Yahoo fetch/backfill,
-	// exposure, meta, splits), which reports progress via repos.Job.
-	placeholder := func(_ context.Context, job *model.Job) (string, error) {
-		log.Info().Str("job_id", job.ID.String()).Str("type", job.Type).Msg("job executed (placeholder)")
-		return model.JobStatusDone, nil
-	}
-	for _, t := range []string{
-		model.JobTypePriceRefresh, model.JobTypeHistoryBackfill,
-		model.JobTypeExposureFetch, model.JobTypeMetaBackfill, model.JobTypeSplitsFetch,
-	} {
-		jobRunner.Register(t, placeholder)
-	}
+	svc.RegisterJobExecutors(jobRunner)
+	// splits_fetch intentionally has no executor yet: a queued job of that
+	// type fails fast with "no executor for type" until it gets producers.
 	go jobRunner.Loop(ctx, service.DefaultJobPollInterval)
 
 	pruneJobs := func() {

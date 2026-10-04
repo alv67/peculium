@@ -177,14 +177,13 @@
          band under the condensing header, rendered only when at least one
          vault counter or refresh outcome has something to report, so the
          warnings travel with the user on every page. -->
-    {#if dashboardStatus.fxMissingCount > 0 || priceRefresh.rateLimited || priceRefresh.issueCount > 0 || priceRefresh.failed}
+    {#if dashboardStatus.fxMissingCount > 0 || priceRefresh.partial || priceRefresh.failed}
       <div class="sticky top-[var(--app-header-h)] z-10 border-b border-border bg-background px-4 py-2 lg:px-6">
         <DataQualityStrip
           currency={dashboardStatus.currency}
           fxMissingCount={dashboardStatus.fxMissingCount}
           fxMissingValue={dashboardStatus.fxMissingValue}
-          rateLimited={priceRefresh.rateLimited}
-          issueCount={priceRefresh.issueCount}
+          partial={priceRefresh.partial}
           refreshFailed={priceRefresh.failed}
         />
       </div>

@@ -14,70 +14,65 @@
  * running).
  */
 import { t } from '$lib/i18n/index.svelte'
-import { pricesApi, type RefreshReport } from '$lib/services/api'
+import { jobsApi, pricesApi, type Job } from '$lib/services/api'
 import { toast } from '$lib/stores/toast.svelte'
 
 export const priceRefresh = $state({
   /** Once-per-session guard: true as soon as the refresh has been triggered. */
   started: false,
+  /** True across the whole async flow: the enqueue POST plus the job poll. */
   refreshing: false,
-  /** `RefreshReport.finished_at`; empty renders nothing. */
+  /** `Job.finished_at` of the last completed refresh; empty renders nothing. */
   finishedAt: '',
-  rateLimited: false,
-  issueCount: 0,
+  /** The last refresh finished `partial` (some quotes failed upstream).
+   * The job no longer carries per-issue detail — the health page does. */
+  partial: false,
   failed: false,
   /** Bumped on every completed refresh (success or failure): pages watch it
    * to refetch price-derived data after a refresh they did not trigger. */
   revision: 0,
 })
 
-/**
- * Record a completed report on the shared state: the freshness stamp, the
- * rate-limit/issues chips and a previously surfaced failure all reset from
- * the fresh outcome (`failed = false` — a new success supersedes it).
- */
-export function applyRefreshReport(report: RefreshReport): void {
-  priceRefresh.finishedAt = report.finished_at
-  priceRefresh.rateLimited = report.rate_limited
-  priceRefresh.issueCount = report.issues.length
-  priceRefresh.failed = false
-}
-
-/** Shared in-flight POST (see the de-duplication note above). */
-let inFlight: Promise<RefreshReport | null> | null = null
+/** Shared in-flight job (see the de-duplication note below). */
+let inFlight: Promise<Job | null> | null = null
 
 /**
- * Trigger a price refresh through the shared path and publish the outcome on
- * `priceRefresh`. Concurrent calls return the one in-flight promise. Toast
- * policy: warnings (rate-limited / partial) always fire — the user must know
- * the numbers may be stale — while the plain success toast is opt-in (manual
- * triggers) so the automatic session refresh stays silent, and the error
- * toast can be silenced by the shell's background trigger (the persistent
- * strip surfaces the failure instead). Resolves with the report, or `null`
- * when the POST itself failed.
+ * Trigger a price refresh through the shared path (the POST now enqueues a
+ * worker job) and publish the polled outcome on `priceRefresh`. Concurrent
+ * calls return the one in-flight promise. Toast policy: the partial warning
+ * always fires — the user must know the numbers may be stale — while the
+ * plain success toast is opt-in (manual triggers) so the automatic session
+ * refresh stays silent, and the error toast (failed job or poll timeout)
+ * can be silenced by the shell's background trigger (the persistent strip
+ * surfaces the failure instead). Resolves with the job, or `null` when the
+ * enqueue itself failed.
  */
 export function refreshPrices(opts?: {
   portfolioId?: string
   announceSuccess?: boolean
   announceError?: boolean
-}): Promise<RefreshReport | null> {
+}): Promise<Job | null> {
   if (inFlight) return inFlight
 
-  const run = async (): Promise<RefreshReport | null> => {
+  const run = async (): Promise<Job | null> => {
     priceRefresh.started = true
     priceRefresh.refreshing = true
     try {
-      const report = await pricesApi.refresh(opts?.portfolioId)
-      applyRefreshReport(report)
-      if (report.rate_limited) {
-        toast.warning(t('quickActions.refreshRateLimited'))
-      } else if (report.issues.length > 0) {
-        toast.warning(t('quickActions.refreshIssues', { count: report.issues.length }))
-      } else if (opts?.announceSuccess) {
-        toast.success(t('quickActions.refreshSuccess'))
+      const enqueued = await pricesApi.refresh(opts?.portfolioId)
+      const job = await jobsApi.wait(enqueued.job_id)
+      if (job.finished_at) priceRefresh.finishedAt = job.finished_at
+      priceRefresh.partial = job.status === 'partial'
+      priceRefresh.failed = job.status !== 'done' && job.status !== 'partial'
+      if (job.status === 'partial') {
+        toast.warning(t('quickActions.refreshPartial'))
+      } else if (job.status === 'done') {
+        if (opts?.announceSuccess) toast.success(t('quickActions.refreshSuccess'))
+      } else if (opts?.announceError !== false) {
+        toast.error(t('quickActions.refreshError'))
       }
-      return report
+      return job
     } catch {
+      priceRefresh.partial = false
       priceRefresh.failed = true
       if (opts?.announceError !== false) toast.error(t('quickActions.refreshError'))
       return null

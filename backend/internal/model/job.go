@@ -20,7 +20,6 @@ const (
 const (
 	JobTypePriceRefresh    = "price_refresh"
 	JobTypeHistoryBackfill = "history_backfill"
-	JobTypeExposureFetch   = "exposure_fetch"
 	JobTypeMetaBackfill    = "meta_backfill"
 	JobTypeSplitsFetch     = "splits_fetch"
 )

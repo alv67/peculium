@@ -253,6 +253,9 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users 
 			r.Get("/prices/{assetID}", h.GetPrices)
 			r.Post("/prices/refresh", h.RefreshPrices)
 			r.Get("/health/prices", h.GetPriceHealth)
+
+			r.Get("/jobs", h.ListJobs)
+			r.Get("/jobs/{id}", h.GetJob)
 		})
 	})
 }
