@@ -575,6 +575,10 @@ export interface Job {
   created_at: string
   started_at?: string
   finished_at?: string
+  /** Wall-clock run time of a terminal job (derived server-side). */
+  duration_ms?: number
+  /** Item-level health rollup of a terminal job (derived server-side). */
+  summary?: { ok: number; failed: number }
 }
 
 export interface AuthResponse {

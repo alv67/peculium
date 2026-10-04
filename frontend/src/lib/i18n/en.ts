@@ -572,7 +572,69 @@ export const en = {
     statusSuccess: 'Success',
     statusRateLimited: 'Rate limited',
     statusFailure: 'Failure',
+    statusRunning: 'Running',
+    statusPartial: 'Partial',
     loadFailed: 'Failed to fetch health data',
+    /** Job-origin filter chip over the events card (issue #195): the chip
+     *  shows `jobFilter` + `jobFilterCount`, the ✕ clears through
+     *  `jobFilterClearNamed`; `jobFilterCap` warns when the client-side
+     *  window truncated the matches and `jobFilterNone` when none matched.
+     *  `filterByJob` is the row action opening the filter. */
+    jobFilter: 'Job: {type}',
+    jobFilterCount: '{count} events in this job',
+    jobFilterClear: 'Clear',
+    jobFilterClearNamed: 'Clear the job filter',
+    jobFilterCap: 'Filtered from the newest {limit} events',
+    jobFilterNone: 'No events for this job among the newest {limit}',
+    filterByJob: "Show only this job's events",
+  },
+  /**
+   * Sync-jobs card on `/admin/health` (issue #195 Phase 4): the 25 most
+   * recent queue jobs of every user, with live progress while any job is
+   * open. Unknown `type`/`target_type`/`status` values fall back to the raw
+   * backend string; the `error` text is technical output shown verbatim.
+   */
+  jobs: {
+    title: 'Sync jobs',
+    scopeNote: 'Jobs from every user of this instance · newest 25',
+    /** Table aria-label/caption. */
+    caption: 'Recent sync jobs',
+    /** Header pill shown only while the 3s auto-refresh is live. */
+    live: 'Auto-refresh',
+    lastUpdate: 'Updated at {time}',
+    idle: 'No jobs running',
+    /** Open/failed job counters beside the idle note. */
+    countRunning: '{count} running',
+    countQueued: '{count} queued',
+    countFailed: '{count} failed',
+    /** Headers (Type/Status reuse `common.colType` / `positions.colStatus`). */
+    colTarget: 'Target',
+    colProgress: 'Progress',
+    colStarted: 'Started',
+    /** Progress cell text (`aria-hidden` bar mirrors it for sighted users). */
+    progressOf: '{processed} of {total}',
+    outcome: '{ok} succeeded · {failed} failed',
+    /** Badge labels for the queue lifecycle. */
+    statusQueued: 'Queued',
+    statusRunning: 'Running',
+    statusDone: 'Done',
+    statusFailed: 'Failed',
+    statusPartial: 'Partial',
+    /** Job-type labels for the known backend values. */
+    typePriceRefresh: 'Price refresh',
+    typeHistoryBackfill: 'History backfill',
+    typeMetaBackfill: 'Metadata backfill',
+    typeSplitsFetch: 'Splits fetch',
+    /** Target-type labels. */
+    targetAsset: 'Asset',
+    targetPortfolio: 'Portfolio',
+    targetGlobal: 'Global',
+    empty: 'No jobs yet',
+    emptyHint: 'Price refreshes and backfills started from the app show up here.',
+    /** Row action opening the events-card job filter. */
+    viewEvents: "Show this job's events",
+    viewEventsNamed: 'Show the events of the {type} job',
+    loadFailed: 'Failed to load jobs',
   },
   /**
    * Admin area (issue #57 Phase A): the shared gate state, the Users page

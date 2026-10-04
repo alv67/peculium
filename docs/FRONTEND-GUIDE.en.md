@@ -1569,16 +1569,31 @@ are translated through the i18n layer (chapter 8).
   restore-failure one. Assets are global and never deleted by any mode:
   existing tickers are reused, missing ones recreated.
 
-### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
+### `/admin/health` — Data & Sync (`routes/admin/health/+page.svelte`)
 
-The only page that uses the **generic client**: `api.get('/health/prices?period=today|24h|100')`
-(same-origin `/api/v1/health/prices`). A period selector (Today / Last 24h /
-Last 100) scopes the summary, which the backend computes from the
-`health_events` table over the selected window (it does not reset on
-restart). It shows 4 summary cards (Success Rate, Total Successes, Total
-Failures, Rate Limited) and a paginated table of the recent events (timestamp,
-type, status badge, code, message, duration; page size 50 with Previous/Next
-and a range label), with a "Refresh Now" button.
+Two stacked cards.
+
+**Sync jobs** (top): the recent queue jobs (`jobsApi.list({ limit: 25 })`). Head
+counts (running/queued/failed, only non-zero) and, while a job is open, a
+"Live" pill with a 3-second **auto-refresh** that polls only the job list and
+dies on its own when nothing is queued or running (silent: no skeleton, no
+toast). The table shows type, target (not a link — the queue is not
+user-scoped), a status badge (one shared status→badge map also used by the
+events table, so `running` reads as accent instead of red), progress
+(`processed/total` plus a bar while running and the `ok`/`failed` rollup),
+duration via `formatDuration`, and the start time; a full-width sub-row shows
+the error for `failed`/`partial`. Empty state offers a "Refresh prices" action.
+The duration and the health rollup are derived server-side (no column).
+
+**Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`
+(the period selector scopes the summary only). 4 summary tiles (Success Rate,
+Total Successes, Total Failures, Rate Limited — the summary excludes the job
+lifecycle rows) and a paginated table of the events (timestamp, type, status
+badge, code, message, duration; page size 50). Queue-lifecycle rows
+(`event_type: "job"`) are shown with an outline "job" badge; clicking the
+filter action on a job row shows only that job's events (`job_id`), fetched
+client-side over the newest 500 events with a clearable chip, and the "Refresh
+Now" button reloads both cards.
 
 ### Admin area (`routes/admin/…`)
 

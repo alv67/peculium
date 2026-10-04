@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Component, Snippet } from 'svelte'
+  import type { ComponentType, Snippet, SvelteComponentTyped } from 'svelte'
   import type { IconProps } from 'lucide-svelte'
   import { cx } from './utils'
 
@@ -17,8 +17,10 @@
   }: {
     title: string
     description?: string
-    /** lucide-svelte component, rendered at a muted 32px. */
-    icon?: Component<IconProps>
+    /** lucide-svelte component, rendered at a muted 32px. Typed as the
+     * legacy class shape lucide v1 actually ships (same recipe as the
+     * `typeof Icon` aliases in the layout components). */
+    icon?: ComponentType<SvelteComponentTyped<IconProps>>
     /** Optional CTA snippet (usually a `Button`). */
     action?: Snippet
     dashed?: boolean
