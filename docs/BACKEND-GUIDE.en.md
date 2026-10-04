@@ -707,10 +707,23 @@ synchronous because the caller needs their result inline.
 
 Price-update outcomes are recorded in the **health log** (`health_events`):
 per-asset issues carry a stable code — `rate_limited` (Yahoo refused because
-of too many calls), `http_<status>` (a specific HTTP error) or `error` — and
-events raised while a job runs are tagged with that job's id, so the
-Admin → Data & Sync page can correlate a failure with the queue row that
-produced it. `GET /health/prices` serves the summary and the recent events.
+of too many calls), `http_<status>` (a specific HTTP error) or `error` — each
+with a real duration in `duration_ms`. Events raised while a job runs are
+tagged with that job's id, so the Admin → Data & Sync page can correlate a
+failure with the queue row that produced it.
+
+A queued job also emits its own **lifecycle** rows (event type `job`): one
+`job_started` when the worker claims it and one terminal
+`job_completed`/`job_partial`/`job_failed` with the run duration and the
+processed/total counts. These meta rows are kept out of the provider success
+rate (`GET /health/prices`) and from a job's own item rollup. Terminal events
+are written on a fresh short-lived context, so the outcome of a job that ran
+out of its deadline is still recorded (a timeout is not swallowed). Failed
+per-bar saves and split saves are aggregated into one event per asset and
+operation (count + first error), never one row per date.
+
+`GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms` and a
+`summary` with the `ok`/`failed` item counts of each job.
 
 ### History and splits
 

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -354,5 +355,159 @@ func TestJobRetentionPrunesOnlyOldDone(t *testing.T) {
 	}
 	if len(repo.jobs) != 3 {
 		t.Fatalf("kept %d jobs, want 3 (young done, failed, queued survive)", len(repo.jobs))
+	}
+}
+
+// fakeJobHealth collects the lifecycle events a runner emits.
+type fakeJobHealth struct {
+	events []*model.HealthEvent
+}
+
+func (f *fakeJobHealth) RecordEvent(ctx context.Context, ev *model.HealthEvent) error {
+	f.events = append(f.events, ev)
+	return nil
+}
+
+func TestJobRunnerEmitsLifecycleEvents(t *testing.T) {
+	ctx := context.Background()
+
+	tcs := []struct {
+		name       string
+		status     string
+		execErr    error
+		wantCode   string
+		wantStatus string
+	}{
+		{"done", model.JobStatusDone, nil, "job_completed", "success"},
+		{"partial", model.JobStatusPartial, nil, "job_partial", model.JobStatusPartial},
+		{"failed", "", errors.New("yahoo exploded"), "job_failed", "failure"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, repo := newFakeJobSvc()
+			target := uuid.New()
+			job, _ := svc.Enqueue(ctx, &model.Job{Type: "work", TargetType: model.JobTargetAsset, TargetID: &target, Total: 3})
+			rec := &fakeJobHealth{}
+			runner := NewJobRunner(repo, time.Minute)
+			runner.WithHealth(rec)
+			runner.Register("work", func(c context.Context, j *model.Job) (string, error) {
+				_ = repo.UpdateProgress(c, j.ID, 2, 3)
+				return tc.status, tc.execErr
+			})
+
+			if ran, err := runner.RunOnce(ctx); !ran || err != nil {
+				t.Fatalf("RunOnce = (%v, %v)", ran, err)
+			}
+			if len(rec.events) != 2 {
+				t.Fatalf("events = %d, want 2 (started + terminal)", len(rec.events))
+			}
+			started, terminal := rec.events[0], rec.events[1]
+			if started.Code != "job_started" || started.Status != model.JobStatusRunning {
+				t.Fatalf("started event = %q/%q", started.Code, started.Status)
+			}
+			if started.JobID == nil || *started.JobID != job.ID || started.AssetID == nil || *started.AssetID != target {
+				t.Fatalf("started event job/asset attribution = %+v", started)
+			}
+			if started.Message == "" || !strings.Contains(started.Message, "work") {
+				t.Fatalf("started event = %+v, want type in message", started)
+			}
+			if terminal.Code != tc.wantCode || terminal.Status != tc.wantStatus {
+				t.Fatalf("terminal = %q/%q, want %q/%q", terminal.Code, terminal.Status, tc.wantCode, tc.wantStatus)
+			}
+			if terminal.JobID == nil || *terminal.JobID != job.ID {
+				t.Fatalf("terminal job id = %v", terminal.JobID)
+			}
+			if !strings.Contains(terminal.Message, "2/3") {
+				t.Fatalf("terminal message = %q, want processed/total counts", terminal.Message)
+			}
+			if tc.execErr != nil && !strings.Contains(terminal.Message, tc.execErr.Error()) {
+				t.Fatalf("terminal message = %q, want it to carry the error", terminal.Message)
+			}
+		})
+	}
+}
+
+func TestJobRunnerTerminalEventSurvivesJobTimeout(t *testing.T) {
+	svc, repo := newFakeJobSvc()
+	ctx := context.Background()
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: "hang"}); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := &fakeJobHealth{}
+	runner := NewJobRunner(repo, 20*time.Millisecond)
+	runner.WithHealth(rec)
+	runner.Register("hang", func(jobCtx context.Context, _ *model.Job) (string, error) {
+		<-jobCtx.Done()
+		return "", jobCtx.Err()
+	})
+
+	if ran, err := runner.RunOnce(ctx); !ran || err != nil {
+		t.Fatalf("RunOnce = (%v, %v)", ran, err)
+	}
+	// jobCtx is dead by now; the terminal event must still have been written.
+	terminal := rec.events[len(rec.events)-1]
+	if terminal.Code != "job_failed" || terminal.Status != "failure" {
+		t.Fatalf("terminal = %q/%q, want job_failed/failure", terminal.Code, terminal.Status)
+	}
+	if !strings.Contains(terminal.Message, context.DeadlineExceeded.Error()) {
+		t.Fatalf("terminal message = %q, want the deadline error", terminal.Message)
+	}
+}
+
+func TestJobRunnerUnknownTypeEmitsFailedLifecycle(t *testing.T) {
+	svc, repo := newFakeJobSvc()
+	ctx := context.Background()
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: "ghost"}); err != nil {
+		t.Fatal(err)
+	}
+	rec := &fakeJobHealth{}
+	runner := NewJobRunner(repo, time.Minute)
+	runner.WithHealth(rec)
+	if ran, err := runner.RunOnce(ctx); !ran || err != nil {
+		t.Fatalf("RunOnce = (%v, %v)", ran, err)
+	}
+	if len(rec.events) != 2 || rec.events[1].Code != "job_failed" {
+		t.Fatalf("events = %+v, want started + job_failed", rec.events)
+	}
+}
+
+func TestJobGetDecoratesDurationAndSummary(t *testing.T) {
+	ctx := context.Background()
+	jr := &fakeJobRepo{}
+	health := &fakeHealthRepo{countsByJobs: map[uuid.UUID]*model.JobHealthCounts{}}
+	svc := NewJobService(&repository.Repository{Job: jr, Health: health})
+
+	id := uuid.New()
+	started := time.Now().Add(-2500 * time.Millisecond)
+	finished := started.Add(2500 * time.Millisecond)
+	jr.jobs = append(jr.jobs,
+		&model.Job{ID: id, Status: model.JobStatusDone, StartedAt: &started, FinishedAt: &finished},
+		&model.Job{ID: uuid.New(), Status: model.JobStatusQueued},
+	)
+	health.countsByJobs[id] = &model.JobHealthCounts{OK: 7, Failed: 2}
+
+	job, err := svc.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job.DurationMs != 2500 {
+		t.Fatalf("duration_ms = %d, want 2500", job.DurationMs)
+	}
+	if job.Summary == nil || job.Summary.OK != 7 || job.Summary.Failed != 2 {
+		t.Fatalf("summary = %+v, want ok=7 failed=2", job.Summary)
+	}
+	if len(health.countsIDs) != 1 || health.countsIDs[0] != id {
+		t.Fatalf("counts queried for %v, want only the started job", health.countsIDs)
+	}
+
+	// A never-started job derives no duration and no summary.
+	list, err := svc.List(ctx, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queued := list[1]
+	if queued.DurationMs != 0 || queued.Summary != nil {
+		t.Fatalf("queued job decorated anyway: %+v", queued)
 	}
 }

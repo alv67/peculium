@@ -77,7 +77,7 @@ func main() {
 		price.WithRateBudget(budget),
 		price.WithHealthRecorder(healthSvc),
 	)
-	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc,
+	svc := service.New(repos, jwtAuth, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL, price.WithETFHealthRecorder(healthSvc)), cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc,
 		service.NewExecDBMaintainer(service.DBConnection{
 			Host:     cfg.DBHost,
 			Port:     cfg.DBPort,

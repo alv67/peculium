@@ -721,10 +721,24 @@ restano sincrone perché il chiamante ha bisogno del risultato immediato.
 Gli esiti degli aggiornamenti prezzi finiscono nel **log di health**
 (`health_events`): i problemi per-asset portano un codice stabile —
 `rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
-(un errore HTTP specifico) o `error` — e gli eventi emessi mentre gira un job
-sono marcati con l'id di quel job, così la pagina
-Admin → Data & Sync può correlare un fallimento con la riga della coda che
-l'ha prodotto. `GET /health/prices` serve il riepilogo e gli eventi recenti.
+(un errore HTTP specifico) o `error` — ognuno con una durata reale in
+`duration_ms`. Gli eventi emessi mentre gira un job sono marcati con l'id di
+quel job, così la pagina Admin → Data & Sync può correlare un fallimento con
+la riga della coda che l'ha prodotto.
+
+Un job in coda emette anche le proprie righe di **ciclo di vita** (tipo evento
+`job`): una `job_started` quando il worker lo prende e una terminale
+`job_completed`/`job_partial`/`job_failed` con la durata della run e i conteggi
+processed/total. Queste righe di meta restano fuori dal success rate dei
+provider (`GET /health/prices`) e dal rollup degli item del job stesso. Gli
+eventi terminali vengono scritti su un contesto fresco di breve durata, quindi
+l'esito di un job che ha superato il proprio deadline viene comunque registrato
+(un timeout non viene inghiottito). I salvataggi per-barra e degli split
+falliti sono aggregati in un solo evento per asset e operazione (conteggio +
+primo errore), mai una riga per data.
+
+`GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato e un
+`summary` con i conteggi item `ok`/`failed` di ogni job.
 
 ### Storico e split
 

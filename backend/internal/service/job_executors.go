@@ -14,7 +14,13 @@ import (
 // inline, so queue work never duplicates business logic; it adds progress
 // reporting and the terminal status classification. Health events are tagged
 // with the job id automatically: JobRunner.RunOnce executes on a context
-// bound with WithJobID.
+// bound with WithJobID, and the runner itself emits the job_started plus one
+// terminal job event around every run. Executors deliberately record no
+// duplicate per-item events: per-bar history saves, split saves and price
+// issues are already logged by the fetchers, so a second identical row per
+// failure would only double the health volume. The one exception is
+// meta_backfill, whose per-asset profile failures have no fetcher-side event
+// and are recorded here (BackfillAssetMeta).
 func (s *Service) RegisterJobExecutors(runner *JobRunner) {
 	runner.Register(model.JobTypePriceRefresh, s.execPriceRefresh)
 	runner.Register(model.JobTypeHistoryBackfill, s.execHistoryBackfill)

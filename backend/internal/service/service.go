@@ -2677,10 +2677,16 @@ func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed
 		if progress != nil {
 			progress(i+1, len(assets))
 		}
+		// Per-asset failures are the only health signal for meta backfills
+		// (the profile fetcher logs nothing itself): job id rides on the
+		// context, successes are summarised by the runner's terminal job
+		// event, so only failures get a row.
+		start := time.Now()
 		sector, industry, country, err := s.fetcher.FetchAssetProfile(ctx, a.Ticker)
 		if err != nil {
 			report.Failed++
 			report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", a.Ticker, err))
+			s.recordHealth(ctx, &a.ID, "meta_backfill", "failure", "error", fmt.Sprintf("%s: profile fetch failed: %v", a.Ticker, err), start)
 			continue
 		}
 
@@ -2719,6 +2725,7 @@ func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed
 		if _, err := s.repos.Asset.Update(ctx, a); err != nil {
 			report.Failed++
 			report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", a.Ticker, err))
+			s.recordHealth(ctx, &a.ID, "meta_backfill", "failure", "error", fmt.Sprintf("%s: asset update failed: %v", a.Ticker, err), start)
 		}
 	}
 	s.bumpRev(ctx)
