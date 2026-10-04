@@ -101,6 +101,22 @@ jobs:
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
 
+      - name: Build metadata
+        id: buildinfo
+        run: |
+          # The version the running app should report: an explicit dispatch
+          # `version` input wins (test/RC), otherwise the ref name (tag v1.0.0
+          # or branch develop). The commit is the short SHA, the timestamp is
+          # the build time in UTC — both let two builds of the same branch be
+          # told apart.
+          ver="${{ inputs.version }}"
+          if [ -z "$ver" ]; then ver="${{ github.ref_name }}"; fi
+          {
+            echo "version=$ver"
+            echo "commit=${GITHUB_SHA::7}"
+            echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
@@ -110,6 +126,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PECULIUM_VERSION=${{ steps.buildinfo.outputs.version }}
+            PECULIUM_COMMIT=${{ steps.buildinfo.outputs.commit }}
+            PECULIUM_BUILT_AT=${{ steps.buildinfo.outputs.built_at }}
           # Per-image cache scope: the backend/ context is shared by three
           # Dockerfiles, so isolated scopes avoid cross-matrix cache churn.
           cache-from: type=gha,scope=${{ matrix.name }}

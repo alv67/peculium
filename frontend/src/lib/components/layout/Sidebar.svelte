@@ -13,7 +13,8 @@
    * - tablet (`sm`–`lg`): the same aside, but the shell always passes
    *   `collapsed={true}` — the 64px icon rail (spec §5.1);
    * - phone More sheet: inside the MobileDrawer, always full width
-   *   (`collapsed={false}`, no footer — the drawer chrome owns the header).
+   *   (`collapsed={false}`, footer included so the build chip is reachable
+   *   on phones too, #198).
    */
   let {
     collapsed = false,

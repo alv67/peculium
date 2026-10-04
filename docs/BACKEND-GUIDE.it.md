@@ -158,7 +158,11 @@ La sequenza di avvio del server è:
     (controlla il capitolo sull'autenticazione), e quelli sotto
     `/api/v1/admin/*` richiedono anche il ruolo admin. Fuori da
     `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
-   `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
+    `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
+    Anche `GET /api/v1/version` è pubblica: risponde
+    `{"version":"...","commit":"...","built_at":"..."}` con i metadati di
+    build iniettati come variabili d'ambiente (`PECULIUM_VERSION`,
+    `PECULIUM_COMMIT`, `PECULIUM_BUILT_AT`), senza richiesta di login.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
    rispondere alle richieste mentre il calcolo prosegue) ricostruisce le serie

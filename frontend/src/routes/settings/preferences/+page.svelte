@@ -3,6 +3,7 @@
   import { palette, setCvd } from '$lib/stores/palette.svelte'
   import { setThemeMode, theme } from '$lib/stores/theme.svelte'
   import SettingsTabs from '$lib/components/domain/SettingsTabs.svelte'
+  import VersionChip from '$lib/components/layout/VersionChip.svelte'
   import Card from '$lib/components/ui/Card.svelte'
   import Field from '$lib/components/ui/Field.svelte'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
@@ -107,4 +108,8 @@
       </Field>
     </div>
   </Card>
+
+  <!-- About this build (#198): same card family as the preferences above;
+       the shell already loaded the version on mount. -->
+  <VersionChip detail />
 </div>

@@ -733,12 +733,13 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   rende la `Sidebar` espandibile (240px ⇄ rail di icone da 64px, stato
   persistito in `localStorage['peculium-sidebar']`), l'`AppHeader` sticky con il
   toggle di collassamento e il controllo di aggiornamento dei prezzi, e lo
-  `UserMenu` nel footer della sidebar.
+  `UserMenu` più il `VersionChip` di build nel footer della sidebar.
 - **Tablet (`sm`–`lg`)** — la stessa sidebar forzata a **rail di icone da
   64px** (`AppShell` passa `collapsed={true}`; la preferenza di espansione
   persistita vale solo da `lg` in su). Nessun hamburger e nessuna barra
   inferiore: la navigazione (main, Dati e sincronizzazione, Impostazioni) e il
-  menu utente nel footer del rail restano raggiungibili attraverso il rail;
+  menu utente + chip versione nel footer del rail restano raggiungibili
+  attraverso il rail;
   l'header conserva il controllo di aggiornamento dei prezzi, il trigger del
   pannello comandi e il selettore tema.
 - **Telefono (< `sm`)** — nessuna sidebar: una `BottomNav` fissa (Panoramica ·
@@ -752,6 +753,15 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   `Sidebar`; il controllo di aggiornamento dei prezzi, tema e account restano
   nell'header. A `<main>` viene riservato uno
   spazio extra in basso e la barra rispetta `env(safe-area-inset-bottom)`;
+- La **versione di build** è mostrata da `layout/VersionChip.svelte` in due
+  pesi, entrambi alimentati dallo store a livello di modulo `appVersion` (una
+  sola `GET /api/v1/version` pubblica, fatta una volta dallo shell): un chip
+  mono statico e non focalizzabile (`versione · ora di build locale`) nel footer
+  della sidebar — il rail da 64px mostra la sola versione — stampato anche nella
+  pagina di login, e una card di dettaglio "Informazioni sull'app" in fondo a
+  Impostazioni → Preferenze con il commit (link a GitHub), l'ora di build UTC e
+  un pulsante per copiare le informazioni. Quando il backend non espone i
+  metadati il chip semplicemente non viene renderizzato.
   ogni target di tocco è ≥ 44px.
 - **Header condensante** (tutte le misure): la shell misura lo scroll del
   contenitore scrollabile principale e commuta `condensed` oltre una soglia di

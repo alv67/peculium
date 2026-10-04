@@ -691,14 +691,14 @@ JS state and CSS never disagree.
 - **Desktop (≥ `lg`)** — `AppShell` (root, `h-dvh` + skip-link)
   renders the expandable `Sidebar` (240px ⇄ 64px icon rail, state persisted in
   `localStorage['peculium-sidebar']`), the sticky `AppHeader` with the collapse
-  toggle and the global price-freshness control, and the `UserMenu` in the
-  sidebar footer.
+  toggle and the global price-freshness control, and the `UserMenu` plus the
+  build `VersionChip` in the sidebar footer.
 - **Tablet (`sm`–`lg`)** — the same sidebar forced to the **64px icon rail**
   (`AppShell` passes `collapsed={true}` there; the persisted expand preference
   applies at `lg`+ only). No hamburger and no bottom bar: navigation (main,
-  Data & Sync, Settings) and the rail-footer user menu stay reachable through
-  the rail; the header keeps the price-freshness control, the command-palette
-  trigger and the theme toggle.
+  Data & Sync, Settings) and the rail-footer user menu + version chip stay
+  reachable through the rail; the header keeps the price-freshness control, the
+  command-palette trigger and the theme toggle.
 - **Phone (< `sm`)** — no sidebar: a fixed `BottomNav` (Overview · Portfolios ·
   Assets · More) plus a `Fab` anchored above it that opens the
   `QuickActionSheet` (Add transaction → the single portfolio when unambiguous
@@ -709,6 +709,15 @@ JS state and CSS never disagree.
   which renders the `Sidebar` navigation; the price-freshness control, theme
   and account stay in the header. `<main>` carries an extra bottom clearance and the bar
   respects `env(safe-area-inset-bottom)`; every tap target is ≥ 44px.
+- The **build version** is shown by `layout/VersionChip.svelte` in two
+  weights, both fed by the module-scoped `appVersion` store (a single public
+  `GET /api/v1/version` fetched once by the shell): a static, non-focusable
+  mono chip (`version · local build time`) in the sidebar footer — the 64px
+  rail shows the version alone — also printed on the login page, and a
+  detailed "About this app" card at the bottom of Settings → Preferences with
+  the commit (linked to GitHub), the UTC build time and a copy-for-issue
+  button. When the backend exposes no metadata the chip is simply not
+  rendered.
 - **Condensing header** (all sizes): the shell measures scroll on the main
   scroll container and flips `condensed` past a 16px threshold; it then
   publishes the live bar height as the `--app-header-h` custom property on its

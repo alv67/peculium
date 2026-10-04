@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -102,7 +103,7 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	setupRoutes(r, h, jwtAuth, repos.User)
+	setupRoutes(r, h, jwtAuth, repos.User, cfg)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort),
@@ -159,7 +160,7 @@ func runMigrations(cfg *config.Config) {
 	log.Info().Msg("migrations applied successfully")
 }
 
-func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users appmw.UserLoader) {
+func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users appmw.UserLoader, cfg *config.Config) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -167,6 +168,8 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users 
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/version", versionHandler(cfg))
+
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/login", h.Login)
 		r.Post("/auth/refresh", h.RefreshToken)
@@ -252,6 +255,19 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users 
 			r.Get("/health/prices", h.GetPriceHealth)
 		})
 	})
+}
+
+type versionResponse struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	BuiltAt string `json:"built_at"`
+}
+
+func versionHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(versionResponse{cfg.Version, cfg.Commit, cfg.BuiltAt})
+	}
 }
 
 func parseLogLevel(level string) zerolog.Level {
