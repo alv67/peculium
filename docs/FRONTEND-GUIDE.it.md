@@ -1650,16 +1650,34 @@ sono tradotte tramite il layer i18n (capitolo 8).
   sul fallback di ripristino fallito. Gli asset sono globali e nessuna modalità
   li elimina: i ticker esistenti vengono riusati, i mancanti ricreati.
 
-### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
+### `/admin/health` — Dati e sincronizzazione (`routes/admin/health/+page.svelte`)
 
-L'unica pagina che usa il **client generico**: `api.get('/health/prices?period=today|24h|100')`
-(stessa origine `/api/v1/health/prices`). Un selettore di periodo (Today / Last
-24h / Last 100) limita il riepilogo, che il backend calcola dalla tabella
-`health_events` sulla finestra scelta (non si azzera al riavvio). Mostra 4
-card di riepilogo (Success Rate, Total Successes, Total Failures, Rate Limited)
-e una tabella paginata degli eventi recenti (timestamp, tipo, badge dello stato,
-codice, messaggio, durata; 50 per pagina con Previous/Next e indicazione
-dell'intervallo), con un pulsante "Refresh Now".
+Due card impilate.
+
+**Job di sincronizzazione** (in alto): i job recenti della coda
+(`jobsApi.list({ limit: 25 })`). Conteggi in testa (running/queued/failed, solo
+quelli non nulli) e, mentre un job è aperto, una pill "Live" con **auto-refresh**
+a 3 secondi che interroga solo la lista job e si spegne da sola quando nulla è in
+coda o in corso (silenzioso: niente skeleton, niente toast). La tabella mostra
+tipo, destinazione (non un link — la coda non è per-utente), un badge di stato
+(mappa stato→badge unica, condivisa con la tabella eventi, quindi `running` esce
+in accent e non rosso), avanzamento (`processed/total` più la barra durante
+l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration` e ora di
+avvio; una sub-riga a tutta larghezza mostra l'errore per `failed`/`partial`.
+L'empty state offre l'azione "Aggiorna prezzi". Durata e rollup health sono
+derivati lato server (nessuna colonna).
+
+**Eventi recenti** (in basso): `api.get('/health/prices?period=today|24h|100')`
+(il selettore di periodo limita solo il riepilogo). 4 tile di riepilogo (Success
+Rate, Total Successes, Total Failures, Rate Limited — il riepilogo esclude le
+righe di ciclo di vita dei job) e una tabella paginata degli eventi (timestamp,
+tipo, badge dello stato, codice, messaggio, durata; 50 per pagina). Le righe di
+ciclo di vita della coda (`event_type: "job"`) sono mostrate con un badge
+outline "job"; cliccando l'azione di filtro su una riga job si vedono solo gli
+eventi di quel job (`job_id`), filtrati lato client sui 500 eventi più recenti
+con un chip rimovibile, e il pulsante "Refresh Now" ricarica entrambe le card.
+
+### Area Admin (`routes/admin/…`)
 
 ### Area Admin (`routes/admin/…`)
 

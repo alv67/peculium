@@ -537,7 +537,70 @@ export const it = {
     statusSuccess: 'Successo',
     statusRateLimited: 'Richieste limitate',
     statusFailure: 'Errore',
+    statusRunning: 'In corso',
+    statusPartial: 'Parziale',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
+    /** Chip di filtro per job sulla card eventi (#195 Fase 4): il chip mostra
+     *  `jobFilter` + `jobFilterCount`, la ✕ rimuove con `jobFilterClearNamed`;
+     *  `jobFilterCap` avvisa quando la finestra client-side ha troncato le
+     *  corrispondenze, `jobFilterNone` quando non ce ne sono. `filterByJob`
+     *  è l'azione di riga che apre il filtro. */
+    jobFilter: 'Job: {type}',
+    jobFilterCount: '{count} eventi in questo job',
+    jobFilterClear: 'Rimuovi',
+    jobFilterClearNamed: 'Rimuovi il filtro per job',
+    jobFilterCap: 'Filtro sui {limit} eventi più recenti',
+    jobFilterNone: 'Nessun evento per questo job tra i {limit} più recenti',
+    filterByJob: "Mostra solo gli eventi di questo job",
+  },
+  /**
+   * Card dei job di sincronizzazione in `/admin/health` (#195 Fase 4): i 25
+   * job in coda più recenti di tutti gli utenti, con progresso live finché
+   * un job è aperto. I valori `type`/`target_type`/`status` ignoti mostrano
+   * la stringa grezza del backend; il testo `error` è output tecnico e
+   * resta verbatim.
+   */
+  jobs: {
+    title: 'Job di sincronizzazione',
+    scopeNote: 'Job di tutti gli utenti dell’istanza · i 25 più recenti',
+    /** aria-label/didascalia della tabella. */
+    caption: 'Job di sincronizzazione recenti',
+    /** Pill d'intestazione mostrata solo con l'auto-refresh a 3s attivo. */
+    live: 'Aggiornamento automatico',
+    lastUpdate: 'Aggiornato alle {time}',
+    idle: 'Nessun job in corso',
+    /** Contatori di job aperti/falliti accanto alla nota di quiete. */
+    countRunning: '{count} in corso',
+    countQueued: '{count} in coda',
+    countFailed: '{count} falliti',
+    /** Intestazioni (Tipo/Stato riusano `common.colType` / `positions.colStatus`). */
+    colTarget: 'Destinazione',
+    colProgress: 'Avanzamento',
+    colStarted: 'Avviato',
+    /** Testo della cella di progresso (la barra `aria-hidden` lo replica). */
+    progressOf: '{processed} di {total}',
+    outcome: '{ok} riusciti · {failed} in errore',
+    /** Etichette badge del ciclo di vita della coda. */
+    statusQueued: 'In coda',
+    statusRunning: 'In corso',
+    statusDone: 'Completato',
+    statusFailed: 'Fallito',
+    statusPartial: 'Parziale',
+    /** Etichette dei tipi job noti del backend. */
+    typePriceRefresh: 'Aggiornamento prezzi',
+    typeHistoryBackfill: 'Backfill storico',
+    typeMetaBackfill: 'Backfill metadati',
+    typeSplitsFetch: 'Recupero split',
+    /** Etichette dei tipi di destinazione. */
+    targetAsset: 'Asset',
+    targetPortfolio: 'Portafoglio',
+    targetGlobal: 'Globale',
+    empty: 'Nessun job',
+    emptyHint: 'Gli aggiornamenti prezzi e i backfill avviati dall’app compaiono qui.',
+    /** Azione di riga che apre il filtro job nella card eventi. */
+    viewEvents: "Mostra gli eventi di questo job",
+    viewEventsNamed: 'Mostra gli eventi del job {type}',
+    loadFailed: 'Caricamento dei job non riuscito',
   },
   /**
    * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti
