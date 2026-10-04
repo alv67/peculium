@@ -956,4 +956,24 @@ export const it = {
     sectorsSaved: 'Distribuzione settoriale salvata',
     countriesSaved: 'Distribuzione paesi salvata',
   },
+  /** Build/version display (#198): il chip nella sidebar, nel foglio "Altro",
+   *  nella pagina di login e nella card Impostazioni → Preferenze. */
+  about: {
+    /** Nome accessibile del chip visibile ({version} trasporta l'intera
+     *  stringa mostrata, es. "v1.0.0 · 03/10/2026, 14:22"). */
+    chip: "Versione dell'app {version}",
+    title: "Informazioni sull'app",
+    version: 'Versione',
+    commit: 'Commit',
+    build: 'Build',
+    server: 'Server',
+    /** Suffisso sr-only del link al commit (il testo visibile resta lo SHA). */
+    openCommit: 'Apri il commit su GitHub',
+    copy: 'Copia informazioni build',
+    copied: 'Informazioni build copiate',
+    copyFailed: 'Impossibile copiare le informazioni build',
+    /** Segnaposto per i campi vuoti delle righe della card. */
+    unavailable: 'Non disponibile',
+    hint: 'Indica questa riga quando segnali un problema.',
+  },
 } satisfies Dictionary

@@ -1,12 +1,15 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { toast } from '$lib/stores/toast.svelte'
   import { login, register } from '$lib/stores/auth.svelte'
+  import { loadAppVersion } from '$lib/stores/appVersion.svelte'
   import { errorStatus } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Field from '$lib/components/ui/Field.svelte'
   import Input from '$lib/components/ui/Input.svelte'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
+  import VersionChip from '$lib/components/layout/VersionChip.svelte'
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -30,6 +33,12 @@
   let nameError = $state<string | undefined>(undefined)
 
   const isRegister = $derived(mode === 'register')
+
+  // The build chip below the card reads the shared store; `/version` is
+  // public, so it works already on this pre-login page (#198).
+  onMount(() => {
+    void loadAppVersion()
+  })
 
   // The two modes have different password/name constraints, so validation
   // state never carries over a mode switch.
@@ -172,5 +181,9 @@
         {isRegister ? t('login.register') : t('login.signIn')}
       </Button>
     </form>
+  </div>
+
+  <div class="mt-4 w-full max-w-sm text-center">
+    <VersionChip />
   </div>
 </div>

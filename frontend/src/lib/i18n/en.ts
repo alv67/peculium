@@ -1039,6 +1039,26 @@ export const en = {
     sectorsSaved: 'Sector distribution saved',
     countriesSaved: 'Country distribution saved',
   },
+  /** Build/version display (#198): the sidebar chip, the More sheet, the
+   *  login page and the Settings → Preferences card. */
+  about: {
+    /** Accessible name of the visual chip ({version} carries the whole
+     *  displayed string, e.g. "v1.0.0 · 03/10/2026, 14:22"). */
+    chip: 'App version {version}',
+    title: 'About this app',
+    version: 'Version',
+    commit: 'Commit',
+    build: 'Build',
+    server: 'Server',
+    /** sr-only suffix of the commit link (visible text stays the SHA). */
+    openCommit: 'Open commit on GitHub',
+    copy: 'Copy build info',
+    copied: 'Build info copied',
+    copyFailed: 'Could not copy build info',
+    /** Empty-field placeholder in the card rows. */
+    unavailable: 'Not available',
+    hint: 'Include this line when reporting an issue.',
+  },
 }
 
 /** Canonical dictionary shape derived from the English source of truth. */

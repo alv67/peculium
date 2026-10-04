@@ -163,9 +163,12 @@ The server startup sequence is:
     authentication with a valid token belonging to an active account (see the
     chapter on authentication), and the `/api/v1/admin/*` ones also require an
     admin role. Outside `/api/v1`,
-   `GET /healthz` is a public liveness probe: it answers
-   `{"status":"ok"}` with HTTP 200 and does not touch the database or
-   Redis.
+    `GET /healthz` is a public liveness probe: it answers
+    `{"status":"ok"}` with HTTP 200 and does not touch the database or
+    Redis. `GET /api/v1/version` is public too: it answers
+    `{"version":"...","commit":"...","built_at":"..."}` from the build
+    metadata injected as environment variables (`PECULIUM_VERSION`,
+    `PECULIUM_COMMIT`, `PECULIUM_BUILT_AT`), with no login required.
 6. **Series backfill** — after startup, a goroutine (a "thread" of execution
    that works in parallel with the rest of the program, so the API can answer
    requests while the calculation continues) rebuilds the daily series of all

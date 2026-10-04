@@ -4,9 +4,11 @@
   import { portfolioApi } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
+  import { loadAppVersion } from '$lib/stores/appVersion.svelte'
   import { applyDashboardStatus, dashboardStatus } from '$lib/stores/dashboardStatus.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import DataQualityStrip from '../domain/DataQualityStrip.svelte'
+  import { cx } from '../ui/utils'
   import AppHeader from './AppHeader.svelte'
   import BottomNav from './BottomNav.svelte'
   import CommandPalette from './CommandPalette.svelte'
@@ -14,6 +16,7 @@
   import MobileDrawer from './MobileDrawer.svelte'
   import Sidebar from './Sidebar.svelte'
   import UserMenu from './UserMenu.svelte'
+  import VersionChip from './VersionChip.svelte'
 
   /**
    * Responsive application shell (EPIC D.3, adaptive since EPIC K.2) —
@@ -118,6 +121,7 @@
   // and seed the strip's FX counters from the vault dashboard payload (the
   // dashboard page keeps them fresh afterwards via `applyDashboardStatus`).
   onMount(() => {
+    void loadAppVersion()
     if (!priceRefresh.started) void refreshPrices({ announceSuccess: false, announceError: false })
     if (!dashboardStatus.loaded) {
       portfolioApi
@@ -137,13 +141,24 @@
   {t('nav.skipToContent')}
 </a>
 
+<!-- Sidebar footer shared by the desktop/tablet aside and the phone More
+     sheet (#198): user menu, then the build chip as the last line. The
+     `compact` flag mirrors the rail state: 64px → icon-only menu + version
+     truncated chip. -->
+{#snippet shellFooter(compact: boolean)}
+  <div class={cx('w-full min-w-0 space-y-2', compact && 'text-center')}>
+    <UserMenu {compact} />
+    <VersionChip {compact} />
+  </div>
+{/snippet}
+
 <div
   class="fixed inset-x-0 top-0 flex h-dvh overflow-hidden bg-background text-foreground"
 >
   <aside class="hidden shrink-0 sm:flex">
     <Sidebar collapsed={railCollapsed}>
       {#snippet footer()}
-        <UserMenu compact={railCollapsed} />
+        {@render shellFooter(railCollapsed)}
       {/snippet}
     </Sidebar>
   </aside>
@@ -198,7 +213,11 @@
 </div>
 
 <MobileDrawer bind:open={moreOpen}>
-  <Sidebar collapsed={false} />
+  <Sidebar collapsed={false}>
+    {#snippet footer()}
+      {@render shellFooter(false)}
+    {/snippet}
+  </Sidebar>
 </MobileDrawer>
 
 <!-- Global command palette (EPIC K.5a, spec §8.1): mounted once here — the

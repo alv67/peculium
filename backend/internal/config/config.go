@@ -40,6 +40,10 @@ type Config struct {
 	PythonServiceURL string
 
 	StalePriceDays int
+
+	Version string
+	Commit  string
+	BuiltAt string
 }
 
 func Load() *Config {
@@ -76,6 +80,10 @@ func Load() *Config {
 		PythonServiceURL: getEnv("PECULIUM_PYTHON_SERVICE_URL", "http://python-service:8000"),
 
 		StalePriceDays: getEnvInt("PECULIUM_STALE_PRICE_DAYS", 7),
+
+		Version: getEnv("PECULIUM_VERSION", "dev"),
+		Commit:  getEnv("PECULIUM_COMMIT", ""),
+		BuiltAt: getEnv("PECULIUM_BUILT_AT", ""),
 	}
 }
 

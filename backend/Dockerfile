@@ -14,5 +14,12 @@ RUN apk add --no-cache ca-certificates tzdata postgresql16-client
 COPY --from=builder /server /server
 COPY --from=builder /app/migrations /migrations
 
+ARG PECULIUM_VERSION=dev
+ARG PECULIUM_COMMIT=""
+ARG PECULIUM_BUILT_AT=""
+ENV PECULIUM_VERSION="${PECULIUM_VERSION}"
+ENV PECULIUM_COMMIT="${PECULIUM_COMMIT}"
+ENV PECULIUM_BUILT_AT="${PECULIUM_BUILT_AT}"
+
 WORKDIR /
 EXPOSE 8080
