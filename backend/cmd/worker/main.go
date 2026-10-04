@@ -66,13 +66,14 @@ func main() {
 	// exact code paths the HTTP handlers used to run inline, so no fetch/
 	// persist logic is duplicated here. jwtAuth and the DB maintainer are
 	// nil because no job type authenticates tokens or touches maintenance.
-	svc := service.New(repos, nil, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL),
+	svc := service.New(repos, nil, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL, price.WithETFHealthRecorder(healthSvc)),
 		cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc, nil)
 
 	// Job queue consumer. Each claimed job runs on its own detached context
 	// (see service.JobRunner), so the loop is only bound to the worker's
 	// lifetime ctx for claiming and polling.
 	jobRunner := service.NewJobRunner(repos.Job, service.DefaultJobTimeout)
+	jobRunner.WithHealth(healthSvc)
 	svc.RegisterJobExecutors(jobRunner)
 	// splits_fetch intentionally has no executor yet: a queued job of that
 	// type fails fast with "no executor for type" until it gets producers.

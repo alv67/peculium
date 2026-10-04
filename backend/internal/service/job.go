@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/alv67/peculium/internal/model"
@@ -22,6 +23,9 @@ const (
 	DefaultJobPollInterval = 3 * time.Second
 	// JobRetention is how long finished (done) jobs are kept before pruning.
 	JobRetention = 30 * 24 * time.Hour
+	// jobEventTimeout bounds a health write made outside any request/job
+	// context: the lifecycle event must land even when jobCtx already died.
+	jobEventTimeout = 3 * time.Second
 )
 
 // JobService is the thin business layer over the Postgres job queue. Phase 1
@@ -46,7 +50,11 @@ func (s *JobService) List(ctx context.Context, limit, offset int) ([]*model.Job,
 	if offset < 0 {
 		offset = 0
 	}
-	return s.repos.Job.List(ctx, limit, offset)
+	jobs, err := s.repos.Job.List(ctx, limit, offset)
+	if err == nil {
+		s.decorate(ctx, jobs)
+	}
+	return jobs, err
 }
 
 func (s *JobService) Get(ctx context.Context, id uuid.UUID) (*model.Job, error) {
@@ -54,7 +62,40 @@ func (s *JobService) Get(ctx context.Context, id uuid.UUID) (*model.Job, error) 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if err == nil && job != nil {
+		s.decorate(ctx, []*model.Job{job})
+	}
 	return job, err
+}
+
+// decorate fills the read-only derived job fields (duration_ms, summary) that
+// no DB column backs. The duration is finished-started once both timestamps
+// exist; the health rollup is queried for every claimed job (running or
+// terminal) in one grouped call. A rollup failure only drops the summary:
+// the queue row itself must always be served.
+func (s *JobService) decorate(ctx context.Context, jobs []*model.Job) {
+	ids := make([]uuid.UUID, 0, len(jobs))
+	for _, j := range jobs {
+		if j.StartedAt != nil && j.FinishedAt != nil {
+			j.DurationMs = j.FinishedAt.Sub(*j.StartedAt).Milliseconds()
+		}
+		if j.StartedAt != nil {
+			ids = append(ids, j.ID)
+		}
+	}
+	if len(ids) == 0 || s.repos.Health == nil {
+		return
+	}
+	counts, err := s.repos.Health.CountsByJobs(ctx, ids)
+	if err != nil {
+		log.Warn().Err(err).Msg("job health summary query failed")
+		return
+	}
+	for _, j := range jobs {
+		if c, ok := counts[j.ID]; ok {
+			j.Summary = c
+		}
+	}
 }
 
 // DeleteFinishedBefore prunes done jobs finished before cutoff, returning how
@@ -85,16 +126,56 @@ func JobIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 // job's own detached context, not the caller's.
 type JobExecutor func(ctx context.Context, job *model.Job) (string, error)
 
+// healthRecorder is the slice of the health service the runner consumes for
+// job lifecycle events. Keeping it an interface (and optional) means callers
+// and tests that never wired health tracking keep working: nil emits nothing.
+type healthRecorder interface {
+	RecordEvent(ctx context.Context, event *model.HealthEvent) error
+}
+
 // JobRunner claims queued jobs and dispatches them to a registered executor by
 // type. It is consumed by the worker's polling goroutine.
 type JobRunner struct {
 	repo      repository.JobRepository
 	executors map[string]JobExecutor
 	timeout   time.Duration
+	health    healthRecorder
 }
 
 func NewJobRunner(repo repository.JobRepository, timeout time.Duration) *JobRunner {
 	return &JobRunner{repo: repo, executors: make(map[string]JobExecutor), timeout: timeout}
+}
+
+// WithHealth attaches the health recorder used to emit job lifecycle events
+// (job_started plus one terminal job_completed/job_failed/job_partial).
+func (r *JobRunner) WithHealth(hr healthRecorder) { r.health = hr }
+
+// emit writes one job lifecycle event. The context is always a fresh,
+// short-lived one because the job's own context may already be expired when
+// the terminal event is recorded. Lifecycle rows carry event_type "job" so
+// the health summary can keep them out of the provider-interaction counts.
+func (r *JobRunner) emit(job *model.Job, status, code, message string, since time.Time) {
+	if r.health == nil {
+		return
+	}
+	ev := &model.HealthEvent{
+		ID:         uuid.New(),
+		JobID:      &job.ID,
+		EventType:  "job",
+		Status:     status,
+		Code:       code,
+		Message:    message,
+		DurationMs: int(time.Since(since).Milliseconds()),
+		CreatedAt:  time.Now().UTC(),
+	}
+	if job.TargetType == model.JobTargetAsset && job.TargetID != nil {
+		ev.AssetID = job.TargetID
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), jobEventTimeout)
+	defer cancel()
+	if err := r.health.RecordEvent(ctx, ev); err != nil {
+		log.Warn().Err(err).Str("job_id", job.ID.String()).Msg("failed to record job lifecycle event")
+	}
 }
 
 // Register binds an executor to a job type, overwriting any previous one.
@@ -111,10 +192,20 @@ func (r *JobRunner) RunOnce(ctx context.Context) (ran bool, err error) {
 		return false, err
 	}
 
+	start := time.Now()
+	target := job.TargetType
+	if job.TargetID != nil {
+		target = fmt.Sprintf("%s %s", job.TargetType, job.TargetID)
+	}
+	r.emit(job, model.JobStatusRunning, "job_started", fmt.Sprintf("%s job started, target %s", job.Type, target), start)
+
 	exec, ok := r.executors[job.Type]
 	if !ok {
 		log.Warn().Str("job_id", job.ID.String()).Str("type", job.Type).Msg("no executor registered for job type")
-		return true, r.repo.Finish(context.Background(), job.ID, model.JobStatusFailed, "no executor for type "+job.Type)
+		msg := "no executor for type " + job.Type
+		err := r.repo.Finish(context.Background(), job.ID, model.JobStatusFailed, msg)
+		r.emit(job, model.JobStatusFailed, "job_failed", msg, start)
+		return true, err
 	}
 
 	// Each job runs on its own context with a generous timeout, detached from
@@ -133,14 +224,33 @@ func (r *JobRunner) RunOnce(ctx context.Context) (ran bool, err error) {
 
 	finishStatus := status
 	finishErr := ""
+	eventStatus, eventCode := "success", "job_completed"
+	switch finishStatus {
+	case model.JobStatusPartial:
+		eventStatus, eventCode = model.JobStatusPartial, "job_partial"
+	}
 	if execErr != nil {
 		finishStatus = model.JobStatusFailed
 		finishErr = execErr.Error()
+		eventStatus, eventCode = "failure", "job_failed"
 	}
 
 	// Finish on a fresh context: jobCtx may already be expired/cancelled but
 	// the terminal state must still be persisted.
-	return true, r.repo.Finish(context.Background(), job.ID, finishStatus, finishErr)
+	if err := r.repo.Finish(context.Background(), job.ID, finishStatus, finishErr); err != nil {
+		return true, err
+	}
+
+	// Re-read to report the final persisted progress in the terminal event.
+	if fresh, err := r.repo.GetByID(context.Background(), job.ID); err == nil && fresh != nil {
+		job = fresh
+	}
+	message := fmt.Sprintf("%s finished %d/%d", job.Type, job.Processed, job.Total)
+	if finishErr != "" {
+		message += ": " + finishErr
+	}
+	r.emit(job, eventStatus, eventCode, message, start)
+	return true, nil
 }
 
 // Loop polls for work until ctx is cancelled, sleeping pollInterval when the

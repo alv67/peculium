@@ -173,6 +173,11 @@ func TestGetAndListJobs(t *testing.T) {
 	jobID := decode202(t, rec)["job_id"]
 
 	rec = httptest.NewRecorder()
+	// Stamp a finished run: GET derives duration_ms from the timestamps,
+	// while the summary stays absent without a health repository.
+	started := time.Now().Add(-3 * time.Second)
+	finished := started.Add(2 * time.Second)
+	fq.jobs[0].StartedAt, fq.jobs[0].FinishedAt = &started, &finished
 	h.GetJob(rec, authRequest(http.MethodGet, "/jobs/"+jobID, map[string]string{"id": jobID}))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
@@ -183,6 +188,12 @@ func TestGetAndListJobs(t *testing.T) {
 	}
 	if got.ID.String() != jobID || got.Type != model.JobTypePriceRefresh {
 		t.Fatalf("job = %+v, want the enqueued price_refresh", got)
+	}
+	if got.DurationMs != 2000 {
+		t.Fatalf("duration_ms = %d, want 2000", got.DurationMs)
+	}
+	if got.Summary != nil {
+		t.Fatalf("summary = %+v, want none without a health repo", got.Summary)
 	}
 
 	rec = httptest.NewRecorder()

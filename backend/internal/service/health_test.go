@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/alv67/peculium/internal/cache"
 	"github.com/alv67/peculium/internal/model"
 	"github.com/alv67/peculium/internal/repository"
 )
@@ -22,11 +25,23 @@ type fakeHealthRepo struct {
 	lastNSummary *model.HealthSummary
 	count        int
 	events       []*model.HealthEvent
+
+	countsByJobs map[uuid.UUID]*model.JobHealthCounts
+	countsIDs    []uuid.UUID
+	// writeCtxErr records ctx.Err() as seen by the last RecordEvent, to
+	// prove expired contexts are rewritten on a fresh one.
+	writeCtxErr error
 }
 
 func (f *fakeHealthRepo) RecordEvent(ctx context.Context, event *model.HealthEvent) error {
 	f.recorded = append(f.recorded, event)
+	f.writeCtxErr = ctx.Err()
 	return nil
+}
+
+func (f *fakeHealthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error) {
+	f.countsIDs = jobIDs
+	return f.countsByJobs, nil
 }
 
 func (f *fakeHealthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*model.HealthEvent, error) {
@@ -293,4 +308,44 @@ func TestGetPriceHealthKeepsValidPagination(t *testing.T) {
 	if repo.pageLimit != 25 || repo.pageOffset != 50 {
 		t.Fatalf("GetEventsPage(limit=%d, offset=%d), want (25, 50)", repo.pageLimit, repo.pageOffset)
 	}
+}
+
+func TestRecordEventRewritesExpiredContext(t *testing.T) {
+	repo := &fakeHealthRepo{}
+	hs := NewHealthService(&repository.Repository{Health: repo})
+
+	dead, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := hs.RecordEvent(dead, &model.HealthEvent{EventType: "history_fetch", Status: "failure"}); err != nil {
+		t.Fatalf("RecordEvent on a dead context: %v", err)
+	}
+	if len(repo.recorded) != 1 {
+		t.Fatalf("events recorded = %d, want 1", len(repo.recorded))
+	}
+	if repo.writeCtxErr != nil {
+		t.Fatalf("the repo write saw a dead context: %v", repo.writeCtxErr)
+	}
+}
+
+func TestServiceRecordHealthComputesDuration(t *testing.T) {
+	repo := &fakeHealthRepo{}
+	assetID := uuid.New()
+	svc := New(&repository.Repository{Health: repo}, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, NewHealthService(&repository.Repository{Health: repo}), nil)
+
+	svc.recordHealth(context.Background(), &assetID, "meta_backfill", "failure", "error", "AAPL: boom", time.Now().Add(-120*time.Millisecond))
+	if len(repo.recorded) != 1 {
+		t.Fatalf("events recorded = %d, want 1", len(repo.recorded))
+	}
+	ev := repo.recorded[0]
+	if ev.DurationMs < 100 {
+		t.Fatalf("duration_ms = %d, want >= 100", ev.DurationMs)
+	}
+	if ev.AssetID == nil || *ev.AssetID != assetID || ev.EventType != "meta_backfill" {
+		t.Fatalf("event = %+v", ev)
+	}
+
+	// nil-safe: a service without health tracking records nothing and does
+	// not panic.
+	bare := New(&repository.Repository{}, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
+	bare.recordHealth(context.Background(), nil, "meta_backfill", "failure", "error", "x", time.Now())
 }

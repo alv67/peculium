@@ -31,6 +31,14 @@ const (
 	JobTargetGlobal    = "global"
 )
 
+// JobHealthCounts is the item-level health rollup of a job, derived from its
+// health events at read time (lifecycle rows excluded — they are meta, not
+// work).
+type JobHealthCounts struct {
+	OK     int `json:"ok"`
+	Failed int `json:"failed"`
+}
+
 // Job is one unit of external-site work queued in Postgres and drained by the
 // worker. Processed/Total track per-item progress and Checkpoint lets a long
 // job resume where a previous attempt stopped.
@@ -48,4 +56,10 @@ type Job struct {
 	CreatedAt   time.Time       `json:"created_at"`
 	StartedAt   *time.Time      `json:"started_at,omitempty"`
 	FinishedAt  *time.Time      `json:"finished_at,omitempty"`
+
+	// Derived fields, filled by JobService.Get/List and never stored: the
+	// wall-clock run duration (finished - started) and the health-event
+	// rollup. Zero/nil while the job has not started or finished.
+	DurationMs int64            `json:"duration_ms,omitempty"`
+	Summary    *JobHealthCounts `json:"summary,omitempty"`
 }

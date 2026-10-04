@@ -16,6 +16,7 @@ type HealthRepository interface {
 	CountEvents(ctx context.Context) (int, error)
 	SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error)
 	SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error)
+	CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error)
 }
 
 type healthRepo struct {
@@ -65,13 +66,16 @@ func (r *healthRepo) CountEvents(ctx context.Context) (int, error) {
 	return count, err
 }
 
+// SummarySince counts provider outcomes (success vs failure) of a time
+// window. Job lifecycle events are meta rows about the queue, not external
+// interactions, and stay out of the provider-health picture.
 func (r *healthRepo) SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error) {
 	return r.scanSummary(r.db.QueryRow(ctx,
 		`SELECT COUNT(*) FILTER (WHERE status = 'success'),
 		        COUNT(*) FILTER (WHERE status <> 'success'),
 		        COUNT(*) FILTER (WHERE code = 'rate_limited')
 		 FROM health_events
-		 WHERE created_at >= $1`, since))
+		 WHERE created_at >= $1 AND event_type <> 'job'`, since))
 }
 
 func (r *healthRepo) SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error) {
@@ -82,9 +86,40 @@ func (r *healthRepo) SummaryLastN(ctx context.Context, n int) (*model.HealthSumm
 		 FROM (
 			 SELECT status, code
 			 FROM health_events
+			 WHERE event_type <> 'job'
 			 ORDER BY created_at DESC
 			 LIMIT $1
 		 ) recent`, n))
+}
+
+// CountsByJobs rolls up the item-level health events of the given jobs
+// (lifecycle rows excluded): one grouped query serves a whole page of jobs.
+func (r *healthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error) {
+	if len(jobIDs) == 0 {
+		return map[uuid.UUID]*model.JobHealthCounts{}, nil
+	}
+	rows, err := r.db.Query(ctx,
+		`SELECT job_id,
+		        COUNT(*) FILTER (WHERE status = 'success'),
+		        COUNT(*) FILTER (WHERE status = 'failure')
+		 FROM health_events
+		 WHERE job_id = ANY($1) AND event_type <> 'job'
+		 GROUP BY job_id`, jobIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[uuid.UUID]*model.JobHealthCounts)
+	for rows.Next() {
+		var id uuid.UUID
+		c := &model.JobHealthCounts{}
+		if err := rows.Scan(&id, &c.OK, &c.Failed); err != nil {
+			return nil, err
+		}
+		out[id] = c
+	}
+	return out, rows.Err()
 }
 
 func (r *healthRepo) scanSummary(row pgx.Row) (*model.HealthSummary, error) {

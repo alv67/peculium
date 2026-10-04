@@ -13,6 +13,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 
 	"github.com/alv67/peculium/internal/geo"
@@ -38,12 +40,65 @@ type EtfSearchResult struct {
 type JustETFFetcher struct {
 	baseURL string
 	client  *http.Client
+	health  HealthRecorder
+}
+
+// ETFFetcherOption configures a JustETFFetcher at construction.
+type ETFFetcherOption func(*JustETFFetcher)
+
+// WithETFHealthRecorder sets the service used to record python-service call
+// outcomes, mirroring the Yahoo fetcher's WithHealthRecorder.
+func WithETFHealthRecorder(hr HealthRecorder) ETFFetcherOption {
+	return func(f *JustETFFetcher) { f.health = hr }
 }
 
 const (
 	etfMaxRetries = 2
 	etfRetryDelay = 400 * time.Millisecond
 )
+
+// recordOutcome logs one python-service call, success or failure, with the
+// duration measured from since (which spans the whole retry sequence). No-op
+// without a recorder and never fails the call: health tracking must not
+// break exposure fetching. Job attribution rides on the context via the
+// HealthService chokepoint.
+func (f *JustETFFetcher) recordOutcome(ctx context.Context, eventType, target string, err error, since time.Time) {
+	if f.health == nil {
+		return
+	}
+	status, code, message := "success", "", target
+	if err != nil {
+		status, code, message = "failure", etfIssueCode(err), target+": "+err.Error()
+	}
+	ev := &model.HealthEvent{
+		ID:         uuid.New(),
+		EventType:  eventType,
+		Status:     status,
+		Code:       code,
+		Message:    message,
+		DurationMs: int(time.Since(since).Milliseconds()),
+		CreatedAt:  time.Now().UTC(),
+	}
+	if err := f.health.RecordEvent(ctx, ev); err != nil {
+		log.Warn().Err(err).Str("event_type", eventType).Msg("failed to record health event")
+	}
+}
+
+// etfIssueCode maps a python-service error to a stable code, mirroring the
+// Yahoo issueCode: rate limiting for 401/403/429, "http_<status>" for other
+// HTTP statuses, "error" for transport/parse failures.
+func etfIssueCode(err error) string {
+	var se *etfStatusError
+	if errors.As(err, &se) {
+		switch se.status {
+		case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:
+			return "rate_limited"
+		default:
+			return fmt.Sprintf("http_%d", se.status)
+		}
+	}
+	return "error"
+}
 
 type etfExposureRow struct {
 	Name   string  `json:"name"`
@@ -61,11 +116,15 @@ type etfErrorResponse struct {
 }
 
 // NewJustETFFetcher builds a fetcher that talks to the python-service base URL.
-func NewJustETFFetcher(baseURL string) *JustETFFetcher {
-	return &JustETFFetcher{
+func NewJustETFFetcher(baseURL string, opts ...ETFFetcherOption) *JustETFFetcher {
+	f := &JustETFFetcher{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		client:  &http.Client{Timeout: 15 * time.Second},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 // FetchExposure calls the python-service exposure endpoint for an ISIN. Non-2xx
@@ -73,14 +132,20 @@ func NewJustETFFetcher(baseURL string) *JustETFFetcher {
 // up to etfMaxRetries times with a small backoff.
 func (f *JustETFFetcher) FetchExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
 	url := fmt.Sprintf("%s/api/v1/etf/%s/exposure", f.baseURL, isin)
-	return f.fetchPath(ctx, url, isin)
+	start := time.Now()
+	exposure, err := f.fetchPath(ctx, url, isin)
+	f.recordOutcome(ctx, "etf_exposure", isin, err, start)
+	return exposure, err
 }
 
 // FetchMorningstarExposure calls the python-service Morningstar exposure
 // endpoint for an ISIN, using the same retry pattern as FetchExposure.
 func (f *JustETFFetcher) FetchMorningstarExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
 	url := fmt.Sprintf("%s/api/v1/etf/%s/morningstar-exposure", f.baseURL, isin)
-	return f.fetchPath(ctx, url, isin)
+	start := time.Now()
+	exposure, err := f.fetchPath(ctx, url, isin)
+	f.recordOutcome(ctx, "etf_morningstar_exposure", isin, err, start)
+	return exposure, err
 }
 
 func (f *JustETFFetcher) fetchPath(ctx context.Context, url, isin string) (*model.AssetExposure, error) {
@@ -152,6 +217,13 @@ func statusMessage(status int, body []byte) string {
 // SearchTicker resolves a ticker (or name fragment) to ETF ISINs through the
 // python-service search endpoint. Network failures are retried like FetchExposure.
 func (f *JustETFFetcher) SearchTicker(ctx context.Context, query string) ([]EtfSearchResult, error) {
+	start := time.Now()
+	results, err := f.searchTicker(ctx, query)
+	f.recordOutcome(ctx, "etf_search", query, err, start)
+	return results, err
+}
+
+func (f *JustETFFetcher) searchTicker(ctx context.Context, query string) ([]EtfSearchResult, error) {
 	url := fmt.Sprintf("%s/api/v1/etf/search?q=%s", f.baseURL, url.QueryEscape(query))
 
 	var err error
