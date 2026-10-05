@@ -56,6 +56,25 @@ func (p *histPriceRepo) Create(ctx context.Context, pr *model.Price) (*model.Pri
 	return pr, nil
 }
 
+// UpsertBatch mirrors the real batch save while keeping the per-row failure
+// accounting the tests assert on: rows after failFrom are not written and the
+// call reports the failure, as a real failing chunk would.
+func (p *histPriceRepo) UpsertBatch(ctx context.Context, prices []*model.Price) (int, error) {
+	written := 0
+	for range prices {
+		p.created++
+		if p.created > p.failFrom {
+			p.failed++
+			continue
+		}
+		written++
+	}
+	if written < len(prices) {
+		return written, errors.New("db down")
+	}
+	return written, nil
+}
+
 type histAssetRepo struct {
 	repository.AssetRepository
 	markErr error
@@ -89,8 +108,9 @@ func TestEnsureHistoryAggregatesSaveFailures(t *testing.T) {
 	})}
 
 	id := uuid.New()
-	if err := f.EnsureHistory(context.Background(), []HistoryAsset{{ID: id, Ticker: "AAPL", From: time.Now().AddDate(0, 0, -5), Full: true}}); err != nil {
-		t.Fatal(err)
+	err := f.EnsureHistory(context.Background(), []HistoryAsset{{ID: id, Ticker: "AAPL", From: time.Now().AddDate(0, 0, -5), Full: true}})
+	if !errors.Is(err, ErrSyncIncomplete) {
+		t.Fatalf("err = %v, want ErrSyncIncomplete (bars and mark both failed)", err)
 	}
 	if pr.failed != 2 || ar.marks != 1 {
 		t.Fatalf("saves failed=%d marks=%d, want 2 and 1", pr.failed, ar.marks)

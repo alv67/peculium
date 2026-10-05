@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/alv67/peculium/internal/model"
+	"github.com/alv67/peculium/internal/price"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -69,20 +71,27 @@ func (s *Service) execHistoryBackfill(ctx context.Context, job *model.Job) (stri
 	// The job's two work items: the full price history and the split
 	// metadata, since splits belong to the asset profile as much as quotes.
 	s.reportProgress(ctx, job, 0, 2)
+	partial := false
 	if err := s.BackfillAssetHistory(ctx, assetID); err != nil {
-		return "", err
+		// A truncated history (some bars not persisted, e.g. a timeout) is a
+		// partial job, not a hard failure: the health log holds the detail.
+		if !errors.Is(err, price.ErrSyncIncomplete) {
+			return "", err
+		}
+		partial = true
 	}
 	s.reportProgress(ctx, job, 1, 2)
 
-	splitsFailed := false
 	if asset, err := s.repos.Asset.FindByID(ctx, assetID); err == nil && isYahooPriced(asset) {
 		if err := s.fetcher.EnsureSplits(ctx, []*model.Asset{asset}); err != nil {
-			log.Warn().Err(err).Str("job_id", job.ID.String()).Msg("splits ensure failed during history backfill")
-			splitsFailed = true
+			if !errors.Is(err, price.ErrSyncIncomplete) {
+				log.Warn().Err(err).Str("job_id", job.ID.String()).Msg("splits ensure failed during history backfill")
+			}
+			partial = true
 		}
 	}
 	s.reportProgress(ctx, job, 2, 2)
-	if splitsFailed {
+	if partial {
 		return model.JobStatusPartial, nil
 	}
 	return model.JobStatusDone, nil

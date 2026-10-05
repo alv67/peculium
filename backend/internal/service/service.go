@@ -2585,7 +2585,11 @@ func (s *Service) SyncAssetData(ctx context.Context) error {
 		ids = append(ids, a.ID)
 	}
 	if err := s.syncAssets(ctx, ids); err != nil {
-		return err
+		// A partial sync (some bars/splits not persisted) is recorded in the
+		// health log and is not a hard failure of the whole app load.
+		if !errors.Is(err, price.ErrSyncIncomplete) {
+			return err
+		}
 	}
 	// Newly fetched prices change every series; recompute so charts and the
 	// dashboard reflect the fresh data immediately instead of waiting for the
@@ -2647,6 +2651,10 @@ func (s *Service) BackfillAssetHistory(ctx context.Context, id uuid.UUID) error 
 		return nil
 	}
 	if err := s.fetcher.EnsureHistory(ctx, []price.HistoryAsset{{ID: asset.ID, Ticker: asset.Ticker, Full: true}}); err != nil {
+		// Partial data may have landed even when the sync reports incomplete,
+		// so invalidate the cached series either way; the error (including
+		// price.ErrSyncIncomplete) is propagated for the caller to classify.
+		s.bumpRev(ctx)
 		return err
 	}
 	s.bumpRev(ctx)
