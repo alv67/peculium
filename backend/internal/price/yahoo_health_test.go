@@ -56,6 +56,25 @@ func (p *histPriceRepo) Create(ctx context.Context, pr *model.Price) (*model.Pri
 	return pr, nil
 }
 
+// UpsertBatch mirrors the real batch save while keeping the per-row failure
+// accounting the tests assert on: rows after failFrom are not written and the
+// call reports the failure, as a real failing chunk would.
+func (p *histPriceRepo) UpsertBatch(ctx context.Context, prices []*model.Price) (int, error) {
+	written := 0
+	for range prices {
+		p.created++
+		if p.created > p.failFrom {
+			p.failed++
+			continue
+		}
+		written++
+	}
+	if written < len(prices) {
+		return written, errors.New("db down")
+	}
+	return written, nil
+}
+
 type histAssetRepo struct {
 	repository.AssetRepository
 	markErr error

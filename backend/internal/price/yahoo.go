@@ -446,31 +446,29 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 			incomplete = true
 			continue
 		}
-		// Aggregate save failures into one event per asset: a per-bar event
-		// would flood the health log on a long backfill. The loop stops as
-		// soon as the context is gone (the remaining bars count as not saved)
-		// instead of hammering the database with doomed inserts.
-		failed, total := 0, len(bars)
-		var firstErr error
-		for i, b := range bars {
-			if ctx.Err() != nil {
-				failed += len(bars) - i
-				break
+		// One multi-row upsert (chunked) instead of one statement per bar: the
+		// per-bar round-trips were what pushed a long backfill past its
+		// deadline. Dedupe by date first — Postgres rejects an ON CONFLICT
+		// affecting the same row twice in a single INSERT.
+		prices := make([]*model.Price, 0, len(bars))
+		byDate := make(map[time.Time]int, len(bars))
+		for _, b := range bars {
+			p := &model.Price{AssetID: a.ID, Date: b.Date, Close: b.Close, Source: "yahoo"}
+			if idx, ok := byDate[b.Date]; ok {
+				prices[idx] = p
+				continue
 			}
-			if _, err := f.repos.Price.Create(ctx, &model.Price{AssetID: a.ID, Date: b.Date, Close: b.Close, Source: "yahoo"}); err != nil {
-				log.Warn().Err(err).Str("symbol", a.Ticker).Str("date", b.Date.Format("2006-01-02")).Msg("history save failed")
-				if firstErr == nil {
-					firstErr = err
-				}
-				failed++
-			}
+			byDate[b.Date] = len(prices)
+			prices = append(prices, p)
 		}
-		if failed > 0 {
+		total := len(prices)
+		written, saveErr := f.repos.Price.UpsertBatch(ctx, prices)
+		if failed := total - written; failed > 0 {
 			// The duration is the whole per-asset operation, not just the save
-			// loop: the save fails *because* the operation ran out of time, so
-			// a save-loop-only duration (a few hundred ms) would be misleading.
+			// phase: the save fails *because* the operation ran out of time, so
+			// a save-only duration (a few hundred ms) would be misleading.
 			f.recordHealth(ctx, &a.ID, "history_save", "failure", "error",
-				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, firstErr), start)
+				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, saveErr), start)
 			incomplete = true
 		}
 		if a.Full {

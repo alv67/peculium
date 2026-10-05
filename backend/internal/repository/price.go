@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,12 @@ import (
 
 type PriceRepository interface {
 	Create(ctx context.Context, price *model.Price) (*model.Price, error)
+	// UpsertBatch persists many prices with a few multi-row upserts instead of
+	// one statement per bar, upserting on (asset_id, date). It returns how many
+	// rows were written; on a mid-way error the count reflects the chunks that
+	// already committed. The caller must not pass duplicate (asset_id, date)
+	// pairs in one call (Postgres rejects affecting a row twice in one INSERT).
+	UpsertBatch(ctx context.Context, prices []*model.Price) (int, error)
 	FindByAsset(ctx context.Context, assetID uuid.UUID) ([]*model.Price, error)
 	FindLatest(ctx context.Context, assetID uuid.UUID) (*model.Price, error)
 	FindLatestForAssets(ctx context.Context, assetIDs []uuid.UUID) (map[uuid.UUID]*model.Price, error)
@@ -42,6 +50,44 @@ func (r *priceRepo) Create(ctx context.Context, price *model.Price) (*model.Pric
 		return nil, err
 	}
 	return p, nil
+}
+
+// priceUpsertBatch is how many rows go into one multi-row INSERT: 500 keeps
+// the statement well under PostgreSQL's parameter limit (8 params per row)
+// while collapsing a full history backfill into a handful of round-trips.
+const priceUpsertBatch = 500
+
+func (r *priceRepo) UpsertBatch(ctx context.Context, prices []*model.Price) (int, error) {
+	written := 0
+	for start := 0; start < len(prices); start += priceUpsertBatch {
+		end := start + priceUpsertBatch
+		if end > len(prices) {
+			end = len(prices)
+		}
+		chunk := prices[start:end]
+
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO prices (asset_id, date, open, high, low, close, volume, source) VALUES `)
+		args := make([]any, 0, len(chunk)*8)
+		for i, p := range chunk {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			n := i * 8
+			fmt.Fprintf(&sb, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8)
+			args = append(args, p.AssetID, p.Date, p.Open, p.High, p.Low, p.Close, p.Volume, p.Source)
+		}
+		sb.WriteString(` ON CONFLICT (asset_id, date) DO UPDATE
+			SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low,
+			    close = EXCLUDED.close, volume = EXCLUDED.volume, source = EXCLUDED.source`)
+
+		tag, err := r.db.Exec(ctx, sb.String(), args...)
+		if err != nil {
+			return written, err
+		}
+		written += int(tag.RowsAffected())
+	}
+	return written, nil
 }
 
 func (r *priceRepo) FindByAsset(ctx context.Context, assetID uuid.UUID) ([]*model.Price, error) {
