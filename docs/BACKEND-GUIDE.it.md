@@ -1145,7 +1145,10 @@ invariata quella salvata), e i prezzi manuali fanno upsert su
 `(asset, data)`. Le voci delle valute aggiungono alla whitelist globale i
 codici mancanti e non modificano mai quelli esistenti. Tutta la scrittura
 avviene in un'unica transazione e, dopo il commit, le serie di ogni
-portafoglio creato vengono ricalcolate.
+portafoglio creato vengono ricalcolate e viene accodato un job globale
+**`asset_sync`**, così il worker fa il backfill di storico e split degli asset
+ripristinati esattamente come dopo un import (il bundle non contiene dati di
+provider).
 
 La risposta è il riepilogo dell'operazione: la `mode` effettivamente
 applicata e i contatori `portfolios_created`, `transactions_created`,

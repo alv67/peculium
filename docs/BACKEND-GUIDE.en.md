@@ -1126,7 +1126,9 @@ from the bundle leaves the stored one untouched), and manual prices upsert
 on `(asset, date)`. Currency entries add missing codes to the global
 whitelist and never modify existing ones. The whole restore runs in a
 single transaction, and once it commits the series of every created
-portfolio is recomputed.
+portfolio is recomputed and a global **`asset_sync`** job is queued, so the
+worker backfills the restored assets' price history and splits exactly as
+after an import (the bundle carries no provider data).
 
 The response is a summary of the operation: the `mode` applied and the
 counts `portfolios_created`, `transactions_created`, `assets_created` and

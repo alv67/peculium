@@ -297,6 +297,15 @@ func (s *Service) RestoreUserBackup(ctx context.Context, userID uuid.UUID, doc *
 		}
 	}
 	s.bumpRev(ctx)
+	// Restored assets arrive without market data: queue the global asset sync
+	// so the worker backfills their history and splits, exactly like an import.
+	if _, err := s.Jobs.Enqueue(ctx, &model.Job{
+		Type:        model.JobTypeAssetSync,
+		TargetType:  model.JobTargetGlobal,
+		RequestedBy: &userID,
+	}); err != nil {
+		log.Warn().Err(err).Msg("post-restore asset sync enqueue failed")
+	}
 	return summary, nil
 }
 

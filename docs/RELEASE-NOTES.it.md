@@ -10,6 +10,9 @@
 - Aprire l'app o un portafoglio non attende più i download: i dati di mercato vengono scaricati in background e le pagine si aggiornano da sole quando sono pronti
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 
+### Correzioni
+- Il ripristino di un backup ora scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i loro grafici vuoti fino alla prossima apertura dell'app
+
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)
 
 ### Nuove funzionalità

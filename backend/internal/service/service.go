@@ -2596,10 +2596,14 @@ func (s *Service) syncAssets(ctx context.Context, ids []uuid.UUID) error {
 		}
 		historyAssets = append(historyAssets, price.HistoryAsset{ID: a.ID, Ticker: a.Ticker, From: from, Full: !a.HistoryBackfilled})
 	}
-	if err := s.fetcher.EnsureSplits(ctx, assets); err != nil {
-		return err
+	// Run both even if one reports incomplete (partial saves): a failed split
+	// fetch must never skip the history backfill.
+	histErr := s.fetcher.EnsureHistory(ctx, historyAssets)
+	splitErr := s.fetcher.EnsureSplits(ctx, assets)
+	if histErr != nil {
+		return histErr
 	}
-	return s.fetcher.EnsureHistory(ctx, historyAssets)
+	return splitErr
 }
 
 // BackfillAssetHistory forces a full price-history backfill for a single
