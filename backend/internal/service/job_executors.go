@@ -26,7 +26,17 @@ import (
 func (s *Service) RegisterJobExecutors(runner *JobRunner) {
 	runner.Register(model.JobTypePriceRefresh, s.execPriceRefresh)
 	runner.Register(model.JobTypeHistoryBackfill, s.execHistoryBackfill)
+	runner.Register(model.JobTypeAssetSync, s.execAssetSync)
 	runner.Register(model.JobTypeMetaBackfill, s.execMetaBackfill)
+}
+
+// execAssetSync brings every Yahoo-priced asset's splits and history up to
+// date in one global job (the old inline POST /assets/sync path).
+func (s *Service) execAssetSync(ctx context.Context, _ *model.Job) (string, error) {
+	if err := s.SyncAssetData(ctx); err != nil {
+		return "", err
+	}
+	return model.JobStatusDone, nil
 }
 
 // reportProgress persists processed/total. A failed progress write is only

@@ -14,7 +14,7 @@
  * running).
  */
 import { t } from '$lib/i18n/index.svelte'
-import { jobsApi, pricesApi, type Job } from '$lib/services/api'
+import { clearGetCache, jobsApi, pricesApi, type Job } from '$lib/services/api'
 import { toast } from '$lib/stores/toast.svelte'
 
 export const priceRefresh = $state({
@@ -35,6 +35,14 @@ export const priceRefresh = $state({
 
 /** Shared in-flight job (see the de-duplication note below). */
 let inFlight: Promise<Job | null> | null = null
+
+/** Invalidate cached GET data after a background job (the asset sync) changed
+ * server data without a request that would clear the frontend cache, and bump
+ * the revision so price-derived pages refetch on their own. */
+export function markDataSynced(): void {
+  clearGetCache()
+  priceRefresh.revision += 1
+}
 
 /**
  * Trigger a price refresh through the shared path (the POST now enqueues a

@@ -12,6 +12,12 @@ interface CacheEntry {
 
 const getCache = new Map<string, CacheEntry>()
 
+/** Drop the in-memory GET cache. Needed after a background job (e.g. the
+ * asset sync) changes server data without a request that would clear it. */
+export function clearGetCache(): void {
+  getCache.clear()
+}
+
 // Deep-copy cached data so callers never share mutable references with the
 // cache entry (a caller mutating a response would otherwise poison it).
 // Falls back to JSON round-trip, then to the raw reference: it must never
@@ -855,7 +861,9 @@ export const assetApi = {
   backfillHistory: (id: string) =>
     request<JobEnqueued>(`/assets/${id}/backfill-history`, { method: 'POST' }),
   remove: (id: string) => request<void>(`/assets/${id}`, { method: 'DELETE' }),
-  sync: () => request<{ status: string }>('/assets/sync', { method: 'POST' }),
+  // Queues a global asset sync (splits + history for every Yahoo asset) as a
+  // worker job; poll the returned job id, then invalidate caches.
+  sync: () => request<JobEnqueued>('/assets/sync', { method: 'POST' }),
 }
 
 export const transactionApi = {

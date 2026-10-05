@@ -681,16 +681,20 @@ If Redis is unreachable, the counter is disabled and the app proceeds anyway
 ### Long fetching runs as a queued job
 
 The operations that talk to an external site and can take a long time
-(a price refresh, a full history backfill, the global metadata backfill) do
-**not** run inside the HTTP request. The request only **queues a job** and
-answers `202 Accepted` with `{"job_id": …, "status": "queued"}`; the worker
-drains the queue with its own context, so a slow provider or a large database
-can never exceed the request timeout.
+(a price refresh, a full history backfill, the global metadata backfill, the
+per-app-load asset sync) do **not** run inside the HTTP request. The request
+only **queues a job** and answers `202 Accepted` with
+`{"job_id": …, "status": "queued"}`; the worker drains the queue with its own
+context, so a slow provider or a large database can never exceed the request
+timeout.
 
 - `POST /prices/refresh` (optionally `?portfolio_id=`) queues a `price_refresh`.
 - `POST /assets/{id}/backfill-history` queues a `history_backfill` (full price
   history **plus** the asset's split metadata).
+- `POST /assets/sync` queues an `asset_sync`: the incremental splits + history
+  update for every Yahoo-priced asset (run once per app load).
 - `POST /assets/backfill-meta` queues a `meta_backfill`.
+- Creating an asset queues a `history_backfill` for it.
 - A second request for the same job while one is still queued or running
   returns that open job instead of stacking a duplicate (deduplicated by
   type + target).
@@ -699,7 +703,9 @@ can never exceed the request timeout.
   `done`/`failed`/`partial`; `processed`/`total` report per-item progress.
 
 The provider-facing calls queued this way are the same ones described below;
-the queue only moves *where* they run, not what they do. Read-only previews
+the queue only moves *where* they run, not what they do. Reads never fetch:
+`GET /portfolios/{id}/history` recomputes the stored series and serves it, and
+the market data is brought up to date by the jobs above. Read-only previews
 (`fetch-exposure`, `fetch-etf-exposure`, `fetch-morningstar-exposure`) stay
 synchronous because the caller needs their result inline.
 
