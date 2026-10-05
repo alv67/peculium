@@ -940,11 +940,12 @@ Uno store a rune che contiene `auth.user` e `auth.isLoading`:
   (`lib/components/layout/AppShell.svelte`, capitolo 8) attorno al contenuto
   della pagina;
 - monta `<Toaster />`;
-- una volta per caricamento di pagina (flag `synced`) chiama
-  `assetApi.sync()` (`POST /assets/sync`) — la task in background del backend
-  che fa il backfill di storico e split per gli asset che ne sono privi. Gli
-  errori vengono ignorati: le singole pagine fanno il backfill di ciò che
-  serve.
+- una volta per caricamento di pagina (flag `synced`) accoda il sync globale
+  degli asset: `assetApi.sync()` (`POST /assets/sync`, ora un job 202) e poi
+  `jobsApi.wait(job_id)`; quando il worker termina chiama `markDataSynced()`,
+  che svuota la cache GET del frontend e incrementa la `revision` del refresh
+  prezzi così le pagine che mostrano prezzi si aggiornano da sole. Gli errori
+  vengono ignorati: le singole pagine fanno il backfill di ciò che serve.
 
 ### Archiviazione dei token e refresh
 
@@ -1160,8 +1161,9 @@ Endpoint chiamati: `portfolioApi.list()`, `settingsApi.listCurrencies()`.
   (richiede `version === 1`), mostra un'anteprima (nome/valuta/numero di
   transazioni/range date) e importa in modalità **"new"** (con un nome scelto)
   o **"overwrite"** (su un portafoglio esistente); dopo un import riuscito
-  chiama `assetApi.sync()` così gli asset importati ricevono il backfill dello
-  storico.
+  accoda `assetApi.sync()` e, quando il job termina, chiama `markDataSynced()`
+  così lo storico degli asset importati compare senza attendere il prossimo
+  avvio.
 - L'**Export** vive nella pagina di dettaglio (nel menu `⋯` dell'header, sotto).
 
 ### `/portfolios/[id]` — Dettaglio portafoglio (sotto-route a tab)

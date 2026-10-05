@@ -117,6 +117,7 @@ func TestAsyncRoutesEnqueueJobs(t *testing.T) {
 		wantID     *uuid.UUID
 	}{
 		{"prices/refresh global", func(h *Handler) http.HandlerFunc { return h.RefreshPrices }, "/prices/refresh", nil, model.JobTypePriceRefresh, model.JobTargetGlobal, nil},
+		{"assets/sync", func(h *Handler) http.HandlerFunc { return h.SyncAssets }, "/assets/sync", nil, model.JobTypeAssetSync, model.JobTargetGlobal, nil},
 		{"backfill-history", func(h *Handler) http.HandlerFunc { return h.BackfillAssetHistory }, "/assets/" + assetID.String() + "/backfill-history", map[string]string{"id": assetID.String()}, model.JobTypeHistoryBackfill, model.JobTargetAsset, &assetID},
 		{"backfill-meta", func(h *Handler) http.HandlerFunc { return h.BackfillAssetMeta }, "/assets/backfill-meta", nil, model.JobTypeMetaBackfill, model.JobTargetGlobal, nil},
 	}

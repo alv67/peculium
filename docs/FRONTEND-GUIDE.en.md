@@ -885,9 +885,11 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
 - for authenticated users it renders the responsive app shell
   (`lib/components/layout/AppShell.svelte`, chapter 8) around the page content;
 - it mounts `<Toaster />`;
-- once per page load (`synced` flag) it calls `assetApi.sync()`
-  (`POST /assets/sync`) — the backend background task that backfills history
-  and splits for assets that lack them. Failures are swallowed: individual
+- once per page load (`synced` flag) it queues the global asset sync:
+  `assetApi.sync()` (`POST /assets/sync`, now a 202 job) and then
+  `jobsApi.wait(job_id)`; when the worker finishes it calls `markDataSynced()`,
+  which clears the frontend GET cache and bumps the price-refresh `revision` so
+  price-derived pages refetch on their own. Failures are swallowed: individual
   pages backfill what they need.
 
 ### Token storage and refresh
@@ -1102,8 +1104,9 @@ Called endpoints: `portfolioApi.list()`, `settingsApi.listCurrencies()`.
 - **Import**: hidden file input → parses a JSON export document (requires
   `version === 1`), previews its name/currency/transaction count/date range,
   and imports it in mode **"new"** (with a chosen name) or **"overwrite"**
-  (over an existing portfolio); after a successful import it calls
-  `assetApi.sync()` so the imported assets get their history backfilled.
+  (over an existing portfolio); after a successful import it queues
+  `assetApi.sync()` and, when the job finishes, calls `markDataSynced()` so the
+  imported assets' history appears without waiting for the next app load.
 - **Export** lives on the detail page (in its `⋯` header menu, below).
 
 ### `/portfolios/[id]` — Portfolio detail (nested tab routes)

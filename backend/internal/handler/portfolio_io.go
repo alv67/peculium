@@ -94,22 +94,11 @@ func (h *Handler) ImportPortfolio(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusCreated, pf)
 }
 
-// SyncAssets refreshes asset-level market data (splits re-check + price
-// history up to date) for every asset. Called once per app load.
+// SyncAssets queues a global asset sync (splits re-check + price history up to
+// date for every Yahoo-priced asset) instead of running it inline: the request
+// returns immediately and the worker drains it. Meant to run once per app load.
 func (h *Handler) SyncAssets(w http.ResponseWriter, r *http.Request) {
-	claims := auth.GetClaims(r.Context())
-	if claims == nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if err := h.svc.SyncAssetData(r.Context()); err != nil {
-		log.Error().Err(err).Msg("asset sync failed")
-		respondError(w, http.StatusInternalServerError, "sync failed")
-		return
-	}
-
-	respond(w, http.StatusOK, map[string]string{"status": "ok"})
+	h.enqueueJob(w, r, &model.Job{Type: model.JobTypeAssetSync, TargetType: model.JobTargetGlobal})
 }
 
 func exportFilename(name string) string {

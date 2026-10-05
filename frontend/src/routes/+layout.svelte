@@ -15,7 +15,8 @@
   import { auth, initAuth } from '$lib/stores/auth.svelte'
   import '$lib/stores/theme.svelte' // side effect: theme listeners + <html class="dark"> sync
   import '$lib/i18n/index.svelte' // side effect: locale listeners + <html lang> sync (K.1b)
-  import { assetApi } from '$lib/services/api'
+  import { assetApi, jobsApi } from '$lib/services/api'
+  import { markDataSynced } from '$lib/stores/priceRefresh.svelte'
   import AppShell from '$lib/components/layout/AppShell.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
   import Toaster from '$lib/components/Toaster.svelte'
@@ -28,12 +29,23 @@
     initAuth()
   })
 
+  // Queue the global asset sync (splits + history for every Yahoo asset) and,
+  // when the worker finishes, invalidate the frontend cache and bump the
+  // refresh revision so price-derived pages refetch on their own.
+  async function syncAssets(): Promise<void> {
+    try {
+      const enqueued = await assetApi.sync()
+      const job = await jobsApi.wait(enqueued.job_id)
+      if (job.status === 'done' || job.status === 'partial') markDataSynced()
+    } catch {
+      // keep going; individual pages backfill what they need
+    }
+  }
+
   $effect(() => {
     if (auth.user && !synced) {
       synced = true
-      assetApi.sync().catch(() => {
-        // keep going; individual pages backfill what they need
-      })
+      void syncAssets()
     }
   })
 

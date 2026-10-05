@@ -693,16 +693,19 @@ comunque (si rischia di più, ma l'app non si blocca).
 
 Le operazioni che parlano con un sito esterno e possono durare a lungo (un
 aggiornamento prezzi, un backfill completo dello storico, il backfill globale
-dei metadati) **non** girano dentro la richiesta HTTP. La richiesta si limita ad
-**accodare un job** e risponde `202 Accepted` con
-`{"job_id": …, "status": "queued"}`; il worker svuota la coda con un contesto
-proprio, così un provider lento o un database grande non possono mai superare il
-timeout della richiesta.
+dei metadati, il sync degli asset a ogni avvio) **non** girano dentro la
+richiesta HTTP. La richiesta si limita ad **accodare un job** e risponde
+`202 Accepted` con `{"job_id": …, "status": "queued"}`; il worker svuota la
+coda con un contesto proprio, così un provider lento o un database grande non
+possono mai superare il timeout della richiesta.
 
 - `POST /prices/refresh` (con `?portfolio_id=` opzionale) accoda un `price_refresh`.
 - `POST /assets/{id}/backfill-history` accoda un `history_backfill` (storico
   prezzi completo **più** i metadati split dell'asset).
+- `POST /assets/sync` accoda un `asset_sync`: l'aggiornamento incrementale di
+  split e storico per ogni asset prezzato da Yahoo (una volta per avvio).
 - `POST /assets/backfill-meta` accoda un `meta_backfill`.
+- La creazione di un asset accoda un `history_backfill` per quell'asset.
 - Una seconda richiesta per lo stesso job mentre uno è ancora in coda o in
   esecuzione restituisce quel job aperto invece di impilarne un duplicato
   (dedup per tipo + target).
@@ -712,9 +715,12 @@ timeout della richiesta.
   elemento.
 
 Le chiamate verso il provider accodate in questo modo sono le stesse descritte
-sotto; la coda cambia solo *dove* girano, non cosa fanno. Le anteprime di sola
-lettura (`fetch-exposure`, `fetch-etf-exposure`, `fetch-morningstar-exposure`)
-restano sincrone perché il chiamante ha bisogno del risultato immediato.
+sotto; la coda cambia solo *dove* girano, non cosa fanno. Le letture non fanno
+mai fetch: `GET /portfolios/{id}/history` ricalcola la serie memorizzata e la
+serve, mentre i dati di mercato vengono aggiornati dai job qui sopra. Le
+anteprime di sola lettura (`fetch-exposure`, `fetch-etf-exposure`,
+`fetch-morningstar-exposure`) restano sincrone perché il chiamante ha bisogno
+del risultato immediato.
 
 ### Riportare i problemi
 

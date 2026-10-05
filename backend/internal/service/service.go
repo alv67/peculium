@@ -2288,42 +2288,9 @@ func (s *Service) GetPortfolioHistory(ctx context.Context, portfolioID uuid.UUID
 		for _, tx := range txs {
 			txByAsset[tx.AssetID] = append(txByAsset[tx.AssetID], tx)
 		}
-		// Only Yahoo-priced assets may be sent to the fetcher: manual/none
-		// assets would fail the history/split backfill and flood the Health
-		// page with errors. The rest of the computation still covers every
-		// asset from its stored data.
-		txAssetIDs := make([]uuid.UUID, 0, len(txByAsset))
-		for aid := range txByAsset {
-			txAssetIDs = append(txAssetIDs, aid)
-		}
-		txAssets, err := s.repos.Asset.FindByIDs(ctx, txAssetIDs)
-		if err != nil {
-			return nil, err
-		}
-		yahooByID := make(map[uuid.UUID]*model.Asset, len(txAssets))
-		for _, a := range filterYahooAssets(txAssets) {
-			yahooByID[a.ID] = a
-		}
-		historyAssets := make([]price.HistoryAsset, 0, len(yahooByID))
-		assetPtrs := make([]*model.Asset, 0, len(yahooByID))
-		for aid, assetTxs := range txByAsset {
-			a, ok := yahooByID[aid]
-			if !ok {
-				continue
-			}
-			historyAssets = append(historyAssets, price.HistoryAsset{
-				ID:     aid,
-				Ticker: a.Ticker,
-				From:   series.DayOf(assetTxs[0].Date),
-			})
-			assetPtrs = append(assetPtrs, a)
-		}
-		if err := s.fetcher.EnsureHistory(ctx, historyAssets); err != nil {
-			log.Warn().Err(err).Msg("history ensure failed")
-		}
-		if err := s.fetcher.EnsureSplits(ctx, assetPtrs); err != nil {
-			log.Warn().Err(err).Msg("splits ensure failed")
-		}
+		// Market data is refreshed by the asset_sync / history_backfill jobs;
+		// this read only recomputes the stored series and serves it, so it
+		// never talks to a provider and cannot time out.
 		if err := series.Recompute(ctx, s.repos, portfolioID); err != nil {
 			log.Warn().Err(err).Str("portfolio_id", portfolioID.String()).Msg("series recompute failed")
 		}
@@ -2740,16 +2707,17 @@ func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed
 	return report, nil
 }
 
+// syncAssetBackground queues the full-history backfill for a freshly created
+// asset instead of fetching inline: the worker runs it off the request, so a
+// slow provider never blocks asset creation.
 func (s *Service) syncAssetBackground(assetID uuid.UUID) {
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		if err := s.syncAssets(ctx, []uuid.UUID{assetID}); err != nil {
-			log.Warn().Err(err).Str("asset_id", assetID.String()).Msg("asset background sync failed")
-			return
-		}
-		s.bumpRev(ctx)
-	}()
+	if _, err := s.Jobs.Enqueue(context.Background(), &model.Job{
+		Type:       model.JobTypeHistoryBackfill,
+		TargetType: model.JobTargetAsset,
+		TargetID:   &assetID,
+	}); err != nil {
+		log.Warn().Err(err).Str("asset_id", assetID.String()).Msg("asset backfill enqueue failed")
+	}
 }
 
 // roundAmount strips the rounding residues accumulated by AVCO division

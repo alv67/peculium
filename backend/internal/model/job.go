@@ -20,6 +20,7 @@ const (
 const (
 	JobTypePriceRefresh    = "price_refresh"
 	JobTypeHistoryBackfill = "history_backfill"
+	JobTypeAssetSync       = "asset_sync"
 	JobTypeMetaBackfill    = "meta_backfill"
 	JobTypeSplitsFetch     = "splits_fetch"
 )
