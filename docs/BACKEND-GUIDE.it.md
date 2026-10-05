@@ -741,7 +741,10 @@ eventi terminali vengono scritti su un contesto fresco di breve durata, quindi
 l'esito di un job che ha superato il proprio deadline viene comunque registrato
 (un timeout non viene inghiottito). I salvataggi per-barra e degli split
 falliti sono aggregati in un solo evento per asset e operazione (conteggio +
-primo errore), mai una riga per data.
+primo errore), mai una riga per data. Un backfill storico e un controllo split
+**riusciti** registrano ciascuno una riga di successo per asset (col numero di
+barre/split), così la pagina elenca ogni chiamata di backfill, non solo i
+fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
 
 `GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato e un
 `summary` con i conteggi item `ok`/`failed` di ogni job.

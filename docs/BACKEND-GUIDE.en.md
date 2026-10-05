@@ -726,7 +726,10 @@ rate (`GET /health/prices`) and from a job's own item rollup. Terminal events
 are written on a fresh short-lived context, so the outcome of a job that ran
 out of its deadline is still recorded (a timeout is not swallowed). Failed
 per-bar saves and split saves are aggregated into one event per asset and
-operation (count + first error), never one row per date.
+operation (count + first error), never one row per date. A **successful**
+history backfill and split check each record one success row per asset (with
+the bar/split count), so the page lists every backfill call, not just the
+failures; assets skipped by cooldown or already up to date leave no row.
 
 `GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms` and a
 `summary` with the `ok`/`failed` item counts of each job.
