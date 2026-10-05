@@ -463,7 +463,8 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 		}
 		total := len(prices)
 		written, saveErr := f.repos.Price.UpsertBatch(ctx, prices)
-		if failed := total - written; failed > 0 {
+		failed := total - written
+		if failed > 0 {
 			// The duration is the whole per-asset operation, not just the save
 			// phase: the save fails *because* the operation ran out of time, so
 			// a save-only duration (a few hundred ms) would be misleading.
@@ -471,13 +472,22 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, saveErr), start)
 			incomplete = true
 		}
+		markOK := true
 		if a.Full {
 			if err := f.repos.Asset.MarkHistoryBackfilled(ctx, a.ID); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Msg("history backfill mark failed")
 				f.recordHealth(ctx, &a.ID, "history_backfill", "failure", "error",
 					a.Ticker+": mark history backfilled failed: "+err.Error(), start)
+				markOK = false
 				incomplete = true
 			}
+		}
+		// Success event per asset: the health page lists every backfill call,
+		// not just the failures. Assets skipped by cooldown/up-to-date never
+		// reach here, so a row reflects real work.
+		if failed == 0 && markOK {
+			f.recordHealth(ctx, &a.ID, "history_backfill", "success", "",
+				fmt.Sprintf("%s: %d bars saved", a.Ticker, total), start)
 		}
 	}
 	if incomplete {
@@ -669,6 +679,11 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 			f.recordHealth(ctx, &a.ID, "split_save", "failure", "error",
 				fmt.Sprintf("%s: %d of %d splits failed to save: %v", a.Ticker, failed, total, firstErr), start)
 			incomplete = true
+		} else {
+			// Success event per asset so the health page lists every split
+			// check, not just the failures.
+			f.recordHealth(ctx, &a.ID, "split_fetch", "success", "",
+				fmt.Sprintf("%s: %d splits", a.Ticker, total), start)
 		}
 	}
 	if incomplete {

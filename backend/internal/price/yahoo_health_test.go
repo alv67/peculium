@@ -93,6 +93,40 @@ func (r rtFunc) RoundTrip(req *http.Request) (*http.Response, error) { return r(
 // 3 daily bars from the chart endpoint.
 const stubChart = `{"chart":{"result":[{"timestamp":[1700000000,1700086400,1700172800],"indicators":{"quote":[{"close":[1.5,2.5,3.5]}]}}]}}`
 
+func TestEnsureHistoryRecordsPerAssetSuccess(t *testing.T) {
+	pr := &histPriceRepo{failFrom: 10} // all bars save
+	ar := &histAssetRepo{}
+	rec := &recStub{}
+	f := NewYahooFetcher(&repository.Repository{Price: pr, Asset: ar}, time.Hour,
+		WithHealthRecorder(rec), WithMinInterval(0))
+	f.client = &http.Client{Transport: rtFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(stubChart)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	})}
+
+	id := uuid.New()
+	if err := f.EnsureHistory(context.Background(), []HistoryAsset{{ID: id, Ticker: "AAPL", From: time.Now().AddDate(0, 0, -5), Full: true}}); err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	// One success event per asset, so the health page lists every backfill.
+	if len(rec.events) != 1 {
+		t.Fatalf("events = %d, want 1 success event: %+v", len(rec.events), rec.events)
+	}
+	ev := rec.events[0]
+	if ev.EventType != "history_backfill" || ev.Status != "success" {
+		t.Fatalf("event = %q/%q, want history_backfill/success", ev.EventType, ev.Status)
+	}
+	if ev.AssetID == nil || *ev.AssetID != id {
+		t.Fatalf("asset = %v, want %v", ev.AssetID, id)
+	}
+	if !strings.Contains(ev.Message, "3 bars saved") {
+		t.Fatalf("message = %q, want the bar count", ev.Message)
+	}
+}
+
 func TestEnsureHistoryAggregatesSaveFailures(t *testing.T) {
 	pr := &histPriceRepo{failFrom: 1} // first bar saves, the next two fail
 	ar := &histAssetRepo{markErr: errors.New("mark boom")}
