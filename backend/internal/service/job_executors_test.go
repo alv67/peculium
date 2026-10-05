@@ -102,6 +102,33 @@ func TestExecHistoryBackfillNeedsTarget(t *testing.T) {
 	}
 }
 
+// incompleteFetcher reports a truncated sync from both history and splits, as
+// a backfill that ran out of time would.
+type incompleteFetcher struct{ *fakeYahooFetcher }
+
+func (f *incompleteFetcher) EnsureHistory(ctx context.Context, assets []price.HistoryAsset) error {
+	f.historyCalls++
+	return price.ErrSyncIncomplete
+}
+
+func (f *incompleteFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) error {
+	f.splitCalls++
+	return price.ErrSyncIncomplete
+}
+
+func TestExecHistoryBackfillPartialOnIncompleteSync(t *testing.T) {
+	ctx := context.Background()
+	asset := &model.Asset{ID: uuid.New(), Ticker: "AAPL", PriceSource: "yahoo"}
+	jr := &fakeJobRepo{}
+	job, _ := jr.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &asset.ID})
+
+	svc := newExecService(jr, &incompleteFetcher{fakeYahooFetcher: &fakeYahooFetcher{}}, nil, &fakeAssetRepo{asset: asset})
+	status, err := svc.execHistoryBackfill(ctx, job)
+	if err != nil || status != model.JobStatusPartial {
+		t.Fatalf("truncated backfill = (%q, %v), want partial", status, err)
+	}
+}
+
 func TestExecMetaBackfillReportsProgressAndPartial(t *testing.T) {
 	ctx := context.Background()
 	stocks := []*model.Asset{

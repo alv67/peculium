@@ -400,6 +400,13 @@ func (f *YahooFetcher) fetchChartRange(ctx context.Context, ticker string, from,
 // back to cover every asset Yahoo has data for.
 var fullHistoryStart = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
 
+// ErrSyncIncomplete reports a sync that finished but did not persist
+// everything (bars/splits lost, typically because the operation ran out of
+// time). Callers that map a sync outcome to a job status turn it into
+// "partial" instead of "done", so a truncated download is never reported as a
+// success. It is not a hard failure for the surrounding app load.
+var ErrSyncIncomplete = errors.New("sync incomplete")
+
 // EnsureHistory backfills daily closes from Yahoo for the given assets so the
 // portfolio history series has market values from the first transaction to now.
 func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset) error {
@@ -407,6 +414,7 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 	defer f.mu.Unlock()
 
 	now := time.Now().UTC()
+	incomplete := false
 	for _, a := range assets {
 		earliest, latest, err := f.repos.Price.MinMaxDate(ctx, a.ID)
 		if err != nil {
@@ -435,14 +443,20 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", a.Ticker).Msg("history fetch failed")
 			f.recordHealth(ctx, &a.ID, "history_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), start)
+			incomplete = true
 			continue
 		}
 		// Aggregate save failures into one event per asset: a per-bar event
-		// would flood the health log on a long backfill.
-		saveStart := time.Now()
+		// would flood the health log on a long backfill. The loop stops as
+		// soon as the context is gone (the remaining bars count as not saved)
+		// instead of hammering the database with doomed inserts.
 		failed, total := 0, len(bars)
 		var firstErr error
-		for _, b := range bars {
+		for i, b := range bars {
+			if ctx.Err() != nil {
+				failed += len(bars) - i
+				break
+			}
 			if _, err := f.repos.Price.Create(ctx, &model.Price{AssetID: a.ID, Date: b.Date, Close: b.Close, Source: "yahoo"}); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Str("date", b.Date.Format("2006-01-02")).Msg("history save failed")
 				if firstErr == nil {
@@ -452,16 +466,24 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 			}
 		}
 		if failed > 0 {
+			// The duration is the whole per-asset operation, not just the save
+			// loop: the save fails *because* the operation ran out of time, so
+			// a save-loop-only duration (a few hundred ms) would be misleading.
 			f.recordHealth(ctx, &a.ID, "history_save", "failure", "error",
-				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, firstErr), saveStart)
+				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, firstErr), start)
+			incomplete = true
 		}
 		if a.Full {
 			if err := f.repos.Asset.MarkHistoryBackfilled(ctx, a.ID); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Msg("history backfill mark failed")
 				f.recordHealth(ctx, &a.ID, "history_backfill", "failure", "error",
 					a.Ticker+": mark history backfilled failed: "+err.Error(), start)
+				incomplete = true
 			}
 		}
+	}
+	if incomplete {
+		return fmt.Errorf("%w: some history was not persisted", ErrSyncIncomplete)
 	}
 	return nil
 }
@@ -610,6 +632,7 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 	defer f.mu.Unlock()
 
 	now := time.Now().UTC()
+	incomplete := false
 	for _, a := range assets {
 		if a.PriceSource != "" && a.PriceSource != "yahoo" {
 			continue
@@ -623,13 +646,18 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", a.Ticker).Msg("split fetch failed")
 			f.recordHealth(ctx, &a.ID, "split_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), start)
+			incomplete = true
 			continue
 		}
-		// Aggregate save failures into one event per asset.
-		saveStart := time.Now()
+		// Aggregate save failures into one event per asset; stop as soon as
+		// the context is gone (the rest counts as not saved).
 		failed, total := 0, len(splits)
 		var firstErr error
-		for _, sp := range splits {
+		for i, sp := range splits {
+			if ctx.Err() != nil {
+				failed += len(splits) - i
+				break
+			}
 			sp.AssetID = a.ID
 			if err := f.repos.Split.Upsert(ctx, &sp); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Str("date", sp.Date.Format("2006-01-02")).Msg("split save failed")
@@ -641,8 +669,12 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 		}
 		if failed > 0 {
 			f.recordHealth(ctx, &a.ID, "split_save", "failure", "error",
-				fmt.Sprintf("%s: %d of %d splits failed to save: %v", a.Ticker, failed, total, firstErr), saveStart)
+				fmt.Sprintf("%s: %d of %d splits failed to save: %v", a.Ticker, failed, total, firstErr), start)
+			incomplete = true
 		}
+	}
+	if incomplete {
+		return fmt.Errorf("%w: some splits were not persisted", ErrSyncIncomplete)
 	}
 	return nil
 }
