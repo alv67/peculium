@@ -89,6 +89,14 @@ func main() {
 	}
 	pruneJobs()
 
+	pruneHealth := func() {
+		// PruneEvents already warns on failure; only report what it deleted.
+		if n, err := healthSvc.PruneEvents(ctx, time.Now().Add(-cfg.HealthRetention)); err == nil && n > 0 {
+			log.Info().Int64("deleted", n).Msg("pruned health events")
+		}
+	}
+	pruneHealth()
+
 	ticker := time.NewTicker(cfg.PriceFetchInterval)
 	defer ticker.Stop()
 
@@ -114,6 +122,7 @@ func main() {
 		case <-ticker.C:
 			log.Info().Msg("fetching prices...")
 			pruneJobs()
+			pruneHealth()
 			if err := fetcher.FetchAll(ctx); err != nil {
 				log.Warn().Err(err).Msg("price fetch failed")
 			} else if err := series.RecomputeAll(ctx, repos); err != nil {

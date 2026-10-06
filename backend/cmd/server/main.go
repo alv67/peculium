@@ -187,6 +187,7 @@ func setupRoutes(r chi.Router, h *handler.Handler, jwtAuth *auth.JWTAuth, users 
 				r.Patch("/settings", h.UpdateAdminSettings)
 				r.Get("/db/backup", h.AdminDBBackup)
 				r.Post("/db/restore", h.AdminDBRestore)
+				r.Delete("/health/events", h.AdminClearHealthEvents)
 			})
 
 			r.Get("/users/me", h.GetCurrentUser)

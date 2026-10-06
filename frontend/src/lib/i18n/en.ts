@@ -575,6 +575,13 @@ export const en = {
     statusRunning: 'Running',
     statusPartial: 'Partial',
     loadFailed: 'Failed to fetch health data',
+    /** Destructive admin action (issue #206): header button label, confirm
+     *  dialog (`{total}` is the current `events_total`) and result toasts. */
+    clearEvents: 'Clear events',
+    clearEventsTitle: 'Clear all health events?',
+    clearEventsConfirm: 'This deletes ALL {total} health events. This cannot be undone.',
+    clearEventsDone: '{count} events deleted',
+    clearEventsFailed: 'Failed to clear health events',
     /** Job-origin filter chip over the events card (issue #195): the chip
      *  shows `jobFilter` + `jobFilterCount`, the ✕ clears through
      *  `jobFilterClearNamed`; `jobFilterCap` warns when the client-side

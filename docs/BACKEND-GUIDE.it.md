@@ -751,6 +751,12 @@ fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
 una query batch per pagina; vuota per target globali o non risolti) e un
 `summary` con i conteggi item `ok`/`failed` di ogni job.
 
+Gli eventi di monitoraggio vengono eliminati automaticamente: il worker cancella
+le righe più vecchie di `PECULIUM_HEALTH_RETENTION` (default 90 giorni)
+all'avvio e a ogni tick di aggiornamento prezzi. Un admin può anche svuotare
+l'intero registro su richiesta con `DELETE /admin/health/events`, che risponde
+`{"deleted": N}`.
+
 ### Storico e split
 
 - **Storico (`EnsureHistory`)**: riporta i prezzi dalla prima operazione a

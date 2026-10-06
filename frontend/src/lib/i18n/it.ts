@@ -540,6 +540,13 @@ export const it = {
     statusRunning: 'In corso',
     statusPartial: 'Parziale',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
+    /** Azione distruttiva da admin (#206): etichetta del pulsante, dialogo di
+     *  conferma (`{total}` è il corrente `events_total`) e toast di esito. */
+    clearEvents: 'Cancella eventi',
+    clearEventsTitle: 'Cancellare tutti gli eventi di monitoraggio?',
+    clearEventsConfirm: 'Verranno eliminati TUTTI i {total} eventi di monitoraggio. Operazione irreversibile.',
+    clearEventsDone: '{count} eventi eliminati',
+    clearEventsFailed: 'Cancellazione degli eventi non riuscita',
     /** Chip di filtro per job sulla card eventi (#195 Fase 4): il chip mostra
      *  `jobFilter` + `jobFilterCount`, la ✕ rimuove con `jobFilterClearNamed`;
      *  `jobFilterCap` avvisa quando la finestra client-side ha troncato le

@@ -17,6 +17,7 @@ type HealthRepository interface {
 	SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error)
 	SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error)
 	CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error)
+	DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type healthRepo struct {
@@ -120,6 +121,14 @@ func (r *healthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[
 		out[id] = c
 	}
 	return out, rows.Err()
+}
+
+func (r *healthRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM health_events WHERE created_at < $1`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (r *healthRepo) scanSummary(row pgx.Row) (*model.HealthSummary, error) {

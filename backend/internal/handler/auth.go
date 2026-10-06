@@ -629,3 +629,6 @@ func (h *Handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetPriceHealth(w http.ResponseWriter, r *http.Request) {
 	h.health.GetPriceHealth(w, r)
 }
+func (h *Handler) AdminClearHealthEvents(w http.ResponseWriter, r *http.Request) {
+	h.health.AdminClearHealthEvents(w, r)
+}

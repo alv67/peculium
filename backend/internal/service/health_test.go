@@ -30,7 +30,9 @@ type fakeHealthRepo struct {
 	countsIDs    []uuid.UUID
 	// writeCtxErr records ctx.Err() as seen by the last RecordEvent, to
 	// prove expired contexts are rewritten on a fresh one.
-	writeCtxErr error
+	writeCtxErr       error
+	deleteBeforeCalls []time.Time
+	deleteN           int64
 }
 
 func (f *fakeHealthRepo) RecordEvent(ctx context.Context, event *model.HealthEvent) error {
@@ -63,6 +65,11 @@ func (f *fakeHealthRepo) SummarySince(ctx context.Context, since time.Time) (*mo
 func (f *fakeHealthRepo) SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error) {
 	f.lastNCalls = append(f.lastNCalls, n)
 	return f.lastNSummary, nil
+}
+
+func (f *fakeHealthRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	f.deleteBeforeCalls = append(f.deleteBeforeCalls, cutoff)
+	return f.deleteN, nil
 }
 
 var _ repository.HealthRepository = (*fakeHealthRepo)(nil)
@@ -324,6 +331,23 @@ func TestRecordEventRewritesExpiredContext(t *testing.T) {
 	}
 	if repo.writeCtxErr != nil {
 		t.Fatalf("the repo write saw a dead context: %v", repo.writeCtxErr)
+	}
+}
+
+func TestPruneEventsForwardsCutoffAndReturnsCount(t *testing.T) {
+	repo := &fakeHealthRepo{deleteN: 7}
+	svc := NewHealthService(&repository.Repository{Health: repo})
+
+	cutoff := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	n, err := svc.PruneEvents(context.Background(), cutoff)
+	if err != nil {
+		t.Fatalf("PruneEvents: %v", err)
+	}
+	if n != 7 {
+		t.Fatalf("deleted = %d, want 7", n)
+	}
+	if len(repo.deleteBeforeCalls) != 1 || !repo.deleteBeforeCalls[0].Equal(cutoff) {
+		t.Fatalf("DeleteBefore cutoffs = %v, want [%v]", repo.deleteBeforeCalls, cutoff)
 	}
 }
 
