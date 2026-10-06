@@ -107,6 +107,15 @@ func (s *Service) recordHealth(ctx context.Context, assetID *uuid.UUID, eventTyp
 	}
 }
 
+func (s *HealthService) PruneEvents(ctx context.Context, before time.Time) (int64, error) {
+	n, err := s.repos.Health.DeleteBefore(ctx, before)
+	if err != nil {
+		log.Warn().Err(err).Msg("health retention sweep failed")
+		return 0, err
+	}
+	return n, nil
+}
+
 func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int) (*model.HealthSummary, []*model.HealthEvent, int, error) {
 	limit, offset = normalizeHealthPage(limit, offset)
 	window := healthWindowFor(period, time.Now().UTC())

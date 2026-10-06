@@ -1036,4 +1036,8 @@ export const adminApi = {
     form.append('dump', file)
     return request<DBRestoreSummary>('/admin/db/restore', { method: 'POST', form })
   },
+  // Wipe the whole health-events table (`DELETE /admin/health/events`,
+  // issue #206): admin-only and destructive, answers with the deleted count.
+  clearHealthEvents: () =>
+    request<{ deleted: number }>('/admin/health/events', { method: 'DELETE' }),
 }

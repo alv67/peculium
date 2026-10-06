@@ -1,6 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/stores/toast.svelte'
-  import { api, jobsApi, type Job } from '$lib/services/api'
+  import { api, adminApi, jobsApi, type Job } from '$lib/services/api'
   import { t, type MessageKey } from '$lib/i18n/index.svelte'
   import { formatDuration } from '$lib/format'
   import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
@@ -10,6 +10,7 @@
   import Button from '$lib/components/ui/Button.svelte'
   import Card from '$lib/components/ui/Card.svelte'
   import CardHeader from '$lib/components/ui/CardHeader.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import EmptyState from '$lib/components/ui/EmptyState.svelte'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
@@ -64,6 +65,8 @@
   let events = $state<HealthEvent[]>([])
   let eventsTotal = $state(0)
   let loading = $state(true)
+  /** Open flag of the destructive "Clear events" confirm (#206). */
+  let clearOpen = $state(false)
 
   let jobs = $state<Job[]>([])
   let jobsLoading = $state(true)
@@ -160,6 +163,19 @@
     fetchJobs()
   }
 
+  // Deletes every health event row, then reloads the events view from page
+  // one (the non-GET already invalidated the client GET cache).
+  async function confirmClearEvents(): Promise<void> {
+    try {
+      const { deleted } = await adminApi.clearHealthEvents()
+      toast.success(t('health.clearEventsDone', { count: deleted }))
+      offset = 0
+      await fetchHealth()
+    } catch {
+      toast.error(t('health.clearEventsFailed'))
+    }
+  }
+
   function filterToJob(id?: string, type?: string) {
     if (!id) return
     selectedJob = { id, type: type || 'job' }
@@ -235,6 +251,9 @@
       <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
       <Button variant="secondary" onclick={refreshAll} disabled={loading || jobsLoading}>
         {loading ? t('health.refreshing') : t('health.refresh')}
+      </Button>
+      <Button variant="secondary" onclick={() => (clearOpen = true)} disabled={loading}>
+        {t('health.clearEvents')}
       </Button>
     </div>
   </div>
@@ -561,3 +580,14 @@
     </div>
   {/if}
 </div>
+
+<!-- Destructive wipe of the whole health events table (#206): the dialog
+     shows the current total and the busy lock while the DELETE runs. -->
+<ConfirmDialog
+  bind:open={clearOpen}
+  title={t('health.clearEventsTitle')}
+  message={t('health.clearEventsConfirm', { total: eventsTotal })}
+  confirmLabel={t('health.clearEvents')}
+  variant="danger"
+  onconfirm={confirmClearEvents}
+/>

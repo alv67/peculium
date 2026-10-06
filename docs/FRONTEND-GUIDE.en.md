@@ -1598,7 +1598,9 @@ badge, code, message, duration; page size 50). Queue-lifecycle rows
 (`event_type: "job"`) are shown with an outline "job" badge; clicking the
 filter action on a job row shows only that job's events (`job_id`), fetched
 client-side over the newest 500 events with a clearable chip, and the "Refresh
-Now" button reloads both cards.
+Now" button reloads both cards. A "Clear events" button opens a danger confirm
+(quoting the current total) and wipes the whole health log
+(`DELETE /admin/health/events`), then reloads the events view.
 
 ### Admin area (`routes/admin/…`)
 
