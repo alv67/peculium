@@ -49,7 +49,7 @@ func (f *fakeJobQueue) SetCheckpoint(ctx context.Context, id uuid.UUID, checkpoi
 func (f *fakeJobQueue) Finish(ctx context.Context, id uuid.UUID, status string, errMsg string) error {
 	return nil
 }
-func (f *fakeJobQueue) DeleteFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+func (f *fakeJobQueue) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	return 0, nil
 }
 

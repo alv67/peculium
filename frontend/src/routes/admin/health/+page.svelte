@@ -163,14 +163,15 @@
     fetchJobs()
   }
 
-  // Deletes every health event row, then reloads the events view from page
-  // one (the non-GET already invalidated the client GET cache).
+  // Deletes every health event and sync job row, then reloads both views from
+  // page one (the non-GET already invalidated the client GET cache).
   async function confirmClearEvents(): Promise<void> {
     try {
       const { deleted } = await adminApi.clearHealthEvents()
       toast.success(t('health.clearEventsDone', { count: deleted }))
       offset = 0
       await fetchHealth()
+      await fetchJobs()
     } catch {
       toast.error(t('health.clearEventsFailed'))
     }

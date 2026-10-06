@@ -112,11 +112,15 @@ func (f *fakeJobRepo) List(ctx context.Context, limit, offset int) ([]*model.Job
 	return f.jobs, nil
 }
 
-func (f *fakeJobRepo) DeleteFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+func (f *fakeJobRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	var kept []*model.Job
 	var deleted int64
 	for _, j := range f.jobs {
-		if j.Status == model.JobStatusDone && j.FinishedAt != nil && j.FinishedAt.Before(cutoff) {
+		at := j.CreatedAt
+		if j.FinishedAt != nil {
+			at = *j.FinishedAt
+		}
+		if !at.IsZero() && at.Before(cutoff) {
 			deleted++
 			continue
 		}
@@ -331,30 +335,31 @@ func TestJobEnqueueDedupsOpenTarget(t *testing.T) {
 	}
 }
 
-func TestJobRetentionPrunesOnlyOldDone(t *testing.T) {
+func TestJobDeleteBeforePrunesAnyOldStatus(t *testing.T) {
 	svc, repo := newFakeJobSvc()
 	ctx := context.Background()
-	older := time.Now().Add(-31 * 24 * time.Hour)
+	older := time.Now().Add(-91 * 24 * time.Hour)
 	recent := time.Now().Add(-time.Hour)
+	cutoff := time.Now().Add(-90 * 24 * time.Hour)
 
 	seed := func(status string, finished *time.Time) {
 		j := &model.Job{ID: uuid.New(), Status: status, FinishedAt: finished}
 		repo.jobs = append(repo.jobs, j)
 	}
 	seed(model.JobStatusDone, &older)
-	seed(model.JobStatusDone, &recent)
 	seed(model.JobStatusFailed, &older)
+	seed(model.JobStatusDone, &recent)
 	seed(model.JobStatusQueued, nil)
 
-	n, err := svc.DeleteFinishedBefore(ctx, time.Now().Add(-30*24*time.Hour))
+	n, err := svc.DeleteBefore(ctx, cutoff)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Fatalf("deleted = %d, want 1", n)
+	if n != 2 {
+		t.Fatalf("deleted = %d, want 2", n)
 	}
-	if len(repo.jobs) != 3 {
-		t.Fatalf("kept %d jobs, want 3 (young done, failed, queued survive)", len(repo.jobs))
+	if len(repo.jobs) != 2 {
+		t.Fatalf("kept %d jobs, want 2 (young done and never-timestamped queued survive)", len(repo.jobs))
 	}
 }
 

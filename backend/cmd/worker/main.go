@@ -79,23 +79,21 @@ func main() {
 	// type fails fast with "no executor for type" until it gets producers.
 	go jobRunner.Loop(ctx, service.DefaultJobPollInterval)
 
-	pruneJobs := func() {
-		n, err := jobSvc.DeleteFinishedBefore(ctx, time.Now().Add(-service.JobRetention))
+	pruneActivity := func() {
+		cutoff := time.Now().Add(-cfg.HealthRetention)
+		jobs, err := jobSvc.DeleteBefore(ctx, cutoff)
 		if err != nil {
 			log.Warn().Err(err).Msg("job retention sweep failed")
-		} else if n > 0 {
-			log.Info().Int64("deleted", n).Msg("pruned finished jobs")
+		}
+		events, err := healthSvc.PruneStandaloneEvents(ctx, cutoff)
+		if err != nil {
+			log.Warn().Err(err).Msg("health retention sweep failed")
+		}
+		if jobs+events > 0 {
+			log.Info().Int64("jobs", jobs).Int64("events", events).Msg("pruned activity")
 		}
 	}
-	pruneJobs()
-
-	pruneHealth := func() {
-		// PruneEvents already warns on failure; only report what it deleted.
-		if n, err := healthSvc.PruneEvents(ctx, time.Now().Add(-cfg.HealthRetention)); err == nil && n > 0 {
-			log.Info().Int64("deleted", n).Msg("pruned health events")
-		}
-	}
-	pruneHealth()
+	pruneActivity()
 
 	ticker := time.NewTicker(cfg.PriceFetchInterval)
 	defer ticker.Stop()
@@ -121,8 +119,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			log.Info().Msg("fetching prices...")
-			pruneJobs()
-			pruneHealth()
+			pruneActivity()
 			if err := fetcher.FetchAll(ctx); err != nil {
 				log.Warn().Err(err).Msg("price fetch failed")
 			} else if err := series.RecomputeAll(ctx, repos); err != nil {

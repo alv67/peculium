@@ -1680,9 +1680,9 @@ ciclo di vita della coda (`event_type: "job"`) sono mostrate con un badge
 outline "job"; cliccando l'azione di filtro su una riga job si vedono solo gli
 eventi di quel job (`job_id`), filtrati lato client sui 500 eventi più recenti
 con un chip rimovibile, e il pulsante "Refresh Now" ricarica entrambe le card.
-Un pulsante "Cancella eventi" apre una conferma di pericolo (che cita il totale
-corrente) e svuota l'intero registro di monitoraggio
-(`DELETE /admin/health/events`), poi ricarica la vista eventi.
+Un pulsante "Cancella attività" apre una conferma di pericolo (che cita il
+totale eventi corrente) e svuota ogni job ed evento di monitoraggio
+(`DELETE /admin/health/events`), poi ricarica entrambe le card.
 
 ### Area Admin (`routes/admin/…`)
 

@@ -736,10 +736,15 @@ failures; assets skipped by cooldown or already up to date leave no row.
 per page; empty for global or unresolved targets) and a `summary` with the
 `ok`/`failed` item counts of each job.
 
-Health events are pruned automatically: the worker deletes rows older than
-`PECULIUM_HEALTH_RETENTION` (default 90 days) at startup and on every
-price-refresh tick. An admin can also wipe the whole log on demand with
-`DELETE /admin/health/events`, which answers `{"deleted": N}`.
+A job and its health events form one unit: the `health_events.job_id` foreign
+key cascades, so deleting a job removes its events. Retention uses a single
+window, `PECULIUM_HEALTH_RETENTION` (default 90 days): the worker prunes jobs
+older than that window regardless of status (aged by
+`COALESCE(finished_at, created_at)`), taking their events with them, plus
+standalone events (no job) older than the window. It runs at startup and on
+every price-refresh tick. An admin can also wipe everything on demand with
+`DELETE /admin/health/events`, which clears every job and event and answers
+`{"deleted": N}` (the number of events removed).
 
 ### History and splits
 

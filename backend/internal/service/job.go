@@ -21,8 +21,6 @@ const (
 	// DefaultJobPollInterval is how often the worker checks for new work when
 	// the queue is idle.
 	DefaultJobPollInterval = 3 * time.Second
-	// JobRetention is how long finished (done) jobs are kept before pruning.
-	JobRetention = 30 * 24 * time.Hour
 	// jobEventTimeout bounds a health write made outside any request/job
 	// context: the lifecycle event must land even when jobCtx already died.
 	jobEventTimeout = 3 * time.Second
@@ -142,11 +140,11 @@ func (s *JobService) labelTargets(ctx context.Context, jobs []*model.Job) {
 	}
 }
 
-// DeleteFinishedBefore prunes done jobs finished before cutoff, returning how
-// many rows were removed. Called by the worker on startup and in its hourly
+// DeleteBefore prunes jobs older than cutoff, any status; their events go
+// with them (cascade). Called by the worker on startup and in its hourly
 // tick so the queue table stays bounded.
-func (s *JobService) DeleteFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	return s.repos.Job.DeleteFinishedBefore(ctx, cutoff)
+func (s *JobService) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	return s.repos.Job.DeleteBefore(ctx, cutoff)
 }
 
 // jobIDKey tags a context with the job being executed. HealthService reads it

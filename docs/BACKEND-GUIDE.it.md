@@ -751,11 +751,16 @@ fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
 una query batch per pagina; vuota per target globali o non risolti) e un
 `summary` con i conteggi item `ok`/`failed` di ogni job.
 
-Gli eventi di monitoraggio vengono eliminati automaticamente: il worker cancella
-le righe più vecchie di `PECULIUM_HEALTH_RETENTION` (default 90 giorni)
-all'avvio e a ogni tick di aggiornamento prezzi. Un admin può anche svuotare
-l'intero registro su richiesta con `DELETE /admin/health/events`, che risponde
-`{"deleted": N}`.
+Un job e i suoi eventi di monitoraggio formano un'unica unità: la chiave
+esterna `health_events.job_id` è in cascata, quindi cancellare un job elimina i
+suoi eventi. La retention usa un'unica finestra,
+`PECULIUM_HEALTH_RETENTION` (default 90 giorni): il worker elimina i job più
+vecchi di quella finestra a prescindere dallo stato (età calcolata con
+`COALESCE(finished_at, created_at)`), portandosi via i loro eventi, più gli
+eventi standalone (senza job) più vecchi della finestra. Gira all'avvio e a
+ogni tick di aggiornamento prezzi. Un admin può anche svuotare tutto su
+richiesta con `DELETE /admin/health/events`, che cancella ogni job ed evento e
+risponde `{"deleted": N}` (il numero di eventi rimossi).
 
 ### Storico e split
 
