@@ -17,7 +17,8 @@ type HealthRepository interface {
 	SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error)
 	SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error)
 	CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error)
-	DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error)
+	DeleteStandaloneBefore(ctx context.Context, cutoff time.Time) (int64, error)
+	ClearAll(ctx context.Context) (int64, error)
 }
 
 type healthRepo struct {
@@ -123,12 +124,34 @@ func (r *healthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[
 	return out, rows.Err()
 }
 
-func (r *healthRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	tag, err := r.db.Exec(ctx, `DELETE FROM health_events WHERE created_at < $1`, cutoff)
+func (r *healthRepo) DeleteStandaloneBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM health_events WHERE job_id IS NULL AND created_at < $1`, cutoff)
 	if err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
+}
+
+// ClearAll wipes every event and every job. Jobs and their events are one
+// unit (the cascade FK); the endpoint is meant to empty both together.
+func (r *healthRepo) ClearAll(ctx context.Context) (int64, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `DELETE FROM health_events`)
+	if err != nil {
+		return 0, err
+	}
+	events := tag.RowsAffected()
+	if _, err := tx.Exec(ctx, `DELETE FROM jobs`); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return events, nil
 }
 
 func (r *healthRepo) scanSummary(row pgx.Row) (*model.HealthSummary, error) {

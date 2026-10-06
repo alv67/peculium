@@ -33,6 +33,8 @@ type fakeHealthRepo struct {
 	writeCtxErr       error
 	deleteBeforeCalls []time.Time
 	deleteN           int64
+	clearAllCalls     int
+	clearN            int64
 }
 
 func (f *fakeHealthRepo) RecordEvent(ctx context.Context, event *model.HealthEvent) error {
@@ -67,9 +69,14 @@ func (f *fakeHealthRepo) SummaryLastN(ctx context.Context, n int) (*model.Health
 	return f.lastNSummary, nil
 }
 
-func (f *fakeHealthRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+func (f *fakeHealthRepo) DeleteStandaloneBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	f.deleteBeforeCalls = append(f.deleteBeforeCalls, cutoff)
 	return f.deleteN, nil
+}
+
+func (f *fakeHealthRepo) ClearAll(ctx context.Context) (int64, error) {
+	f.clearAllCalls++
+	return f.clearN, nil
 }
 
 var _ repository.HealthRepository = (*fakeHealthRepo)(nil)
@@ -334,20 +341,36 @@ func TestRecordEventRewritesExpiredContext(t *testing.T) {
 	}
 }
 
-func TestPruneEventsForwardsCutoffAndReturnsCount(t *testing.T) {
+func TestPruneStandaloneEventsForwardsCutoffAndReturnsCount(t *testing.T) {
 	repo := &fakeHealthRepo{deleteN: 7}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
 	cutoff := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	n, err := svc.PruneEvents(context.Background(), cutoff)
+	n, err := svc.PruneStandaloneEvents(context.Background(), cutoff)
 	if err != nil {
-		t.Fatalf("PruneEvents: %v", err)
+		t.Fatalf("PruneStandaloneEvents: %v", err)
 	}
 	if n != 7 {
 		t.Fatalf("deleted = %d, want 7", n)
 	}
 	if len(repo.deleteBeforeCalls) != 1 || !repo.deleteBeforeCalls[0].Equal(cutoff) {
-		t.Fatalf("DeleteBefore cutoffs = %v, want [%v]", repo.deleteBeforeCalls, cutoff)
+		t.Fatalf("DeleteStandaloneBefore cutoffs = %v, want [%v]", repo.deleteBeforeCalls, cutoff)
+	}
+}
+
+func TestClearAllReturnsCount(t *testing.T) {
+	repo := &fakeHealthRepo{clearN: 12}
+	svc := NewHealthService(&repository.Repository{Health: repo})
+
+	n, err := svc.ClearAll(context.Background())
+	if err != nil {
+		t.Fatalf("ClearAll: %v", err)
+	}
+	if n != 12 {
+		t.Fatalf("deleted = %d, want 12", n)
+	}
+	if repo.clearAllCalls != 1 {
+		t.Fatalf("ClearAll calls = %d, want 1", repo.clearAllCalls)
 	}
 }
 

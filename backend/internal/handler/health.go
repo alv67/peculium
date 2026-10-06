@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/alv67/peculium/internal/service"
 )
@@ -34,7 +33,7 @@ func (h *HealthHandler) GetPriceHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HealthHandler) AdminClearHealthEvents(w http.ResponseWriter, r *http.Request) {
-	n, err := h.svc.PruneEvents(r.Context(), time.Now().UTC())
+	n, err := h.svc.ClearAll(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to clear health events")
 		return

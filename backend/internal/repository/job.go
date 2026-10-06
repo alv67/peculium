@@ -25,9 +25,10 @@ type JobRepository interface {
 	Finish(ctx context.Context, id uuid.UUID, status string, errMsg string) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error)
 	List(ctx context.Context, limit, offset int) ([]*model.Job, error)
-	// DeleteFinishedBefore prunes done jobs finished before cutoff. Failed and
-	// partial rows are kept so debugging history survives retention.
-	DeleteFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error)
+	// DeleteBefore prunes jobs older than cutoff regardless of status; their
+	// health events are removed with them by the ON DELETE CASCADE FK. Age is
+	// COALESCE(finished_at, created_at), so never-started jobs are pruned too.
+	DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type jobRepo struct {
@@ -154,8 +155,8 @@ func (r *jobRepo) List(ctx context.Context, limit, offset int) ([]*model.Job, er
 	return jobs, nil
 }
 
-func (r *jobRepo) DeleteFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	tag, err := r.db.Exec(ctx, `DELETE FROM jobs WHERE status = 'done' AND finished_at < $1`, cutoff)
+func (r *jobRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM jobs WHERE COALESCE(finished_at, created_at) < $1`, cutoff)
 	if err != nil {
 		return 0, err
 	}

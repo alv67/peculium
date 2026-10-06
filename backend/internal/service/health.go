@@ -107,13 +107,15 @@ func (s *Service) recordHealth(ctx context.Context, assetID *uuid.UUID, eventTyp
 	}
 }
 
-func (s *HealthService) PruneEvents(ctx context.Context, before time.Time) (int64, error) {
-	n, err := s.repos.Health.DeleteBefore(ctx, before)
-	if err != nil {
-		log.Warn().Err(err).Msg("health retention sweep failed")
-		return 0, err
-	}
-	return n, nil
+// PruneStandaloneEvents prunes standalone events only; a job's events are
+// removed with the job (cascade).
+func (s *HealthService) PruneStandaloneEvents(ctx context.Context, before time.Time) (int64, error) {
+	return s.repos.Health.DeleteStandaloneBefore(ctx, before)
+}
+
+// ClearAll wipes every job and every health event.
+func (s *HealthService) ClearAll(ctx context.Context) (int64, error) {
+	return s.repos.Health.ClearAll(ctx)
 }
 
 func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int) (*model.HealthSummary, []*model.HealthEvent, int, error) {
