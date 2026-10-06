@@ -83,6 +83,7 @@ func (s *JobService) decorate(ctx context.Context, jobs []*model.Job) {
 			ids = append(ids, j.ID)
 		}
 	}
+	s.labelTargets(ctx, jobs)
 	if len(ids) == 0 || s.repos.Health == nil {
 		return
 	}
@@ -94,6 +95,49 @@ func (s *JobService) decorate(ctx context.Context, jobs []*model.Job) {
 	for _, j := range jobs {
 		if c, ok := counts[j.ID]; ok {
 			j.Summary = c
+		}
+	}
+}
+
+// labelTargets fills TargetLabel from the job's target entity — the asset
+// ticker or the portfolio name — so the UI never shows a bare uuid. Asset ids
+// are resolved in one batched query; portfolio targets are rare, so they are
+// looked up one by one. Global or unresolvable targets stay empty and the UI
+// falls back to the short id.
+func (s *JobService) labelTargets(ctx context.Context, jobs []*model.Job) {
+	assetIDs := make([]uuid.UUID, 0)
+	portfolioIDs := make([]uuid.UUID, 0)
+	for _, j := range jobs {
+		if j.TargetID == nil {
+			continue
+		}
+		switch j.TargetType {
+		case model.JobTargetAsset:
+			assetIDs = append(assetIDs, *j.TargetID)
+		case model.JobTargetPortfolio:
+			portfolioIDs = append(portfolioIDs, *j.TargetID)
+		}
+	}
+	labels := make(map[uuid.UUID]string, len(assetIDs)+len(portfolioIDs))
+	if len(assetIDs) > 0 && s.repos.Asset != nil {
+		if assets, err := s.repos.Asset.FindByIDs(ctx, assetIDs); err == nil {
+			for _, a := range assets {
+				labels[a.ID] = a.Ticker
+			}
+		}
+	}
+	if s.repos.Portfolio != nil {
+		for _, id := range portfolioIDs {
+			if p, err := s.repos.Portfolio.FindByID(ctx, id); err == nil && p != nil {
+				labels[id] = p.Name
+			}
+		}
+	}
+	for _, j := range jobs {
+		if j.TargetID != nil {
+			if label, ok := labels[*j.TargetID]; ok {
+				j.TargetLabel = label
+			}
 		}
 	}
 }

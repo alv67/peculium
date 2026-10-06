@@ -1580,13 +1580,15 @@ Two stacked cards.
 counts (running/queued/failed, only non-zero) and, while a job is open, a
 "Live" pill with a 3-second **auto-refresh** that polls only the job list and
 dies on its own when nothing is queued or running (silent: no skeleton, no
-toast). The table shows type, target (not a link — the queue is not
-user-scoped), a status badge (one shared status→badge map also used by the
-events table, so `running` reads as accent instead of red), progress
-(`processed/total` plus a bar while running and the `ok`/`failed` rollup),
-duration via `formatDuration`, and the start time; a full-width sub-row shows
-the error for `failed`/`partial`. Empty state offers a "Refresh prices" action.
-The duration and the health rollup are derived server-side (no column).
+toast). The table shows type, target (the readable `target_label` — asset
+ticker or portfolio name — resolved server-side, falling back to the short id;
+never a link, the queue is not user-scoped), a status badge (one shared
+status→badge map also used by the events table, so `running` reads as accent
+instead of red), progress (`processed/total` plus a bar while running and the
+`ok`/`failed` rollup), duration via `formatDuration`, and the start time; a
+full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
+"Refresh prices" action. The target label, the duration and the health rollup
+are derived server-side (no column).
 
 **Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`
 (the period selector scopes the summary only). 4 summary tiles (Success Rate,

@@ -1661,13 +1661,15 @@ Due card impilate.
 quelli non nulli) e, mentre un job è aperto, una pill "Live" con **auto-refresh**
 a 3 secondi che interroga solo la lista job e si spegne da sola quando nulla è in
 coda o in corso (silenzioso: niente skeleton, niente toast). La tabella mostra
-tipo, destinazione (non un link — la coda non è per-utente), un badge di stato
+tipo, destinazione (la `target_label` leggibile — ticker dell'asset o nome del
+portafoglio — risolta lato server, con fallback all'id corto; mai un link, la
+coda non è per-utente), un badge di stato
 (mappa stato→badge unica, condivisa con la tabella eventi, quindi `running` esce
 in accent e non rosso), avanzamento (`processed/total` più la barra durante
 l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration` e ora di
 avvio; una sub-riga a tutta larghezza mostra l'errore per `failed`/`partial`.
-L'empty state offre l'azione "Aggiorna prezzi". Durata e rollup health sono
-derivati lato server (nessuna colonna).
+L'empty state offre l'azione "Aggiorna prezzi". Label di destinazione, durata e
+rollup health sono derivati lato server (nessuna colonna).
 
 **Eventi recenti** (in basso): `api.get('/health/prices?period=today|24h|100')`
 (il selettore di periodo limita solo il riepilogo). 4 tile di riepilogo (Success

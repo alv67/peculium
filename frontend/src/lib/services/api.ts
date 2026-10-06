@@ -583,6 +583,8 @@ export interface Job {
   finished_at?: string
   /** Wall-clock run time of a terminal job (derived server-side). */
   duration_ms?: number
+  /** Readable target (asset ticker / portfolio name), derived server-side. */
+  target_label?: string
   /** Item-level health rollup of a terminal job (derived server-side). */
   summary?: { ok: number; failed: number }
 }

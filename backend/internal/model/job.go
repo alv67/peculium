@@ -59,8 +59,10 @@ type Job struct {
 	FinishedAt  *time.Time      `json:"finished_at,omitempty"`
 
 	// Derived fields, filled by JobService.Get/List and never stored: the
-	// wall-clock run duration (finished - started) and the health-event
-	// rollup. Zero/nil while the job has not started or finished.
-	DurationMs int64            `json:"duration_ms,omitempty"`
-	Summary    *JobHealthCounts `json:"summary,omitempty"`
+	// wall-clock run duration (finished - started), a readable target label
+	// (asset ticker / portfolio name) and the health-event rollup. Zero/nil
+	// while the job has not started or finished / has no resolvable target.
+	DurationMs  int64            `json:"duration_ms,omitempty"`
+	TargetLabel string           `json:"target_label,omitempty"`
+	Summary     *JobHealthCounts `json:"summary,omitempty"`
 }

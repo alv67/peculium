@@ -731,8 +731,10 @@ history backfill and split check each record one success row per asset (with
 the bar/split count), so the page lists every backfill call, not just the
 failures; assets skipped by cooldown or already up to date leave no row.
 
-`GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms` and a
-`summary` with the `ok`/`failed` item counts of each job.
+`GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms`, a readable
+`target_label` (asset ticker / portfolio name, resolved in one batched query
+per page; empty for global or unresolved targets) and a `summary` with the
+`ok`/`failed` item counts of each job.
 
 ### History and splits
 
