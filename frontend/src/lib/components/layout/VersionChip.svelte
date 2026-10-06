@@ -89,10 +89,6 @@
       </dd>
       <dt class="text-muted-foreground">{t('about.build')}</dt>
       <dd class={cx(!builtAtLocal && 'text-muted-foreground')}>{builtAtLocal || unavailable}</dd>
-      <dt class="text-muted-foreground">{t('about.server')}</dt>
-      <dd class={cx('font-mono', !appVersion.builtAt && 'text-muted-foreground')}>
-        {appVersion.builtAt || unavailable}
-      </dd>
     </dl>
     <div class="mt-4">
       <Button variant="secondary" onclick={copyBuildInfo}>{t('about.copy')}</Button>

@@ -6,7 +6,7 @@ COMPOSE_RELEASE := $(COMPOSE) -f docker-compose.yml
 .PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell publish help
 
 up: ## Start all services (dev stack)
-	$(COMPOSE_DEV) up --build -d
+	PECULIUM_COMMIT=$$(git rev-parse --short HEAD 2>/dev/null) PECULIUM_BUILT_AT=$$(date -u +%Y-%m-%dT%H:%M:%SZ) $(COMPOSE_DEV) up --build -d
 
 up-release: ## Start release stack, force-pulling images from GHCR
 	$(COMPOSE_RELEASE) pull

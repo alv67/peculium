@@ -1118,7 +1118,6 @@ export const en = {
     version: 'Version',
     commit: 'Commit',
     build: 'Build',
-    server: 'Server',
     /** sr-only suffix of the commit link (visible text stays the SHA). */
     openCommit: 'Open commit on GitHub',
     copy: 'Copy build info',
