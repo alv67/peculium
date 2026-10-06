@@ -511,3 +511,42 @@ func TestJobGetDecoratesDurationAndSummary(t *testing.T) {
 		t.Fatalf("queued job decorated anyway: %+v", queued)
 	}
 }
+
+func TestJobListResolvesTargetLabel(t *testing.T) {
+	ctx := context.Background()
+	asset := &model.Asset{ID: uuid.New(), Ticker: "AAPL"}
+	pf := &model.Portfolio{ID: uuid.New(), Name: "Mediolanum"}
+	repo := &fakeJobRepo{}
+	svc := NewJobService(&repository.Repository{
+		Job:       repo,
+		Asset:     &fakeAssetRepo{assets: []*model.Asset{asset}},
+		Portfolio: &fakePortfolioRepo{portfolio: pf},
+	})
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &asset.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypePriceRefresh, TargetType: model.JobTargetPortfolio, TargetID: &pf.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Enqueue(ctx, &model.Job{Type: model.JobTypeAssetSync, TargetType: model.JobTargetGlobal}); err != nil {
+		t.Fatal(err)
+	}
+
+	jobs, err := svc.List(ctx, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byType := map[string]string{}
+	for _, j := range jobs {
+		byType[j.Type] = j.TargetLabel
+	}
+	if byType[model.JobTypeHistoryBackfill] != "AAPL" {
+		t.Fatalf("asset label = %q, want AAPL", byType[model.JobTypeHistoryBackfill])
+	}
+	if byType[model.JobTypePriceRefresh] != "Mediolanum" {
+		t.Fatalf("portfolio label = %q, want Mediolanum", byType[model.JobTypePriceRefresh])
+	}
+	if byType[model.JobTypeAssetSync] != "" {
+		t.Fatalf("global label = %q, want empty", byType[model.JobTypeAssetSync])
+	}
+}

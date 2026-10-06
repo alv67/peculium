@@ -746,7 +746,9 @@ primo errore), mai una riga per data. Un backfill storico e un controllo split
 barre/split), così la pagina elenca ogni chiamata di backfill, non solo i
 fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
 
-`GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato e un
+`GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato, una
+`target_label` leggibile (ticker dell'asset / nome del portafoglio, risolta con
+una query batch per pagina; vuota per target globali o non risolti) e un
 `summary` con i conteggi item `ok`/`failed` di ogni job.
 
 ### Storico e split

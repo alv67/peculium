@@ -334,7 +334,11 @@
                   <Td class="max-sm:order-2 max-sm:col-span-2 max-sm:py-0.5 min-w-0 text-muted-foreground">
                     {#if job.target_type || job.target_id}
                       <span class="whitespace-nowrap">{labeled(JOB_TARGET_KEYS, job.target_type)}</span>
-                      {#if job.target_id}
+                      {#if job.target_label}
+                        <span class="ml-1 font-medium text-foreground" title={job.target_id}>
+                          {job.target_label}
+                        </span>
+                      {:else if job.target_id}
                         <span class="ml-1 break-all font-mono text-xs" title={job.target_id}>
                           {job.target_id.slice(0, 8)}
                         </span>
