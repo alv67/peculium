@@ -1036,7 +1036,6 @@ export const it = {
     version: 'Versione',
     commit: 'Commit',
     build: 'Build',
-    server: 'Server',
     /** Suffisso sr-only del link al commit (il testo visibile resta lo SHA). */
     openCommit: 'Apri il commit su GitHub',
     copy: 'Copia informazioni build',

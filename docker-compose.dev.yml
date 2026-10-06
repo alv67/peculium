@@ -49,9 +49,10 @@ services:
       PECULIUM_SERVER_PORT: 8080
       PECULIUM_LOG_LEVEL: debug
       PECULIUM_PYTHON_SERVICE_URL: "http://python-service:8000"
-      # Local dev build: report "dev" (the Dockerfile default). The published
-      # images carry the real tag/branch + build time via CI build-args.
-      PECULIUM_VERSION: "${PECULIUM_VERSION:-dev}"
+      # Local dev build: report "dev" + the local commit/build time injected by
+      # `make up`. The published images carry the real tag/branch via CI
+      # build-args, and the release stack picks its image tag from `.env`.
+      PECULIUM_VERSION: dev
       PECULIUM_COMMIT: "${PECULIUM_COMMIT:-}"
       PECULIUM_BUILT_AT: "${PECULIUM_BUILT_AT:-}"
     depends_on:

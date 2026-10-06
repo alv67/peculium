@@ -52,7 +52,7 @@ services:
       PECULIUM_LOG_LEVEL: debug
       PECULIUM_YAHOO_FINANCE_ENABLED: "false"
       PECULIUM_PYTHON_SERVICE_URL: "http://python-service:8000"
-      PECULIUM_VERSION: "${PECULIUM_VERSION:-dev}"
+      PECULIUM_VERSION: dev
       PECULIUM_COMMIT: "${PECULIUM_COMMIT:-}"
       PECULIUM_BUILT_AT: "${PECULIUM_BUILT_AT:-}"
     depends_on:
