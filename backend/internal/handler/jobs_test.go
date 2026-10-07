@@ -67,6 +67,10 @@ func (f *fakeJobQueue) List(ctx context.Context, limit, offset int) ([]*model.Jo
 	return f.jobs, nil
 }
 
+func (f *fakeJobQueue) FindOpenForAsset(ctx context.Context, assetID uuid.UUID) (*model.Job, error) {
+	return nil, nil
+}
+
 func newJobTestHandler() (*Handler, *fakeJobQueue) {
 	fq := &fakeJobQueue{}
 	svc := service.New(&repository.Repository{Job: fq}, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)

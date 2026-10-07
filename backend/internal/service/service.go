@@ -431,7 +431,46 @@ func (s *Service) CreateAsset(ctx context.Context, asset *model.Asset) (*model.A
 }
 
 func (s *Service) GetAsset(ctx context.Context, id uuid.UUID) (*model.Asset, error) {
-	return s.repos.Asset.FindByID(ctx, id)
+	asset, err := s.repos.Asset.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	asset.DataStatus = s.assetDataStatus(ctx, asset)
+	return asset, nil
+}
+
+// assetDataStatus derives how complete an asset's market data is: an open
+// job covering the asset means it is still syncing, otherwise the backfill
+// flag and the stored price range decide between complete, partial and
+// missing. Non-Yahoo assets have no downloadable data and get nil. The job
+// and price lookups are best-effort nil-safe, like labelTargets.
+func (s *Service) assetDataStatus(ctx context.Context, asset *model.Asset) *model.AssetDataStatus {
+	if !isYahooPriced(asset) {
+		return nil
+	}
+	st := &model.AssetDataStatus{}
+	if s.repos.Job != nil {
+		if job, err := s.repos.Job.FindOpenForAsset(ctx, asset.ID); err == nil && job != nil {
+			st.State = model.AssetDataSyncing
+			st.JobID = &job.ID
+			st.JobStatus = job.Status
+			st.Processed = job.Processed
+			st.Total = job.Total
+			return st
+		}
+	}
+	if asset.HistoryBackfilled {
+		st.State = model.AssetDataComplete
+		return st
+	}
+	if s.repos.Price != nil {
+		if _, latest, err := s.repos.Price.MinMaxDate(ctx, asset.ID); err == nil && latest != nil {
+			st.State = model.AssetDataPartial
+			return st
+		}
+	}
+	st.State = model.AssetDataMissing
+	return st
 }
 
 // AssetSplits returns the stock split events for a single asset, sorted by date

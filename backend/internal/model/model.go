@@ -70,22 +70,41 @@ const (
 )
 
 type Asset struct {
-	ID                uuid.UUID  `json:"id"`
-	Ticker            string     `json:"ticker"`
-	ISIN              string     `json:"isin,omitempty"`
-	Name              string     `json:"name"`
-	Type              AssetType  `json:"type"`
-	AssetClass        string     `json:"asset_class"`
-	PriceSource       string     `json:"price_source"`
-	Country           string     `json:"country,omitempty"`
-	Currency          string     `json:"currency"`
-	Exchange          string     `json:"exchange,omitempty"`
-	Sector            string     `json:"sector,omitempty"`
-	Industry          string     `json:"industry,omitempty"`
-	CreatedAt         time.Time  `json:"created_at"`
-	PriceFetchedAt    *time.Time `json:"price_fetched_at,omitempty"`
-	HistoryBackfilled bool       `json:"-"`
+	ID                uuid.UUID        `json:"id"`
+	Ticker            string           `json:"ticker"`
+	ISIN              string           `json:"isin,omitempty"`
+	Name              string           `json:"name"`
+	Type              AssetType        `json:"type"`
+	AssetClass        string           `json:"asset_class"`
+	PriceSource       string           `json:"price_source"`
+	Country           string           `json:"country,omitempty"`
+	Currency          string           `json:"currency"`
+	Exchange          string           `json:"exchange,omitempty"`
+	Sector            string           `json:"sector,omitempty"`
+	Industry          string           `json:"industry,omitempty"`
+	CreatedAt         time.Time        `json:"created_at"`
+	PriceFetchedAt    *time.Time       `json:"price_fetched_at,omitempty"`
+	HistoryBackfilled bool             `json:"history_backfilled"`
+	DataStatus        *AssetDataStatus `json:"data_status,omitempty"`
 }
+
+// AssetDataStatus is the derived completeness of an asset's market data
+// (never stored): whether its history is fully downloaded, still syncing,
+// partial or missing. Set only on the single-asset GET.
+type AssetDataStatus struct {
+	State     string     `json:"state"`
+	JobID     *uuid.UUID `json:"job_id,omitempty"`
+	JobStatus string     `json:"job_status,omitempty"`
+	Processed int        `json:"processed,omitempty"`
+	Total     int        `json:"total,omitempty"`
+}
+
+const (
+	AssetDataComplete = "complete" // history_backfilled is true
+	AssetDataSyncing  = "syncing"  // an open job covers this asset
+	AssetDataPartial  = "partial"  // not backfilled but some prices stored
+	AssetDataMissing  = "missing"  // not backfilled, no prices
+)
 
 // AssetQuote holds the headline metrics shown on the asset detail page. It is
 // asset-scoped and independent of any portfolio.
@@ -105,17 +124,17 @@ type AssetQuote struct {
 // distinguish "not provided" (nil) from an explicit value, so string fields can
 // be cleared by sending an empty string.
 type AssetPatch struct {
-	Ticker     *string    `json:"ticker"`
-	ISIN       *string    `json:"isin"`
-	Name       *string    `json:"name"`
+	Ticker      *string    `json:"ticker"`
+	ISIN        *string    `json:"isin"`
+	Name        *string    `json:"name"`
 	Type        *AssetType `json:"type"`
 	AssetClass  *string    `json:"asset_class"`
 	PriceSource *string    `json:"price_source"`
 	Country     *string    `json:"country"`
-	Currency   *string    `json:"currency"`
-	Exchange   *string    `json:"exchange"`
-	Sector     *string    `json:"sector"`
-	Industry   *string    `json:"industry"`
+	Currency    *string    `json:"currency"`
+	Exchange    *string    `json:"exchange"`
+	Sector      *string    `json:"sector"`
+	Industry    *string    `json:"industry"`
 }
 
 // ExposureRow è una singola voce di peso percentuale per una dimensione

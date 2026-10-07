@@ -11,6 +11,7 @@
 - L'app ora mostra quale build sta eseguendo: la versione e l'ora di build compaiono in modo discreto in fondo alla sidebar (e sulla pagina di login), e una nuova card "Informazioni sull'app" in Impostazioni → Preferenze elenca versione, commit (con link su GitHub) e ora di build, con un pulsante per copiarli quando segnali un problema
 - L'aggiornamento prezzi e il re-download completo dello storico o dei metadati di un asset ora girano in background invece di tenere aperta la richiesta: l'azione ritorna subito e l'app segue il lavoro in corso, quindi una connessione lenta o una collezione grande non fanno più bloccare o fallire l'operazione in silenzio
 - Aprire l'app o un portafoglio non attende più i download: i dati di mercato vengono scaricati in background e le pagine si aggiornano da sole quando sono pronti
+- La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre è ancora in download vedi uno stato di caricamento invece di un grafico vuoto (aggiornato da solo), quando lo storico non c'è ancora hai un pulsante per scaricarlo, e quando è scaricato solo in parte una nota te lo segnala — con lo stesso pulsante per completarlo
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 
 ### Correzioni

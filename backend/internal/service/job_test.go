@@ -20,6 +20,9 @@ type fakeJobRepo struct {
 
 	lastListLimit  int
 	lastListOffset int
+
+	// openForAsset is the canned answer for FindOpenForAsset.
+	openForAsset *model.Job
 }
 
 var _ repository.JobRepository = (*fakeJobRepo)(nil)
@@ -110,6 +113,10 @@ func (f *fakeJobRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Job, er
 func (f *fakeJobRepo) List(ctx context.Context, limit, offset int) ([]*model.Job, error) {
 	f.lastListLimit, f.lastListOffset = limit, offset
 	return f.jobs, nil
+}
+
+func (f *fakeJobRepo) FindOpenForAsset(ctx context.Context, assetID uuid.UUID) (*model.Job, error) {
+	return f.openForAsset, nil
 }
 
 func (f *fakeJobRepo) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {

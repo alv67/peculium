@@ -80,6 +80,17 @@ export interface Portfolio {
   updated_at: string
 }
 
+/** Data-completeness of an asset's price history (`GET /assets/{id}`).
+ * Absent for non-Yahoo assets (manual/none): no state to show. The job
+ * fields are present only while `state === 'syncing'`. */
+export interface AssetDataStatus {
+  state: string
+  job_id?: string
+  job_status?: string
+  processed?: number
+  total?: number
+}
+
 export interface Asset {
   id: string
   ticker: string
@@ -93,6 +104,8 @@ export interface Asset {
   sector?: string
   industry?: string
   price_source?: string
+  history_backfilled?: boolean
+  data_status?: AssetDataStatus
 }
 
 export interface AssetQuote {

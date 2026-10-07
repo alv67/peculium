@@ -385,7 +385,14 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   header delta chips (labels `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD`
   through `t()`); `sumRegions` / `sumSectors` / `sumCountries` and their
   validity guards (`regionsValid` / `sectorsValid` / `countriesValid`) live
-  in the asset shell (`+layout.svelte`) beside the data they validate.
+  in the asset shell (`+layout.svelte`) beside the data they validate. The
+  Overview price-history card mirrors the asset's data completeness
+  (`data_status` on `GET /assets/{id}`): while an open backfill/sync job covers
+  the asset (`syncing`) with no prices yet it shows a spinner instead of an
+  empty chart — the shell polls the asset every ~4 seconds and refetches the
+  quote and prices when the job ends — `missing` (no history and no job) shows
+  an empty state with a "Backfill full history" action, and `partial` (some
+  prices but incomplete history) adds a note with the same action.
 
 ---
 
