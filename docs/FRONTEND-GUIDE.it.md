@@ -1679,9 +1679,8 @@ portafoglio — risolta lato server, con fallback all'id corto; mai un link, la
 coda non è per-utente), un badge di stato
 (mappa stato→badge unica, condivisa con la tabella eventi, quindi `running` esce
 in accent e non rosso), avanzamento (`processed/total` più la barra durante
-l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration`, ora di
-avvio e ora di fine (trattino finché il job non è terminato); una sub-riga a
-tutta larghezza mostra l'errore per `failed`/`partial`.
+l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration` e ora di
+avvio; una sub-riga a tutta larghezza mostra l'errore per `failed`/`partial`.
 L'empty state offre l'azione "Aggiorna prezzi". Label di destinazione, durata e
 rollup health sono derivati lato server (nessuna colonna).
 

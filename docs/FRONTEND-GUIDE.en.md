@@ -1598,8 +1598,7 @@ ticker or portfolio name — resolved server-side, falling back to the short id;
 never a link, the queue is not user-scoped), a status badge (one shared
 status→badge map also used by the events table, so `running` reads as accent
 instead of red), progress (`processed/total` plus a bar while running and the
-`ok`/`failed` rollup), duration via `formatDuration`, the start time and the
-finish time (em dash while the job has not finished); a
+`ok`/`failed` rollup), duration via `formatDuration`, and the start time; a
 full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
 "Refresh prices" action. The target label, the duration and the health rollup
 are derived server-side (no column).

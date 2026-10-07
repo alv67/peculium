@@ -619,7 +619,6 @@ export const en = {
     colTarget: 'Target',
     colProgress: 'Progress',
     colStarted: 'Started',
-    colFinished: 'Finished',
     /** Progress cell text (`aria-hidden` bar mirrors it for sighted users). */
     progressOf: '{processed} of {total}',
     outcome: '{ok} succeeded · {failed} failed',

@@ -585,7 +585,6 @@ export const it = {
     colTarget: 'Destinazione',
     colProgress: 'Avanzamento',
     colStarted: 'Avviato',
-    colFinished: 'Fine',
     /** Testo della cella di progresso (la barra `aria-hidden` lo replica). */
     progressOf: '{processed} di {total}',
     outcome: '{ok} riusciti · {failed} in errore',
