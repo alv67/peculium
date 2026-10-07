@@ -14,6 +14,7 @@
 - The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
 
 ### Fixes
+- The latest price is now the same on every installation that refreshes at the same time: the daily refresh always resolves the last available close the same way (it no longer mixes two different Yahoo sources), and when the current day's close is still missing it is flagged in "Data & Sync" instead of being reported as a clean success
 - Restoring a backup now downloads the market data for the restored assets right away, instead of leaving their charts empty until the next time the app is opened
 
 ## v1.0.0 — 30 Sep 2026 (first release under the Peculium name)

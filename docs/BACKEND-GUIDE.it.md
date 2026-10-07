@@ -669,8 +669,11 @@ tra gli asset obsoleti.
 
 Quando bisogna aggiornare, le quotazioni correnti e i tassi di cambio vengono
 presi **in batch** tramite l'endpoint `spark` di Yahoo: una sola chiamata per
-gruppi di 50 titoli. I titoli che mancano dalla risposta vengono richiesti uno
-a uno.
+gruppi di 50 titoli. Il batch `spark` è la **fonte unica** dell'ultimo close —
+l'ultima barra con close non nullo, perché Yahoo lascia nullo il close della
+sessione corrente finché non è definitiva. Un titolo assente dalla risposta
+viene segnalato come issue e ritentato al refresh successivo, mai richiesto
+all'endpoint chart, così ogni install risolve lo stesso ultimo close.
 
 ### Tenere sotto controllo le chiamate
 
@@ -728,9 +731,12 @@ Gli esiti degli aggiornamenti prezzi finiscono nel **log di health**
 (`health_events`): i problemi per-asset portano un codice stabile —
 `rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
 (un errore HTTP specifico) o `error` — ognuno con una durata reale in
-`duration_ms`. Gli eventi emessi mentre gira un job sono marcati con l'id di
-quel job, così la pagina Admin → Data & Sync può correlare un fallimento con
-la riga della coda che l'ha prodotto.
+`duration_ms`. Un refresh che salva alcune barre ma lascia degli asset su un
+close più vecchio del giorno lavorativo atteso registra un solo evento `stale`
+per run (non uno per asset), così un close corrente mancante non resta nascosto
+dietro il riepilogo di successo del batch. Gli eventi emessi mentre gira un job
+sono marcati con l'id di quel job, così la pagina Admin → Data & Sync può
+correlare un fallimento con la riga della coda che l'ha prodotto.
 
 Un job in coda emette anche le proprie righe di **ciclo di vita** (tipo evento
 `job`): una `job_started` quando il worker lo prende e una terminale

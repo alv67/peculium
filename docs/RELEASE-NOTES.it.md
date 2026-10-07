@@ -14,6 +14,7 @@
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 
 ### Correzioni
+- L'ultimo prezzo ora è lo stesso su ogni installazione che aggiorna nello stesso momento: il refresh giornaliero risolve sempre allo stesso modo l'ultimo close disponibile (non mescola più due fonti Yahoo diverse), e quando manca ancora il close del giorno corrente viene segnalato in "Dati e sincronizzazione" invece di essere riportato come successo pulito
 - Il ripristino di un backup ora scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i loro grafici vuoti fino alla prossima apertura dell'app
 
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)

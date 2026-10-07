@@ -659,7 +659,11 @@ as stale.
 
 When updates are needed, current quotes and exchange rates are fetched **in
 batch** using Yahoo's `spark` endpoint: a single call for groups of 50
-securities. Securities missing from the response are requested one by one.
+securities. The `spark` batch is the **single source** of the latest close —
+the last bar with a non-null close, since Yahoo leaves the not-yet-final
+current session null. A security missing from the response is reported as an
+issue and retried on the next refresh, never fetched from the chart endpoint,
+so every install resolves the same last close.
 
 ### Keeping the calls under control
 
@@ -714,7 +718,10 @@ synchronous because the caller needs their result inline.
 Price-update outcomes are recorded in the **health log** (`health_events`):
 per-asset issues carry a stable code — `rate_limited` (Yahoo refused because
 of too many calls), `http_<status>` (a specific HTTP error) or `error` — each
-with a real duration in `duration_ms`. Events raised while a job runs are
+with a real duration in `duration_ms`. A refresh that saves some bars but
+leaves assets on a close older than the expected trading day records a single
+`stale` event per run (not one per asset), so a missing current close is not
+hidden behind the batch success summary. Events raised while a job runs are
 tagged with that job's id, so the Admin → Data & Sync page can correlate a
 failure with the queue row that produced it.
 
