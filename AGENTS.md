@@ -31,8 +31,13 @@
 - **Issue triage**: external issues opened on the public repo arrive through the
   issue forms in `.github/ISSUE_TEMPLATE/` with the `triage` label applied
   automatically. The maintainers' planning issues never use `triage`; they carry
-  `epic:*`/`priority` labels. Treat `label:triage` as the incoming queue and
+  `epic:*`/`priority` labels. Treat   `label:triage` as the incoming queue and
   `label:epic:*` as the project plan.
+- **Epics vs extemporaneous work**: only planned epic work carries `epic:*`
+  (and `priority`) labels. Bugs and standalone feature requests are
+  extemporaneous: they stay autonomous issues without any `epic:*` label, even
+  when they touch an epic's area. Epics are driven to completion; ad-hoc items
+  are tracked on their own.
 - **Keep the project docs in sync before closing a PR**: always check the
   project documents first (AGENTS.md, PLAN.md, STATUS.md, `docs/` guides en/it)
   and update them together with the code. A PR must NOT be closed until its
