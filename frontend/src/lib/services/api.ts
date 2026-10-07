@@ -849,7 +849,8 @@ export const assetApi = {
   search: (q: string) => request<Asset[]>(`/assets/search?q=${q}`),
   lookup: (q: string) => request<AssetLookupResult[]>(`/assets/lookup?q=${q}`),
   meta: (ticker: string) => request<AssetMeta>(`/assets/meta?ticker=${ticker}`),
-  get: (id: string) => request<Asset>(`/assets/${id}`),
+  get: (id: string, opts?: { noCache?: boolean }) =>
+    request<Asset>(`/assets/${id}`, { noCache: opts?.noCache }),
   create: (data: Partial<Asset>) => request<Asset>('/assets', { method: 'POST', body: data }),
   update: (id: string, patch: AssetPatch) =>
     request<Asset>(`/assets/${id}`, { method: 'PATCH', body: patch }),

@@ -10,6 +10,7 @@
   import type { MessageKey } from '$lib/i18n/index.svelte'
   import {
     assetApi,
+    clearGetCache,
     jobsApi,
     portfolioApi,
     pricesApi,
@@ -232,20 +233,22 @@
 
   // #193: while the asset reports `syncing` (per-asset backfill or the
   // global app-load asset sync), poll it every ~4s; once the job is gone,
-  // refetch the quote/prices the job just wrote (same as the session
-  // refresh) and stop. Plain interval id, re-armed by `load()`.
+  // refetch everything the job wrote (quote, prices AND splits) and stop.
+  // The poll bypasses the 60s client GET cache, otherwise it would keep
+  // reading the stale "syncing" payload for up to a minute. Plain interval
+  // id, re-armed by `load()`.
   function startSyncPolling(): void {
     stopSyncPolling()
     if (!id) return
     syncTimer = setInterval(async () => {
       if (!id) return
       try {
-        const a = await assetApi.get(id)
+        const a = await assetApi.get(id, { noCache: true })
         asset = a
         dataSyncing = a.data_status?.state === 'syncing'
         if (!dataSyncing) {
           stopSyncPolling()
-          void refetchAfterRefresh()
+          void refetchAssetData()
         }
       } catch {
         // Keep the previous data; the next tick retries.
@@ -257,6 +260,31 @@
     if (syncTimer !== undefined) {
       clearInterval(syncTimer)
       syncTimer = undefined
+    }
+  }
+
+  /** Refetch the price-derived data a backfill/sync writes — the asset (for
+   * its fresh `data_status`), quote, prices and splits — clearing the client
+   * GET cache first so none of them comes back stale (the poll bypasses the
+   * cache, so the old payloads would otherwise be served for up to a
+   * minute). Used when a job ends. */
+  async function refetchAssetData(): Promise<void> {
+    if (!id) return
+    clearGetCache()
+    try {
+      const [freshAsset, freshQuote, freshPrices, freshSplits] = await Promise.all([
+        assetApi.get(id, { noCache: true }),
+        assetApi.quote(id),
+        pricesApi.byAsset(id),
+        assetApi.splits(id),
+      ])
+      asset = freshAsset
+      dataSyncing = freshAsset.data_status?.state === 'syncing'
+      quote = freshQuote
+      prices = freshPrices
+      splits = freshSplits
+    } catch {
+      // Keep current data.
     }
   }
 
@@ -428,8 +456,9 @@
   }
 
   // Backfill asincrono: il POST accoda un job (202) e `backfillingHistory`
-  // copre l'attesa del polling. L'enqueue ha già invalidato la cache GET del
-  // client, quindi il refetch di byAsset ritorna lo storico completo; `partial`
+  // copre l'attesa del polling. Al termine `refetchAssetData` ricarica quote,
+  // prezzi e split (non solo i prezzi): il job scrive anche gli split, e
+  // senza il refetch del cache client resterebbero quelli vecchi. `partial`
   // significa storico ok ma split non recuperati.
   async function backfillHistory(): Promise<void> {
     if (!id) return
@@ -438,7 +467,7 @@
       const { job_id } = await assetApi.backfillHistory(id)
       const job = await jobsApi.wait(job_id)
       if (job.status === 'done' || job.status === 'partial') {
-        prices = await pricesApi.byAsset(id)
+        await refetchAssetData()
       }
       if (job.status === 'done') {
         toast.success(t('asset.backfillDone'))

@@ -391,7 +391,9 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   the asset (`syncing`) with no prices yet it shows a progress bar instead of
   an empty chart — determinate when the job reports `processed`/`total`,
   indeterminate otherwise — and the shell polls the asset every ~4 seconds and
-  refetches the quote and prices when the job ends; with data already plotted
+  refetches the quote, prices and splits when the job ends (clearing the
+  client GET cache first, and bypassing it in the poll itself); with data
+  already plotted
   it keeps the chart and adds the same progress bar (no action, since a
   backfill is already running). `missing` (no history and no job) shows an
   empty state with a "Backfill full history" action, and `partial` (some prices
