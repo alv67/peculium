@@ -791,36 +791,7 @@ func (f *YahooFetcher) RefreshStale(ctx context.Context, assets []*model.Asset) 
 		log.Warn().Err(err).Msg("failed to mark prices as fetched")
 	}
 
-	// Truth in the health log: a refresh can save some bars and still leave
-	// the stored latest close older than the expected trading day (the
-	// current session not yet final, or a symbol missing from the batch).
-	// Report that as one stale event per run so it is not invisible behind
-	// the batch success summary above.
-	f.recordStaleIfBehind(ctx, stale, expected, batchStart)
 	return report, nil
-}
-
-// recordStaleIfBehind records a single price_refresh/stale event naming the
-// assets whose stored latest close is still older than expected (the most
-// recent weekday). One event per run, never one per asset.
-func (f *YahooFetcher) recordStaleIfBehind(ctx context.Context, assets []*model.Asset, expected, since time.Time) {
-	after, err := f.repos.Price.FindLatestForAssets(ctx, assetIDs(assets))
-	if err != nil {
-		return
-	}
-	behind := make([]string, 0)
-	for _, a := range assets {
-		lp, ok := after[a.ID]
-		if !ok || lp.Date.Before(expected) {
-			behind = append(behind, a.Ticker)
-		}
-	}
-	if len(behind) == 0 {
-		return
-	}
-	f.recordHealth(ctx, nil, "price_refresh", "failure", "stale",
-		fmt.Sprintf("%d/%d symbols still on a close before %s: %s",
-			len(behind), len(assets), expected.Format("2006-01-02"), strings.Join(behind, ", ")), since)
 }
 
 // priceDate returns the UTC calendar day the quote refers to.

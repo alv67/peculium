@@ -619,6 +619,7 @@ export const en = {
     colTarget: 'Target',
     colProgress: 'Progress',
     colStarted: 'Started',
+    colFinished: 'Finished',
     /** Progress cell text (`aria-hidden` bar mirrors it for sighted users). */
     progressOf: '{processed} of {total}',
     outcome: '{ok} succeeded · {failed} failed',
@@ -1002,8 +1003,8 @@ export const en = {
     delete: 'Delete asset',
     deleteConfirm: 'Delete {ticker}? This cannot be undone.',
     deleted: 'Asset deleted',
-    /** Muted date under the quote chips: `{date}` is locale-formatted. */
-    priceUpdated: 'Updated {date}',
+    /** Muted last-close date under the quote chips: `{date}` is locale-formatted. */
+    dataAsOf: 'Data as of {date}',
     /** Compact quote-delta chips (1D/1W/1M/1Y/YTD). */
     chip1d: '1D',
     chip1w: '1W',
@@ -1070,6 +1071,9 @@ export const en = {
     tickerPlaceholder: 'Ticker (e.g. AAPL)',
     noResultsFound: 'No results found',
     colCountry: 'Country',
+    /** Last-close value and its date columns of the assets list. */
+    colLastClose: 'Last close',
+    colLastCloseDate: 'Close date',
     /** Accessible name of the row trash button ({ticker} verbatim). */
     deleteNamed: 'Delete {ticker}',
     /** Short list-page delete-dialog question (the detail shell carries the

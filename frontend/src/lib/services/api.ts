@@ -106,6 +106,10 @@ export interface Asset {
   price_source?: string
   history_backfilled?: boolean
   data_status?: AssetDataStatus
+  /** Last recorded close (decimal string) and its ISO date, from the price
+   *  history (`GET /assets`, `GET /assets/{id}`). */
+  last_close?: string
+  last_close_date?: string
 }
 
 export interface AssetQuote {

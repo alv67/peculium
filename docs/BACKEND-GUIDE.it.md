@@ -731,12 +731,11 @@ Gli esiti degli aggiornamenti prezzi finiscono nel **log di health**
 (`health_events`): i problemi per-asset portano un codice stabile —
 `rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
 (un errore HTTP specifico) o `error` — ognuno con una durata reale in
-`duration_ms`. Un refresh che salva alcune barre ma lascia degli asset su un
-close più vecchio del giorno lavorativo atteso registra un solo evento `stale`
-per run (non uno per asset), così un close corrente mancante non resta nascosto
-dietro il riepilogo di successo del batch. Gli eventi emessi mentre gira un job
-sono marcati con l'id di quel job, così la pagina Admin → Data & Sync può
-correlare un fallimento con la riga della coda che l'ha prodotto.
+`duration_ms`. Borse diverse chiudono in orari diversi, quindi un asset con
+l'ultimo close più indietro di un altro è normale, non un errore. Gli eventi
+emessi mentre gira un job sono marcati con l'id di quel job, così la pagina
+Admin → Data & Sync può correlare un fallimento con la riga della coda che
+l'ha prodotto.
 
 Un job in coda emette anche le proprie righe di **ciclo di vita** (tipo evento
 `job`): una `job_started` quando il worker lo prende e una terminale
@@ -789,7 +788,10 @@ risponde `{"deleted": N}` (il numero di eventi rimossi).
   `history_backfill` che lo targeta o un `asset_sync` globale), con id, stato e
   progresso del job; `partial` quando non è backfillato ma ha alcuni prezzi
   salvati; `missing` quando non ha storico né job. Gli asset non-Yahoo non
-  portano `data_status`.
+  portano `data_status`. `GET /assets` e `GET /assets/{id}` portano anche
+  `last_close` e `last_close_date`, l'ultimo prezzo salvato e la sua data — il
+  riferimento dei valori dell'asset (diverso per borsa, perché i mercati
+  chiudono in orari diversi).
 
 ### Profilo ed esposizione dell'asset
 

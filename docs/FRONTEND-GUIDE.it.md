@@ -401,7 +401,9 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   `YTD`, `MAX` illimitato) su uno zoom in-place; i campi quote
   `change_1d/1w/1m/1y/ytd` sono renderizzati come chip delta nell'header
   della shell (etichette `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD` via
-  `t()`); `sumRegions` / `sumSectors` / `sumCountries` e i rispettivi guard
+  `t()`), con sotto l'ultimo close e la sua data come
+  `Dati al {data}` (la data di riferimento dei valori, diversa per borsa);
+  `sumRegions` / `sumSectors` / `sumCountries` e i rispettivi guard
   di validità (`regionsValid` / `sectorsValid` / `countriesValid`) vivono
   nella shell dell'asset (`+layout.svelte`) accanto ai dati che validano. La
   card "Storico prezzi" dell'Overview rispecchia la completezza dei dati
@@ -1333,7 +1335,7 @@ ordinati per contributo, esattamente come il drill della card dashboard.
 Endpoint chiamati: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Tabella dei titoli (ticker → link al dettaglio, nome, tipo, valuta, paese,
-  elimina).
+  valore dell'ultimo close e relativa data, elimina).
 - **Add Asset**: campo ticker con **autocomplete** — mentre digiti (da 2
   caratteri, debounce 350 ms) chiama `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) e mostra un menu di suggerimenti; selezionandone
@@ -1677,8 +1679,9 @@ portafoglio — risolta lato server, con fallback all'id corto; mai un link, la
 coda non è per-utente), un badge di stato
 (mappa stato→badge unica, condivisa con la tabella eventi, quindi `running` esce
 in accent e non rosso), avanzamento (`processed/total` più la barra durante
-l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration` e ora di
-avvio; una sub-riga a tutta larghezza mostra l'errore per `failed`/`partial`.
+l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration`, ora di
+avvio e ora di fine (trattino finché il job non è terminato); una sub-riga a
+tutta larghezza mostra l'errore per `failed`/`partial`.
 L'empty state offre l'azione "Aggiorna prezzi". Label di destinazione, durata e
 rollup health sono derivati lato server (nessuna colonna).
 

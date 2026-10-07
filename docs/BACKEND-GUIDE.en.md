@@ -718,12 +718,11 @@ synchronous because the caller needs their result inline.
 Price-update outcomes are recorded in the **health log** (`health_events`):
 per-asset issues carry a stable code — `rate_limited` (Yahoo refused because
 of too many calls), `http_<status>` (a specific HTTP error) or `error` — each
-with a real duration in `duration_ms`. A refresh that saves some bars but
-leaves assets on a close older than the expected trading day records a single
-`stale` event per run (not one per asset), so a missing current close is not
-hidden behind the batch success summary. Events raised while a job runs are
-tagged with that job's id, so the Admin → Data & Sync page can correlate a
-failure with the queue row that produced it.
+with a real duration in `duration_ms`. Different exchanges close at different
+times, so an asset whose latest close is older than another's is normal, not
+an error. Events raised while a job runs are tagged with that job's id, so the
+Admin → Data & Sync page can correlate a failure with the queue row that
+produced it.
 
 A queued job also emits its own **lifecycle** rows (event type `job`): one
 `job_started` when the worker claims it and one terminal
@@ -774,7 +773,10 @@ every price-refresh tick. An admin can also wipe everything on demand with
   `history_backfill` targeting it or a global `asset_sync`), with the job id,
   status and progress; `partial` when not backfilled but some prices are
   stored; `missing` when there is no history and no job. Non-Yahoo assets carry
-  no `data_status`.
+  no `data_status`. `GET /assets` and `GET /assets/{id}` also carry
+  `last_close` and `last_close_date`, the latest stored price and its date —
+  the reference date of the asset's values (different per exchange, since
+  markets close at different times).
 
 ### Asset profile and exposure
 

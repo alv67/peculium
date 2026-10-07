@@ -159,8 +159,8 @@ func (f *fakeFXRepo) History(ctx context.Context, base, quote string) ([]model.F
 type fakeAssetRepo struct {
 	asset *model.Asset
 	err   error
-	// assets backs FindByIDs so the history/sync paths can be tested with a
-	// mix of price sources.
+	// assets backs FindByIDs and List so the history/sync paths can be tested
+	// with a mix of price sources.
 	assets []*model.Asset
 	// stocks backs AllStocks for the meta-backfill paths.
 	stocks []*model.Asset
@@ -197,7 +197,7 @@ func (f *fakeAssetRepo) Search(ctx context.Context, query string) ([]*model.Asse
 	return nil, nil
 }
 func (f *fakeAssetRepo) List(ctx context.Context) ([]*model.Asset, error) {
-	return nil, nil
+	return f.assets, nil
 }
 func (f *fakeAssetRepo) ListYahoo(ctx context.Context) ([]*model.Asset, error) {
 	return nil, nil
@@ -2775,27 +2775,45 @@ func TestFilterYahooAssets(t *testing.T) {
 }
 
 // dataStatusPriceRepo stubs repository.PriceRepository with a canned
-// MinMaxDate latest bound, for the derived data-status states.
+// MinMaxDate latest bound and a canned FindLatestForAssets price, for the
+// derived data-status and last-close states.
 type dataStatusPriceRepo struct {
 	repository.PriceRepository
 	latest *time.Time
+	price  *model.Price
 }
 
 func (r *dataStatusPriceRepo) MinMaxDate(ctx context.Context, assetID uuid.UUID) (*time.Time, *time.Time, error) {
 	return r.latest, r.latest, nil
 }
 
+func (r *dataStatusPriceRepo) FindLatestForAssets(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Price, error) {
+	if r.price == nil {
+		return nil, nil
+	}
+	out := make(map[uuid.UUID]*model.Price, len(ids))
+	for _, id := range ids {
+		out[id] = r.price
+	}
+	return out, nil
+}
+
 func TestGetAssetDataStatus(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.New()
 	last := time.Now().UTC()
+	closePx := decimal.NewFromInt(42)
 	running := &model.Job{ID: uuid.New(), Status: model.JobStatusRunning, Processed: 3, Total: 10}
 
 	newSvc := func(a *model.Asset, job *model.Job, latest *time.Time) *Service {
+		var price *model.Price
+		if latest != nil {
+			price = &model.Price{AssetID: a.ID, Date: *latest, Close: closePx}
+		}
 		repos := &repository.Repository{
 			Asset: &fakeAssetRepo{asset: a},
 			Job:   &fakeJobRepo{openForAsset: job},
-			Price: &dataStatusPriceRepo{latest: latest},
+			Price: &dataStatusPriceRepo{latest: latest, price: price},
 		}
 		return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 	}
@@ -2837,7 +2855,36 @@ func TestGetAssetDataStatus(t *testing.T) {
 			} else if st.JobID != nil || st.JobStatus != "" {
 				t.Fatalf("status = %+v, want no job fields outside syncing", st)
 			}
+			if tc.latest == nil {
+				if got.LastClose != nil || got.LastCloseDate != nil {
+					t.Fatalf("last_close = %v/%v, want none without a stored price", got.LastClose, got.LastCloseDate)
+				}
+			} else if got.LastClose == nil || !got.LastClose.Equal(closePx) ||
+				got.LastCloseDate == nil || !got.LastCloseDate.Equal(*tc.latest) {
+				t.Fatalf("last_close = %v/%v, want %s at %v", got.LastClose, got.LastCloseDate, closePx, *tc.latest)
+			}
 		})
+	}
+}
+
+func TestListAssetsDecoratesLastClose(t *testing.T) {
+	id1, id2 := uuid.New(), uuid.New()
+	last := time.Now().UTC().Truncate(24 * time.Hour)
+	closePx := decimal.NewFromInt(7)
+	repos := &repository.Repository{
+		Asset: &fakeAssetRepo{assets: []*model.Asset{{ID: id1, Ticker: "A"}, {ID: id2, Ticker: "B"}}},
+		Price: &dataStatusPriceRepo{price: &model.Price{Date: last, Close: closePx}},
+	}
+	svc := New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
+
+	got, err := svc.ListAssets(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range got {
+		if a.LastClose == nil || !a.LastClose.Equal(closePx) || a.LastCloseDate == nil || !a.LastCloseDate.Equal(last) {
+			t.Fatalf("asset %s last_close = %v/%v, want %s at %v", a.Ticker, a.LastClose, a.LastCloseDate, closePx, last)
+		}
 	}
 }
 

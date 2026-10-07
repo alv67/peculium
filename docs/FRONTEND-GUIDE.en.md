@@ -383,7 +383,9 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   (`RANGES`: `1M` 30 days, `3M` 90 days, `1Y` 365 days, `YTD`, `MAX` unlimited)
   to an in-place zoom; the quote fields `change_1d/1w/1m/1y/ytd` render as
   header delta chips (labels `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD`
-  through `t()`); `sumRegions` / `sumSectors` / `sumCountries` and their
+  through `t()`), with the last close and its date under them as
+  `Data as of {date}` (the reference date of the values, which differs per
+  exchange); `sumRegions` / `sumSectors` / `sumCountries` and their
   validity guards (`regionsValid` / `sectorsValid` / `countriesValid`) live
   in the asset shell (`+layout.svelte`) beside the data they validate. The
   Overview price-history card mirrors the asset's data completeness
@@ -1267,7 +1269,7 @@ slice — sorted by contribution, exactly like the dashboard card's drill.
 Called endpoints: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Table of securities (ticker → detail link, name, type, currency, country,
-  delete).
+  last close value and its date, delete).
 - **Add Asset**: ticker field with **autocomplete** — as you type (from 2
   characters, debounced 350 ms) it calls `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) and shows a suggestion dropdown; selecting one
@@ -1596,7 +1598,8 @@ ticker or portfolio name — resolved server-side, falling back to the short id;
 never a link, the queue is not user-scoped), a status badge (one shared
 status→badge map also used by the events table, so `running` reads as accent
 instead of red), progress (`processed/total` plus a bar while running and the
-`ok`/`failed` rollup), duration via `formatDuration`, and the start time; a
+`ok`/`failed` rollup), duration via `formatDuration`, the start time and the
+finish time (em dash while the job has not finished); a
 full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
 "Refresh prices" action. The target label, the duration and the health rollup
 are derived server-side (no column).

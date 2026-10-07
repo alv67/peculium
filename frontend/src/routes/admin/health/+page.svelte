@@ -330,6 +330,7 @@
                 <Th class="w-48">{t('jobs.colProgress')}</Th>
                 <Th class="w-24">{t('health.colDuration')}</Th>
                 <Th>{t('jobs.colStarted')}</Th>
+                <Th>{t('jobs.colFinished')}</Th>
               </Tr>
             </THead>
             <TBody class="max-sm:block">
@@ -409,10 +410,17 @@
                       —
                     {/if}
                   </Td>
+                  <Td class="max-sm:order-7 max-sm:col-span-2 max-sm:py-0.5 whitespace-nowrap text-muted-foreground">
+                    {#if job.finished_at}
+                      <time datetime={job.finished_at}>{new Date(job.finished_at).toLocaleString()}</time>
+                    {:else}
+                      —
+                    {/if}
+                  </Td>
                 </Tr>
                 {#if (job.status === 'failed' || job.status === 'partial') && job.error}
                   <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2">
-                    <Td colspan={6} class="max-sm:col-span-2 max-sm:block max-sm:py-0.5">
+                    <Td colspan={7} class="max-sm:col-span-2 max-sm:block max-sm:py-0.5">
                       <div
                         class="flex items-start gap-2 py-1 {job.status === 'failed' ? 'text-negative' : 'text-warning'}"
                       >

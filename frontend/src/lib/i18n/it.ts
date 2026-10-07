@@ -585,6 +585,7 @@ export const it = {
     colTarget: 'Destinazione',
     colProgress: 'Avanzamento',
     colStarted: 'Avviato',
+    colFinished: 'Fine',
     /** Testo della cella di progresso (la barra `aria-hidden` lo replica). */
     progressOf: '{processed} di {total}',
     outcome: '{ok} riusciti · {failed} in errore',
@@ -920,7 +921,8 @@ export const it = {
     delete: 'Elimina asset',
     deleteConfirm: 'Eliminare {ticker}? Questa azione non può essere annullata.',
     deleted: 'Asset eliminato',
-    priceUpdated: 'Aggiornato il {date}',
+    /** Data dell'ultimo close sotto i chip di quotazione: `{date}` è in formato locale. */
+    dataAsOf: 'Dati al {date}',
     chip1d: '1G',
     chip1w: '1S',
     chip1m: '1M',
@@ -985,6 +987,9 @@ export const it = {
     tickerPlaceholder: 'Ticker (es. AAPL)',
     noResultsFound: 'Nessun risultato trovato',
     colCountry: 'Paese',
+    /** Colonne dell'ultimo close (valore e data) nella lista asset. */
+    colLastClose: 'Ultimo close',
+    colLastCloseDate: 'Data close',
     /** Nome accessibile del pulsante di eliminazione della riga
      *  ({ticker} riportato verbatim). */
     deleteNamed: 'Elimina {ticker}',

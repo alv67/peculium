@@ -86,6 +86,10 @@ type Asset struct {
 	PriceFetchedAt    *time.Time       `json:"price_fetched_at,omitempty"`
 	HistoryBackfilled bool             `json:"history_backfilled"`
 	DataStatus        *AssetDataStatus `json:"data_status,omitempty"`
+	// LastClose and LastCloseDate are derived from the latest stored price,
+	// never stored: the reference date of the asset's values.
+	LastClose     *decimal.Decimal `json:"last_close,omitempty"`
+	LastCloseDate *time.Time       `json:"last_close_date,omitempty"`
 }
 
 // AssetDataStatus is the derived completeness of an asset's market data

@@ -4,6 +4,7 @@
   import { toast } from '$lib/stores/toast.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { assetApi, settingsApi, type Asset, type Currency } from '$lib/services/api'
+  import { formatCurrency } from '$lib/format'
   import { Plus, Trash2 } from 'lucide-svelte'
   import Badge from '$lib/components/ui/Badge.svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -85,6 +86,8 @@
           <Th>{t('asset.factType')}</Th>
           <Th>{t('asset.factCurrency')}</Th>
           <Th>{t('asset.colCountry')}</Th>
+          <Th align="right">{t('asset.colLastClose')}</Th>
+          <Th>{t('asset.colLastCloseDate')}</Th>
           <Th align="right">{t('common.colActions')}</Th>
         </Tr>
       </THead>
@@ -98,6 +101,10 @@
             <Td><Badge>{a.type}</Badge></Td>
             <Td>{a.currency}</Td>
             <Td>{a.country || '-'}</Td>
+            <Td align="right">{a.last_close ? formatCurrency(a.last_close, a.currency) : '—'}</Td>
+            <Td class="text-muted-foreground">
+              {a.last_close_date ? new Date(a.last_close_date).toLocaleDateString() : '—'}
+            </Td>
             <Td align="right">
               <Button
                 variant="ghost"

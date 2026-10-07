@@ -934,7 +934,7 @@
           </span>
         {/each}
         <span class="text-xs text-muted-foreground">
-          {t('asset.priceUpdated', { date: new Date(quote.last_date).toLocaleDateString() })}
+          {t('asset.dataAsOf', { date: new Date(quote.last_date).toLocaleDateString() })}
         </span>
       </div>
     {:else if quote}
