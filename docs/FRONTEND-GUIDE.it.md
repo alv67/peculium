@@ -409,7 +409,9 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   backfill/sync copre l'asset (`syncing`) senza prezzi mostra una barra di
   avanzamento al posto di un grafico vuoto — determinata quando il job riporta
   `processed`/`total`, indeterminata altrimenti — e la shell polla l'asset ogni
-  ~4 secondi e rifetcha quote e prezzi quando il job finisce; con dati già
+  ~4 secondi e rifetcha quote, prezzi e split quando il job finisce
+  (svuotando prima la cache GET del client, e bypassandola nel poll stesso);
+  con dati già
   tracciati tiene il grafico e aggiunge la stessa barra (nessuna azione, perché
   un backfill è già in corso). `missing` (nessuno storico e nessun job) mostra
   un empty state con l'azione "Backfill storico completo", e `partial` (alcuni
