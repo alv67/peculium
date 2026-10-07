@@ -1269,7 +1269,7 @@ slice — sorted by contribution, exactly like the dashboard card's drill.
 Called endpoints: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Table of securities (ticker → detail link, name, type, currency, country,
-  last close value and its date, delete).
+  last close value with its date beneath, delete).
 - **Add Asset**: ticker field with **autocomplete** — as you type (from 2
   characters, debounced 350 ms) it calls `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) and shows a suggestion dropdown; selecting one

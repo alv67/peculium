@@ -1335,7 +1335,7 @@ ordinati per contributo, esattamente come il drill della card dashboard.
 Endpoint chiamati: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Tabella dei titoli (ticker → link al dettaglio, nome, tipo, valuta, paese,
-  valore dell'ultimo close e relativa data, elimina).
+  valore dell'ultimo close con la data sotto, elimina).
 - **Add Asset**: campo ticker con **autocomplete** — mentre digiti (da 2
   caratteri, debounce 350 ms) chiama `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) e mostra un menu di suggerimenti; selezionandone

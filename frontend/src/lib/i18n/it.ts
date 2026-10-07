@@ -987,9 +987,8 @@ export const it = {
     tickerPlaceholder: 'Ticker (es. AAPL)',
     noResultsFound: 'Nessun risultato trovato',
     colCountry: 'Paese',
-    /** Colonne dell'ultimo close (valore e data) nella lista asset. */
+    /** Colonna dell'ultimo close nella lista asset (valore con la data sotto). */
     colLastClose: 'Ultimo close',
-    colLastCloseDate: 'Data close',
     /** Nome accessibile del pulsante di eliminazione della riga
      *  ({ticker} riportato verbatim). */
     deleteNamed: 'Elimina {ticker}',

@@ -1071,9 +1071,8 @@ export const en = {
     tickerPlaceholder: 'Ticker (e.g. AAPL)',
     noResultsFound: 'No results found',
     colCountry: 'Country',
-    /** Last-close value and its date columns of the assets list. */
+    /** Last-close column of the assets list (value with its date beneath). */
     colLastClose: 'Last close',
-    colLastCloseDate: 'Close date',
     /** Accessible name of the row trash button ({ticker} verbatim). */
     deleteNamed: 'Delete {ticker}',
     /** Short list-page delete-dialog question (the detail shell carries the

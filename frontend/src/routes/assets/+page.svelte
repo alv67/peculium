@@ -78,47 +78,56 @@
   {#if loading}
     <p class="text-muted-foreground">{t('common.loading')}</p>
   {:else}
-    <Table aria-label={t('nav.assets')}>
-      <THead>
-        <Tr>
-          <Th>{t('positions.colTicker')}</Th>
-          <Th>{t('chartView.colName')}</Th>
-          <Th>{t('asset.factType')}</Th>
-          <Th>{t('asset.factCurrency')}</Th>
-          <Th>{t('asset.colCountry')}</Th>
-          <Th align="right">{t('asset.colLastClose')}</Th>
-          <Th>{t('asset.colLastCloseDate')}</Th>
-          <Th align="right">{t('common.colActions')}</Th>
-        </Tr>
-      </THead>
-      <TBody>
-        {#each assets ?? [] as a (a.id)}
+    <div class="overflow-x-auto">
+      <Table aria-label={t('nav.assets')}>
+        <THead>
           <Tr>
-            <Td class="font-medium">
-              <a href={resolve(`/assets/${a.id}`)} class="text-accent-text hover:underline">{a.ticker}</a>
-            </Td>
-            <Td class="text-muted-foreground">{a.name}</Td>
-            <Td><Badge>{a.type}</Badge></Td>
-            <Td>{a.currency}</Td>
-            <Td>{a.country || '-'}</Td>
-            <Td align="right">{a.last_close ? formatCurrency(a.last_close, a.currency) : '—'}</Td>
-            <Td class="text-muted-foreground">
-              {a.last_close_date ? new Date(a.last_close_date).toLocaleDateString() : '—'}
-            </Td>
-            <Td align="right">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('asset.deleteNamed', { ticker: a.ticker })}
-                onclick={() => requestDeleteAsset(a.id, a.ticker)}
-              >
-                <Trash2 class="h-4 w-4" />
-              </Button>
-            </Td>
+            <Th>{t('positions.colTicker')}</Th>
+            <Th>{t('chartView.colName')}</Th>
+            <Th>{t('asset.factType')}</Th>
+            <Th>{t('asset.factCurrency')}</Th>
+            <Th>{t('asset.colCountry')}</Th>
+            <Th align="right">{t('asset.colLastClose')}</Th>
+            <Th align="right">{t('common.colActions')}</Th>
           </Tr>
-        {/each}
-      </TBody>
-    </Table>
+        </THead>
+        <TBody>
+          {#each assets ?? [] as a (a.id)}
+            <Tr>
+              <Td class="font-medium">
+                <a href={resolve(`/assets/${a.id}`)} class="text-accent-text hover:underline">{a.ticker}</a>
+              </Td>
+              <Td class="text-muted-foreground">{a.name}</Td>
+              <Td><Badge>{a.type}</Badge></Td>
+              <Td>{a.currency}</Td>
+              <Td>{a.country || '-'}</Td>
+              <Td align="right">
+                {#if a.last_close}
+                  <span class="font-semibold">{formatCurrency(a.last_close, a.currency)}</span>
+                  {#if a.last_close_date}
+                    <span class="block text-xs font-normal text-muted-foreground">
+                      {new Date(a.last_close_date).toLocaleDateString()}
+                    </span>
+                  {/if}
+                {:else}
+                  <span class="text-muted-foreground">—</span>
+                {/if}
+              </Td>
+              <Td align="right">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('asset.deleteNamed', { ticker: a.ticker })}
+                  onclick={() => requestDeleteAsset(a.id, a.ticker)}
+                >
+                  <Trash2 class="h-4 w-4" />
+                </Button>
+              </Td>
+            </Tr>
+          {/each}
+        </TBody>
+      </Table>
+    </div>
   {/if}
 </div>
 
