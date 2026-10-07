@@ -12,10 +12,11 @@
 - L'aggiornamento prezzi e il re-download completo dello storico o dei metadati di un asset ora girano in background invece di tenere aperta la richiesta: l'azione ritorna subito e l'app segue il lavoro in corso, quindi una connessione lenta o una collezione grande non fanno più bloccare o fallire l'operazione in silenzio
 - Aprire l'app o un portafoglio non attende più i download: i dati di mercato vengono scaricati in background e le pagine si aggiornano da sole quando sono pronti
 - La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre è ancora in download vedi uno stato di caricamento invece di un grafico vuoto (aggiornato da solo), quando lo storico non c'è ancora hai un pulsante per scaricarlo, e quando è scaricato solo in parte una nota te lo segnala — con lo stesso pulsante per completarlo
+- La lista degli asset ora mostra l'ultimo close di ogni asset e la sua data, e la pagina dell'asset etichetta quella data come "dati al" — dato che i mercati chiudono in orari diversi, l'ultimo valore di ogni asset può avere una data diversa, ed è normale
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 
 ### Correzioni
-- L'ultimo prezzo ora è lo stesso su ogni installazione che aggiorna nello stesso momento: il refresh giornaliero risolve sempre allo stesso modo l'ultimo close disponibile (non mescola più due fonti Yahoo diverse), e quando manca ancora il close del giorno corrente viene segnalato in "Dati e sincronizzazione" invece di essere riportato come successo pulito
+- L'ultimo prezzo ora è lo stesso su ogni installazione che aggiorna nello stesso momento: il refresh giornaliero risolve sempre allo stesso modo l'ultimo close disponibile, senza più mescolare due fonti Yahoo diverse
 - Il ripristino di un backup ora scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i loro grafici vuoti fino alla prossima apertura dell'app
 
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)

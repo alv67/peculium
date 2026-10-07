@@ -383,7 +383,9 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   (`RANGES`: `1M` 30 days, `3M` 90 days, `1Y` 365 days, `YTD`, `MAX` unlimited)
   to an in-place zoom; the quote fields `change_1d/1w/1m/1y/ytd` render as
   header delta chips (labels `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD`
-  through `t()`); `sumRegions` / `sumSectors` / `sumCountries` and their
+  through `t()`), with the last close and its date under them as
+  `Data as of {date}` (the reference date of the values, which differs per
+  exchange); `sumRegions` / `sumSectors` / `sumCountries` and their
   validity guards (`regionsValid` / `sectorsValid` / `countriesValid`) live
   in the asset shell (`+layout.svelte`) beside the data they validate. The
   Overview price-history card mirrors the asset's data completeness
@@ -587,7 +589,7 @@ The UI is built on a small internal design system.
 
 Colors are not hardcoded in the pages. `tailwind.config.js` defines a set
 of **semantic** color tokens — `background`, `foreground`, the **surface
-ladder** `surface-0..3` (+ the legacy aliases `surface` = `surface-1` and
+ladder** `surface-0..3` (+ the aliases `surface` = `surface-1` and
 `surface-raised` = `surface-2`), `muted`, `muted-foreground`, `border`,
 `input`, `ring`, `accent` (+ `accent-hover`/`accent-foreground`/`accent-text`),
 `positive`, `negative`, `warning`, `info` (+ `info-foreground`, used for
@@ -689,8 +691,8 @@ with arrow-key navigation, meant to sit on the chart), `Drawer` (right-side
 inspection drawer, focus-trap + Esc/backdrop + restore; used at ≥ `lg`), `Sheet`
 (bottom sheet with drag-handle affordance, same API; used at < `lg`) and `Tabs`
 (route-linked `<a>`-based ARIA tablist with roving focus, for the entity
-detail sub-pages). The overlay trap and the motion-token transitions they share are
-extracted as `ui/focus-trap.ts` and `ui/transitions.ts` (`Modal` and
+detail sub-pages). The overlay trap and the motion-token transitions they share
+live in `ui/focus-trap.ts` and `ui/transitions.ts` (`Modal` and
 `MobileDrawer` use their own inline recipes).
 
 ### The app shell
@@ -716,8 +718,8 @@ JS state and CSS never disagree.
   Assets · More) plus a `Fab` anchored above it that opens the
   `QuickActionSheet` (Add transaction → the single portfolio when unambiguous
   else `/portfolios`; Add asset → `/assets`; Refresh prices →
-  `POST /prices/refresh` with toast feedback; a disabled *Enter price* item
-  showing "Coming soon"). The "More" item opens the
+  `POST /prices/refresh` with toast feedback; a disabled *Enter price* item).
+  The "More" item opens the
   `MobileDrawer` (focus trap + Esc/backdrop + close-on-navigation),
   which renders the `Sidebar` navigation; the price-freshness control, theme
   and account stay in the header. `<main>` carries an extra bottom clearance and the bar
@@ -898,7 +900,7 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
   (`lib/components/layout/AppShell.svelte`, chapter 8) around the page content;
 - it mounts `<Toaster />`;
 - once per page load (`synced` flag) it queues the global asset sync:
-  `assetApi.sync()` (`POST /assets/sync`, now a 202 job) and then
+  `assetApi.sync()` (`POST /assets/sync`, a 202 job) and then
   `jobsApi.wait(job_id)`; when the worker finishes it calls `markDataSynced()`,
   which clears the frontend GET cache and bumps the price-refresh `revision` so
   price-derived pages refetch on their own. Failures are swallowed: individual
@@ -1267,7 +1269,7 @@ slice — sorted by contribution, exactly like the dashboard card's drill.
 Called endpoints: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Table of securities (ticker → detail link, name, type, currency, country,
-  delete).
+  last close value with its date beneath, delete).
 - **Add Asset**: ticker field with **autocomplete** — as you type (from 2
   characters, debounced 350 ms) it calls `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) and shows a suggestion dropdown; selecting one
@@ -1362,9 +1364,8 @@ prezzo** `price_source` selector), same dirty-save (`hasChanges` enables
 `form.isin` prefill sync all live in the layout, so unsaved edits survive
 tab switches); the **danger zone** with the asset's three shell-owned
 actions (update from Yahoo / backfill / delete); and
-two muted placeholder items — manual price
-entry and fixed-income attributes — shown as "Coming soon"
-(`quickActions.comingSoon`) disabled buttons.
+two muted, disabled placeholder items — manual price
+entry and fixed-income attributes.
 
 TAB **Exposure** — the geo/sector distribution widgets:
 
@@ -1641,7 +1642,7 @@ flight:
   disabled accounts) PATCH `status: active` directly; **Disable** (`Ban`)
   PATCHes `status: disabled` behind a danger `ConfirmDialog`;
 - a per-row role `Select` — assignable values are `admin`/`editor`/`viewer`;
-  the legacy `owner` appears on the row still carrying it (so a change away
+  the `owner` value appears on rows that carry it (so changing away
   is possible without silently renaming it) and a footnote under the table
   states it cannot be assigned to new accounts; the selection is optimistic
   and rolls back on failure;

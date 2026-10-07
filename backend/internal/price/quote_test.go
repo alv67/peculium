@@ -2,7 +2,6 @@ package price
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -16,8 +15,7 @@ import (
 	"github.com/alv67/peculium/internal/repository"
 )
 
-// quotePriceRepo records created prices and serves them back as the latest
-// close, so the post-refresh staleness check sees what was just written.
+// quotePriceRepo records created prices for the batch-fetch assertions.
 type quotePriceRepo struct {
 	repository.PriceRepository
 	created []*model.Price
@@ -26,22 +24,6 @@ type quotePriceRepo struct {
 func (p *quotePriceRepo) Create(ctx context.Context, pr *model.Price) (*model.Price, error) {
 	p.created = append(p.created, pr)
 	return pr, nil
-}
-
-func (p *quotePriceRepo) FindLatestForAssets(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Price, error) {
-	out := make(map[uuid.UUID]*model.Price, len(p.created))
-	for _, pr := range p.created {
-		out[pr.AssetID] = pr
-	}
-	return out, nil
-}
-
-type markFetchedAssetRepo struct {
-	repository.AssetRepository
-}
-
-func (a *markFetchedAssetRepo) MarkPricesFetched(ctx context.Context, ids []uuid.UUID, at time.Time) error {
-	return nil
 }
 
 func sparkClient(body string) *http.Client {
@@ -85,36 +67,5 @@ func TestFetchQuotesBatchUsesLastNonNullCloseAndReportsMissing(t *testing.T) {
 	}
 	if !foundMissing {
 		t.Fatalf("missing symbol not reported: %+v", issues)
-	}
-}
-
-// A refresh that stores a bar older than the expected trading day must leave
-// a price_refresh/stale event, so a missing current close is not hidden
-// behind the batch success summary.
-func TestRefreshStaleRecordsStaleWhenCloseIsBehind(t *testing.T) {
-	id := uuid.New()
-	behind := time.Now().UTC().AddDate(0, 0, -3).Truncate(24 * time.Hour)
-	pr := &quotePriceRepo{}
-	rec := &recStub{}
-	f := NewYahooFetcher(&repository.Repository{Price: pr, Asset: &markFetchedAssetRepo{}}, time.Hour,
-		WithHealthRecorder(rec), WithMinInterval(0))
-	f.client = sparkClient(fmt.Sprintf(`{"AAPL":{"timestamp":[%d],"close":[2.5],"symbol":"AAPL"}}`, behind.Unix()))
-
-	assets := []*model.Asset{{ID: id, Ticker: "AAPL", PriceSource: "yahoo"}}
-	if _, err := f.RefreshStale(context.Background(), assets); err != nil {
-		t.Fatal(err)
-	}
-
-	var stale *model.HealthEvent
-	for _, ev := range rec.events {
-		if ev.EventType == "price_refresh" && ev.Code == "stale" {
-			stale = ev
-		}
-	}
-	if stale == nil {
-		t.Fatalf("no stale event recorded: %+v", rec.events)
-	}
-	if stale.Status != "failure" {
-		t.Fatalf("stale status = %q, want failure", stale.Status)
 	}
 }

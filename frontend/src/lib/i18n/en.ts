@@ -1002,8 +1002,8 @@ export const en = {
     delete: 'Delete asset',
     deleteConfirm: 'Delete {ticker}? This cannot be undone.',
     deleted: 'Asset deleted',
-    /** Muted date under the quote chips: `{date}` is locale-formatted. */
-    priceUpdated: 'Updated {date}',
+    /** Muted last-close date under the quote chips: `{date}` is locale-formatted. */
+    dataAsOf: 'Data as of {date}',
     /** Compact quote-delta chips (1D/1W/1M/1Y/YTD). */
     chip1d: '1D',
     chip1w: '1W',
@@ -1070,6 +1070,8 @@ export const en = {
     tickerPlaceholder: 'Ticker (e.g. AAPL)',
     noResultsFound: 'No results found',
     colCountry: 'Country',
+    /** Last-close column of the assets list (value with its date beneath). */
+    colLastClose: 'Last close',
     /** Accessible name of the row trash button ({ticker} verbatim). */
     deleteNamed: 'Delete {ticker}',
     /** Short list-page delete-dialog question (the detail shell carries the

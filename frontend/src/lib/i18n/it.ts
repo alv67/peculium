@@ -920,7 +920,8 @@ export const it = {
     delete: 'Elimina asset',
     deleteConfirm: 'Eliminare {ticker}? Questa azione non può essere annullata.',
     deleted: 'Asset eliminato',
-    priceUpdated: 'Aggiornato il {date}',
+    /** Data dell'ultimo close sotto i chip di quotazione: `{date}` è in formato locale. */
+    dataAsOf: 'Dati al {date}',
     chip1d: '1G',
     chip1w: '1S',
     chip1m: '1M',
@@ -985,6 +986,8 @@ export const it = {
     tickerPlaceholder: 'Ticker (es. AAPL)',
     noResultsFound: 'Nessun risultato trovato',
     colCountry: 'Paese',
+    /** Colonna dell'ultimo close nella lista asset (valore con la data sotto). */
+    colLastClose: 'Ultimo close',
     /** Nome accessibile del pulsante di eliminazione della riga
      *  ({ticker} riportato verbatim). */
     deleteNamed: 'Elimina {ticker}',

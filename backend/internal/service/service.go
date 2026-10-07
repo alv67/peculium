@@ -436,7 +436,30 @@ func (s *Service) GetAsset(ctx context.Context, id uuid.UUID) (*model.Asset, err
 		return nil, err
 	}
 	asset.DataStatus = s.assetDataStatus(ctx, asset)
+	s.decorateLatestPrices(ctx, []*model.Asset{asset})
 	return asset, nil
+}
+
+// decorateLatestPrices sets LastClose/LastCloseDate on each asset from one
+// batched FindLatestForAssets query. Best-effort nil-safe, like assetDataStatus.
+func (s *Service) decorateLatestPrices(ctx context.Context, assets []*model.Asset) {
+	if s.repos.Price == nil || len(assets) == 0 {
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(assets))
+	for _, a := range assets {
+		ids = append(ids, a.ID)
+	}
+	latest, err := s.repos.Price.FindLatestForAssets(ctx, ids)
+	if err != nil {
+		return
+	}
+	for _, a := range assets {
+		if lp, ok := latest[a.ID]; ok {
+			c, d := lp.Close, lp.Date
+			a.LastClose, a.LastCloseDate = &c, &d
+		}
+	}
 }
 
 // assetDataStatus derives how complete an asset's market data is: an open
@@ -1358,7 +1381,12 @@ func (s *Service) RefreshPrices(ctx context.Context, portfolioID *uuid.UUID) (pr
 }
 
 func (s *Service) ListAssets(ctx context.Context) ([]*model.Asset, error) {
-	return s.repos.Asset.List(ctx)
+	assets, err := s.repos.Asset.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.decorateLatestPrices(ctx, assets)
+	return assets, nil
 }
 
 // ListCurrencies returns the enabled whitelisted currencies, ordered.
