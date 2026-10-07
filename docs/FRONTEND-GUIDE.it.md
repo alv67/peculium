@@ -616,7 +616,7 @@ La UI si basa su un piccolo design system interno.
 
 I colori non sono scritti direttamente nelle pagine. `tailwind.config.js`
 definisce un insieme di token di colore **semantici** — `background`,
-`foreground`, la **scala di elevazione** `surface-0..3` (+ gli alias legacy
+`foreground`, la **scala di elevazione** `surface-0..3` (+ gli alias
 `surface` = `surface-1` e `surface-raised` = `surface-2`), `muted`,
 `muted-foreground`, `border`, `input`, `ring`, `accent` (+
 `accent-hover`/`accent-foreground`/`accent-text`), `positive`, `negative`,
@@ -730,7 +730,7 @@ radiogroup e navigazione con i tasti freccia, da posizionare sul grafico),
 ripristino; usato a ≥ `lg`), `Sheet` (bottom sheet con handle di trascinamento,
 stessa API; usato a < `lg`) e `Tabs` (tablist ARIA di `<a>` reali con focus
 roving, per le sottopagine-entità). Il focus-trap condiviso delle
-overlay e le transizioni sui token di motion sono estratti in
+overlay e le transizioni sui token di motion vivono in
 `ui/focus-trap.ts` e `ui/transitions.ts` (`Modal`/`MobileDrawer`
 mantengono le loro ricette inline).
 
@@ -760,7 +760,7 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   che apre la `QuickActionSheet` (Aggiungi transazione → al portafoglio unico
   quando è univoco, altrimenti a `/portfolios`; Aggiungi asset → `/assets`;
   Aggiorna prezzi → `POST /prices/refresh` con toast di esito; *Inserisci
-  prezzo* è una voce disabilitata con "In arrivo"). La
+  prezzo* è una voce disabilitata). La
   voce "Altro" apre il `MobileDrawer` (focus trap + Esc/backdrop +
   chiusura alla navigazione), che rende la navigazione
   `Sidebar`; il controllo di aggiornamento dei prezzi, tema e account restano
@@ -953,7 +953,7 @@ Uno store a rune che contiene `auth.user` e `auth.isLoading`:
   della pagina;
 - monta `<Toaster />`;
 - una volta per caricamento di pagina (flag `synced`) accoda il sync globale
-  degli asset: `assetApi.sync()` (`POST /assets/sync`, ora un job 202) e poi
+  degli asset: `assetApi.sync()` (`POST /assets/sync`, un job 202) e poi
   `jobsApi.wait(job_id)`; quando il worker termina chiama `markDataSynced()`,
   che svuota la cache GET del frontend e incrementa la `revision` del refresh
   prezzi così le pagine che mostrano prezzi si aggiornano da sole. Gli errori
@@ -1436,8 +1436,7 @@ stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, selettore
 sopravvivono ai cambi di tab); la **zona pericolosa** con le tre azioni
 della shell (aggiorna da Yahoo / backfill / elimina); e
 due segnaposto muti e disabilitati — inserimento prezzo manuale e
-attributi obbligazionari — mostrati come "In arrivo"
-(`quickActions.comingSoon`).
+attributi obbligazionari.
 
 TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 
@@ -1728,8 +1727,8 @@ corso:
   account disabled) fanno PATCH `status: active` diretto; **Disattiva**
   (`Ban`) fa PATCH `status: disabled` dietro `ConfirmDialog` danger;
 - un `Select` di ruolo per riga — i valori assegnabili sono
-  `admin`/`editor`/`viewer`; il legacy `owner` compare solo sulla riga che
-  ancora lo porta (così un cambio è possibile senza rinominarlo in silenzio)
+  `admin`/`editor`/`viewer`; il valore `owner` compare sulle righe che
+  ancora lo portano (così un cambio è possibile senza rinominarlo in silenzio)
   e una nota sotto la tabella spiega che non è assegnabile a nuovi account;
   la selezione è ottimistica e viene ritratta in caso di errore;
 - **Reimposta password** (`KeyRound`) apre una `Modal` che chiede una nuova
