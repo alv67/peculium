@@ -57,9 +57,11 @@ func (f *YahooFetcher) fetchSpark(ctx context.Context, symbols []string) (map[st
 }
 
 // fetchQuotesBatch fetches the latest close for every asset with Yahoo spark
-// requests (chunked), falling back to a per-symbol chart call for symbols
-// missing from the response. Returns the tickers that were updated and the
-// per-symbol issues.
+// requests (chunked). The spark endpoint is the single source of the latest
+// close: it omits the not-yet-final current session (a null close) and any
+// symbol missing from the batch is reported as an issue rather than guessed
+// from the chart endpoint, whose bar can differ and make installs diverge.
+// Returns the tickers that were updated and the per-symbol issues.
 func (f *YahooFetcher) fetchQuotesBatch(ctx context.Context, assets []*model.Asset) ([]string, []FetchIssue) {
 	refreshed := make([]string, 0)
 	issues := make([]FetchIssue, 0)
@@ -82,12 +84,7 @@ func (f *YahooFetcher) fetchQuotesBatch(ctx context.Context, assets []*model.Ass
 		for _, a := range chunk {
 			sq, ok := resp[a.Ticker]
 			if !ok {
-				// Missing from the batch response: fall back to a single call.
-				if err := f.fetchQuote(ctx, a); err != nil {
-					issues = append(issues, FetchIssue{Symbol: a.Ticker, RequestType: "chart", AssetID: &a.ID, Code: issueCode(err), Message: fmt.Sprintf("chart %s: %v", a.Ticker, err)})
-				} else {
-					refreshed = append(refreshed, a.Ticker)
-				}
+				issues = append(issues, FetchIssue{Symbol: a.Ticker, RequestType: "spark", AssetID: &a.ID, Code: "error", Message: fmt.Sprintf("spark %s: missing from batch response", a.Ticker)})
 				continue
 			}
 
