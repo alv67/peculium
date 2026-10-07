@@ -11,6 +11,7 @@
 - The app now shows which build it is running: the version and build time sit discreetly at the bottom of the sidebar (and on the login page), and a new "About this app" card in Settings → Preferences lists the version, the commit (linked on GitHub) and the build time with a button to copy it when reporting an issue
 - Updating prices and re-downloading an asset's full history or metadata now run in the background instead of keeping the request open: the action returns immediately and the app follows the work in progress, so a slow connection or a large collection no longer makes the operation hang or fail silently
 - Opening the app or a portfolio no longer waits on downloads: the market data is fetched in the background and the pages update themselves when it is ready
+- The asset page now shows the state of its price history: while it is still downloading you see a loading state instead of an empty chart (updated automatically), when there is no history yet you get a button to download it, and when the history is only partially downloaded a note tells you so — with the same button to complete it
 - The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
 
 ### Fixes

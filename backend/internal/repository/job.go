@@ -24,6 +24,10 @@ type JobRepository interface {
 	// Finish moves a running job to its terminal status and stamps finished_at.
 	Finish(ctx context.Context, id uuid.UUID, status string, errMsg string) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error)
+	// FindOpenForAsset returns the newest queued/running job that would update
+	// this asset's market data: a history_backfill targeting it, or a global
+	// asset_sync (which syncs every Yahoo asset). (nil, nil) when none.
+	FindOpenForAsset(ctx context.Context, assetID uuid.UUID) (*model.Job, error)
 	List(ctx context.Context, limit, offset int) ([]*model.Job, error)
 	// DeleteBefore prunes jobs older than cutoff regardless of status; their
 	// health events are removed with them by the ON DELETE CASCADE FK. Age is
@@ -134,6 +138,21 @@ func (r *jobRepo) Finish(ctx context.Context, id uuid.UUID, status string, errMs
 func (r *jobRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error) {
 	row := r.db.QueryRow(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = $1`, id)
 	return scanJob(row)
+}
+
+func (r *jobRepo) FindOpenForAsset(ctx context.Context, assetID uuid.UUID) (*model.Job, error) {
+	job, err := scanJob(r.db.QueryRow(ctx,
+		`SELECT `+jobColumns+` FROM jobs
+		 WHERE status IN ('queued', 'running')
+		   AND ((type = 'history_backfill' AND target_type = 'asset' AND target_id = $1)
+		        OR (type = 'asset_sync' AND target_type = 'global'))
+		 ORDER BY created_at DESC, id DESC
+		 LIMIT 1`,
+		assetID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return job, err
 }
 
 func (r *jobRepo) List(ctx context.Context, limit, offset int) ([]*model.Job, error) {

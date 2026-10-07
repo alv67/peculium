@@ -403,7 +403,15 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   della shell (etichette `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD` via
   `t()`); `sumRegions` / `sumSectors` / `sumCountries` e i rispettivi guard
   di validità (`regionsValid` / `sectorsValid` / `countriesValid`) vivono
-  nella shell dell'asset (`+layout.svelte`) accanto ai dati che validano.
+  nella shell dell'asset (`+layout.svelte`) accanto ai dati che validano. La
+  card "Storico prezzi" dell'Overview rispecchia la completezza dei dati
+  dell'asset (`data_status` su `GET /assets/{id}`): mentre un job di
+  backfill/sync copre l'asset (`syncing`) senza prezzi mostra uno spinner al
+  posto di un grafico vuoto — la shell polla l'asset ogni ~4 secondi e
+  rifetcha quote e prezzi quando il job finisce — `missing` (nessuno storico e
+  nessun job) mostra un empty state con l'azione "Backfill storico completo", e
+  `partial` (alcuni prezzi ma storico incompleto) aggiunge una nota con la
+  stessa azione.
 
 ---
 

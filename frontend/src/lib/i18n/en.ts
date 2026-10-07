@@ -995,6 +995,10 @@ export const en = {
     back: 'Assets',
     refreshMeta: 'Update from Yahoo',
     backfillHistory: 'Backfill full history',
+    /** Price-history data-completeness states (#193). */
+    dataSyncing: 'Downloading price history…',
+    dataMissing: 'No price history yet',
+    dataPartial: 'History not fully downloaded',
     delete: 'Delete asset',
     deleteConfirm: 'Delete {ticker}? This cannot be undone.',
     deleted: 'Asset deleted',

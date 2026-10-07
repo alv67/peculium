@@ -2774,6 +2774,73 @@ func TestFilterYahooAssets(t *testing.T) {
 	}
 }
 
+// dataStatusPriceRepo stubs repository.PriceRepository with a canned
+// MinMaxDate latest bound, for the derived data-status states.
+type dataStatusPriceRepo struct {
+	repository.PriceRepository
+	latest *time.Time
+}
+
+func (r *dataStatusPriceRepo) MinMaxDate(ctx context.Context, assetID uuid.UUID) (*time.Time, *time.Time, error) {
+	return r.latest, r.latest, nil
+}
+
+func TestGetAssetDataStatus(t *testing.T) {
+	ctx := context.Background()
+	id := uuid.New()
+	last := time.Now().UTC()
+	running := &model.Job{ID: uuid.New(), Status: model.JobStatusRunning, Processed: 3, Total: 10}
+
+	newSvc := func(a *model.Asset, job *model.Job, latest *time.Time) *Service {
+		repos := &repository.Repository{
+			Asset: &fakeAssetRepo{asset: a},
+			Job:   &fakeJobRepo{openForAsset: job},
+			Price: &dataStatusPriceRepo{latest: latest},
+		}
+		return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
+	}
+
+	cases := []struct {
+		name   string
+		asset  *model.Asset
+		job    *model.Job
+		latest *time.Time
+		want   string // "" means no data_status at all
+	}{
+		{"syncing", &model.Asset{ID: id, Ticker: "AAPL"}, running, nil, model.AssetDataSyncing},
+		{"complete", &model.Asset{ID: id, Ticker: "AAPL", HistoryBackfilled: true}, nil, &last, model.AssetDataComplete},
+		{"partial", &model.Asset{ID: id, Ticker: "AAPL"}, nil, &last, model.AssetDataPartial},
+		{"missing", &model.Asset{ID: id, Ticker: "AAPL"}, nil, nil, model.AssetDataMissing},
+		{"non-yahoo", &model.Asset{ID: id, Ticker: "CASH", PriceSource: "none"}, nil, nil, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := newSvc(tc.asset, tc.job, tc.latest).GetAsset(ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := got.DataStatus
+			if tc.want == "" {
+				if st != nil {
+					t.Fatalf("data_status = %+v, want nil for a non-Yahoo asset", st)
+				}
+				return
+			}
+			if st == nil || st.State != tc.want {
+				t.Fatalf("data_status = %+v, want state %q", st, tc.want)
+			}
+			if tc.want == model.AssetDataSyncing {
+				if st.JobID == nil || *st.JobID != running.ID || st.JobStatus != model.JobStatusRunning ||
+					st.Processed != 3 || st.Total != 10 {
+					t.Fatalf("syncing status = %+v, want job %s running 3/10", st, running.ID)
+				}
+			} else if st.JobID != nil || st.JobStatus != "" {
+				t.Fatalf("status = %+v, want no job fields outside syncing", st)
+			}
+		})
+	}
+}
+
 // TestSyncAssets_OnlyForwardsYahooPriced covers the GetPortfolioHistory
 // filtering too: that path builds its EnsureHistory/EnsureSplits inputs with
 // the same filterYahooAssets helper (a full GetPortfolioHistory test would

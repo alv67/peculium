@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -118,6 +118,11 @@
   let derivingRegions = $state(false)
   let refreshingMeta = $state(false)
   let backfillingHistory = $state(false)
+  // #193: true while an open sync/backfill job updates this asset's data
+  // (`data_status.state === 'syncing'`); the Overview tab swaps the empty
+  // chart for a spinner while it holds.
+  let dataSyncing = $state(false)
+  let syncTimer: ReturnType<typeof setInterval> | undefined
   let geoModalOpen = $state(false)
   let sectorModalOpen = $state(false)
 
@@ -223,9 +228,41 @@
   }
 
   onMount(load)
+  onDestroy(stopSyncPolling)
+
+  // #193: while the asset reports `syncing` (per-asset backfill or the
+  // global app-load asset sync), poll it every ~4s; once the job is gone,
+  // refetch the quote/prices the job just wrote (same as the session
+  // refresh) and stop. Plain interval id, re-armed by `load()`.
+  function startSyncPolling(): void {
+    stopSyncPolling()
+    if (!id) return
+    syncTimer = setInterval(async () => {
+      if (!id) return
+      try {
+        const a = await assetApi.get(id)
+        asset = a
+        dataSyncing = a.data_status?.state === 'syncing'
+        if (!dataSyncing) {
+          stopSyncPolling()
+          void refetchAfterRefresh()
+        }
+      } catch {
+        // Keep the previous data; the next tick retries.
+      }
+    }, 4000)
+  }
+
+  function stopSyncPolling(): void {
+    if (syncTimer !== undefined) {
+      clearInterval(syncTimer)
+      syncTimer = undefined
+    }
+  }
 
   async function load(): Promise<void> {
     if (!id) return
+    stopSyncPolling()
     try {
       const [a, q, ps, ex, sp] = await Promise.all([
         assetApi.get(id),
@@ -235,6 +272,8 @@
         assetApi.splits(id),
       ])
       asset = a
+      dataSyncing = a.data_status?.state === 'syncing'
+      if (dataSyncing) startSyncPolling()
       quote = q
       prices = ps
       exposure = ex
@@ -792,6 +831,9 @@
       return backfillingHistory
     },
     backfillHistory,
+    get dataSyncing() {
+      return dataSyncing
+    },
     requestDelete,
     get form() {
       return form

@@ -783,6 +783,13 @@ risponde `{"deleted": N}` (il numero di eventi rimossi).
   invalida i prezzi in cache.
 - **Split (`EnsureSplits`)**: scarica gli eventi di split da Yahoo e li
   salva (anche qui in modo idempotente su `asset_id, date`).
+- **Completezza (`GET /assets/{id}`)**: la risposta del singolo asset porta
+  `history_backfilled` e un `data_status` derivato (mai salvato): `complete`
+  quando il flag è impostato; `syncing` quando un job aperto copre l'asset (un
+  `history_backfill` che lo targeta o un `asset_sync` globale), con id, stato e
+  progresso del job; `partial` quando non è backfillato ma ha alcuni prezzi
+  salvati; `missing` quando non ha storico né job. Gli asset non-Yahoo non
+  portano `data_status`.
 
 ### Profilo ed esposizione dell'asset
 

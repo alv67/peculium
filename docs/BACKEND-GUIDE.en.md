@@ -768,6 +768,13 @@ every price-refresh tick. An admin can also wipe everything on demand with
   invalidates the cached prices.
 - **Splits (`EnsureSplits`)**: downloads the split events from Yahoo and saves
   them (also idempotently on `asset_id, date`).
+- **Completeness (`GET /assets/{id}`)**: the single-asset response carries
+  `history_backfilled` and a derived `data_status` (never stored): `complete`
+  when the flag is set; `syncing` when an open job covers the asset (a
+  `history_backfill` targeting it or a global `asset_sync`), with the job id,
+  status and progress; `partial` when not backfilled but some prices are
+  stored; `missing` when there is no history and no job. Non-Yahoo assets carry
+  no `data_status`.
 
 ### Asset profile and exposure
 
