@@ -388,11 +388,14 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   in the asset shell (`+layout.svelte`) beside the data they validate. The
   Overview price-history card mirrors the asset's data completeness
   (`data_status` on `GET /assets/{id}`): while an open backfill/sync job covers
-  the asset (`syncing`) with no prices yet it shows a spinner instead of an
-  empty chart — the shell polls the asset every ~4 seconds and refetches the
-  quote and prices when the job ends — `missing` (no history and no job) shows
-  an empty state with a "Backfill full history" action, and `partial` (some
-  prices but incomplete history) adds a note with the same action.
+  the asset (`syncing`) with no prices yet it shows a progress bar instead of
+  an empty chart — determinate when the job reports `processed`/`total`,
+  indeterminate otherwise — and the shell polls the asset every ~4 seconds and
+  refetches the quote and prices when the job ends; with data already plotted
+  it keeps the chart and adds the same progress bar (no action, since a
+  backfill is already running). `missing` (no history and no job) shows an
+  empty state with a "Backfill full history" action, and `partial` (some prices
+  but incomplete history) adds a note with the same action.
 
 ---
 
