@@ -349,17 +349,23 @@ type fakeETFFetcher struct {
 	searchTicker      string
 	exposureCalls     int
 	morningstarCall   int
+	// exposureAssetID/morningstarAssetID record the asset id threaded into the
+	// exposure calls, so tests can assert it reaches the health event.
+	exposureAssetID    uuid.UUID
+	morningstarAssetID uuid.UUID
 }
 
-func (f *fakeETFFetcher) FetchExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	f.exposureISIN = isin
 	f.exposureTicker = ticker
+	f.exposureAssetID = assetID
 	f.exposureCalls++
 	return f.exposure, nil
 }
-func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	f.morningstarISIN = isin
 	f.morningstarTicker = ticker
+	f.morningstarAssetID = assetID
 	f.morningstarCall++
 	return f.morningstar, nil
 }
@@ -2374,6 +2380,9 @@ func TestFetchETFExposure_PreviewDoesNotPersist(t *testing.T) {
 	if etf.exposureISIN != "IE00B4L5Y983" {
 		t.Fatalf("provider called with ISIN %q, want IE00B4L5Y983", etf.exposureISIN)
 	}
+	if etf.exposureAssetID != assetID {
+		t.Fatalf("provider called with asset id %v, want %v (the health event needs it)", etf.exposureAssetID, assetID)
+	}
 	if got.ISIN != "IE00B4L5Y983" {
 		t.Fatalf("response ISIN = %q, want IE00B4L5Y983", got.ISIN)
 	}
@@ -2455,6 +2464,9 @@ func TestFetchMorningstarExposure_PreviewDoesNotPersist(t *testing.T) {
 	}
 	if etf.morningstarISIN != "IE00B4L5Y983" {
 		t.Fatalf("provider called with ISIN %q, want IE00B4L5Y983", etf.morningstarISIN)
+	}
+	if etf.morningstarAssetID != assetID {
+		t.Fatalf("provider called with asset id %v, want %v (the health event needs it)", etf.morningstarAssetID, assetID)
 	}
 	countries := exposureRowsByName(got.Countries)
 	if !countries["US"].Equal(decimal.NewFromInt(60)) || !countries["DE"].Equal(decimal.NewFromInt(40)) {

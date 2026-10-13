@@ -756,8 +756,23 @@ Anche le **chiamate ai metadati** sono coperte: un evento `asset_meta` per ogni
 settoriale, ciascuno con esito e durata reale, e i backfill dei metadati
 scrivono una riga `meta_backfill` per asset sia in caso di successo sia di
 fallimento. La lista degli eventi (`GET /health/prices`) accetta i filtri
-opzionali `type` e `status`; il totale restituito e la paginazione seguono il
-filtro, mentre il riepilogo copre sempre l'intera finestra selezionata.
+opzionali `type`, `status` e `job_id`; il totale restituito e la paginazione
+seguono il filtro. La finestra del riepilogo è `period=24h|7d|all` (default
+`all`) e conta ogni evento di health — inclusi gli eventi dentro i job — tranne
+le righe di ciclo di vita `job` (la loro `job_started` ha status `running` e
+verrebbe letta come fallimento).
+
+La pagina admin "Dati e sincronizzazione" legge un **flusso di attività unico**
+(`GET /health/activity`): ogni job in coda più gli eventi di health senza job
+(`job_id IS NULL` — le chiamate del percorso di richiesta: ricerca, metadati e
+profilo dell'asset, esposizione ETF). Gli eventi di un job si mostrano solo nel
+pannello di dettaglio di quel job, che li rilegge con
+`GET /health/prices?job_id=<id>`. Il flusso è ordinato dal più recente
+sull'avvio del job (`COALESCE(started_at, created_at)`) o sull'ora dell'evento,
+è paginato e accetta gli stessi filtri opzionali `type`/`status` più
+`period=24h|7d|all` (default `all`, che limita il flusso alla stessa finestra
+del riepilogo); `target_label` è risolto lato server esattamente come nella
+lista dei job.
 
 `GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato, una
 `target_label` leggibile (ticker dell'asset / nome del portafoglio, risolta con

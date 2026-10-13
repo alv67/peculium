@@ -11,13 +11,15 @@ import (
 )
 
 const (
-	HealthPeriodToday = "today"
-	HealthPeriod24h   = "24h"
-	HealthPeriodLastN = "100"
+	HealthPeriod24h = "24h"
+	HealthPeriod7d  = "7d"
+	HealthPeriodAll = "all"
 
-	healthLastNEvents   = 100
 	healthDefaultEvents = 100
 	healthMaxEvents     = 500
+	// activityDefaultItems is the page size of the unified activity feed; the
+	// max stays healthMaxEvents, shared with the event page.
+	activityDefaultItems = 50
 )
 
 type HealthService struct {
@@ -28,24 +30,25 @@ func NewHealthService(repos *repository.Repository) *HealthService {
 	return &HealthService{repos: repos}
 }
 
-// healthWindow is the DB window behind a summary period: either a time range
-// (since non-zero) or the newest lastN events (lastN > 0).
+// healthWindow is the DB window behind a period: a nil since means no lower
+// bound (the whole history).
 type healthWindow struct {
 	period string
-	since  time.Time
-	lastN  int
+	since  *time.Time
 }
 
 // healthWindowFor normalizes a requested period into a summary window.
-// Unknown or empty values fall back to "today" (the current UTC calendar day).
+// Unknown or empty values fall back to "all" (no time bound).
 func healthWindowFor(period string, now time.Time) healthWindow {
 	switch period {
 	case HealthPeriod24h:
-		return healthWindow{period: HealthPeriod24h, since: now.Add(-24 * time.Hour)}
-	case HealthPeriodLastN:
-		return healthWindow{period: HealthPeriodLastN, lastN: healthLastNEvents}
+		since := now.Add(-24 * time.Hour)
+		return healthWindow{period: HealthPeriod24h, since: &since}
+	case HealthPeriod7d:
+		since := now.Add(-7 * 24 * time.Hour)
+		return healthWindow{period: HealthPeriod7d, since: &since}
 	default:
-		return healthWindow{period: HealthPeriodToday, since: now.Truncate(24 * time.Hour)}
+		return healthWindow{period: HealthPeriodAll}
 	}
 }
 
@@ -119,21 +122,16 @@ func (s *HealthService) ClearAll(ctx context.Context) (int64, error) {
 }
 
 // GetPriceHealth returns the window summary plus a page of events. period
-// selects the summary window only; eventType and status are optional event
-// filters (empty means no filter) applied to both the page and events_total, so
-// pagination under a filter stays consistent. The summary is always
-// window-based and unfiltered.
-func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int, eventType, status string) (*model.HealthSummary, []*model.HealthEvent, int, error) {
+// selects the summary window only; eventType, status and jobID are optional
+// event filters (empty means no filter) applied to both the page and
+// events_total, so pagination under a filter stays consistent. jobID scopes
+// the page to one job's events (the activity detail panel). The summary is
+// always window-based and unfiltered.
+func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int, eventType, status, jobID string) (*model.HealthSummary, []*model.HealthEvent, int, error) {
 	limit, offset = normalizeHealthPage(limit, offset)
 	window := healthWindowFor(period, time.Now().UTC())
 
-	var summary *model.HealthSummary
-	var err error
-	if window.lastN > 0 {
-		summary, err = s.repos.Health.SummaryLastN(ctx, window.lastN)
-	} else {
-		summary, err = s.repos.Health.SummarySince(ctx, window.since)
-	}
+	summary, err := s.repos.Health.SummarySince(ctx, window.since)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -145,15 +143,61 @@ func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit
 		summary.SuccessRate = float64(summary.Successes) / float64(total)
 	}
 
-	eventsTotal, err := s.repos.Health.CountEvents(ctx, eventType, status)
+	eventsTotal, err := s.repos.Health.CountEvents(ctx, eventType, status, jobID)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset, eventType, status)
+	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset, eventType, status, jobID)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
 	return summary, events, eventsTotal, nil
+}
+
+// GetActivity returns one page of the unified activity feed — every queue job
+// plus the health events not tied to a job (a job's own events belong to its
+// detail panel) — newest first, with the filtered total. period scopes the
+// feed to the same window as the summary tiles; type and status are optional
+// filters applied to the item's own type and raw status (empty means no
+// filter) and cover both the page and items_total, so pagination under a
+// filter stays consistent. Target labels are resolved server-side in one
+// batched lookup, the same way the job list does it.
+func (s *HealthService) GetActivity(ctx context.Context, period string, limit, offset int, itemType, status string) ([]*model.ActivityItem, int, error) {
+	if limit <= 0 {
+		limit = activityDefaultItems
+	}
+	limit, offset = normalizeHealthPage(limit, offset)
+	since := healthWindowFor(period, time.Now().UTC()).since
+
+	total, err := s.repos.Health.CountActivity(ctx, itemType, status, since)
+	if err != nil {
+		return nil, 0, err
+	}
+	items, err := s.repos.Health.GetActivityPage(ctx, limit, offset, itemType, status, since)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	assetIDs := make([]uuid.UUID, 0, len(items))
+	portfolioIDs := make([]uuid.UUID, 0)
+	for _, it := range items {
+		if it.TargetID == nil {
+			continue
+		}
+		switch it.TargetType {
+		case model.JobTargetAsset:
+			assetIDs = append(assetIDs, *it.TargetID)
+		case model.JobTargetPortfolio:
+			portfolioIDs = append(portfolioIDs, *it.TargetID)
+		}
+	}
+	labels := targetLabels(ctx, s.repos, assetIDs, portfolioIDs)
+	for _, it := range items {
+		if it.TargetID != nil {
+			it.TargetLabel = labels[*it.TargetID]
+		}
+	}
+	return items, total, nil
 }

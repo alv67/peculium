@@ -29,7 +29,7 @@ export const it = {
     colValue: 'Valore',
     colTotal: 'Totale',
     colActions: 'Azioni',
-    /** Etichetta Code condivisa tra form/tabella valute e tabella eventi health. */
+    /** Etichetta Code del form e della tabella valute. */
     colCode: 'Codice',
     /** Pulsanti del piè di pagina di paginazione della tabella transazioni. */
     previous: 'Precedente',
@@ -504,20 +504,21 @@ export const it = {
     partialHint: 'Prezzi alle {time}: alcuni aggiornamenti non riusciti o limitati',
   },
   /**
-   * Pagina di stato sincronizzazione prezzi (`/admin/health`, voce di nav
-   * `nav.dataSync`). I valori backend (`event_type`, `code`, `message`) sono
-   * mostrati verbatim; solo il badge di stato è localizzato dalle chiavi
-   * `status*` con fallback al valore grezzo. `N/A` e l'unità `ms` restano.
+   * Pagina admin Dati e sincronizzazione (`/admin/health`, voce di nav
+   * `nav.dataSync`): il flusso attività dei job di sincronizzazione e delle
+   * chiamate API esterne. Il `type` degli eventi e il `message` sono mostrati
+   * verbatim; i tipi job e gli stati passano dalle mappe condivise di
+   * `domain/job-status`, con fallback al valore grezzo. `N/A` e l'unità `ms`
+   * restano.
    */
   health: {
-    title: 'Stato sincronizzazione prezzi',
-    subtitle: "Monitoraggio di connettività e prestazioni dell'API Yahoo Finance",
-    periodToday: 'Oggi',
-    periodLast24h: 'Ultime 24h',
-    periodLast100: 'Ultimi 100',
-    /** Nome accessibile del SegmentedControl + didascalia "Periodo: …". */
+    title: 'Dati e sincronizzazione',
+    subtitle: 'Job di sincronizzazione e attività delle API esterne',
+    period24h: '24h',
+    period7d: '7 giorni',
+    periodAll: 'Tutto',
+    /** Nome accessibile del SegmentedControl del periodo (scopa tile + feed). */
     periodAria: 'Periodo di monitoraggio',
-    periodLabel: 'Periodo: {period}',
     refreshing: 'Aggiornamento…',
     refresh: 'Aggiorna ora',
     noData: 'Nessun dato di monitoraggio disponibile.',
@@ -526,10 +527,10 @@ export const it = {
     totalSuccesses: 'Successi totali',
     totalFailures: 'Fallimenti totali',
     rateLimited: 'Richieste limitate',
-    /** Tabella eventi (titolo, aria-label della tabella e intestazioni;
-     *  Tipo/Stato/Code riusano `common.colType`, `positions.colStatus` e
-     *  `common.colCode`). */
-    recentEvents: 'Eventi recenti',
+    /** Tabella attività (titolo e aria-label della tabella; le intestazioni
+     *  Tipo/Destinazione/Stato riusano `common.colType`, `jobs.colTarget` e
+     *  `positions.colStatus`, le altre sono le chiavi `col*` qui sotto). */
+    activity: 'Attività',
     colTimestamp: 'Data e ora',
     colMessage: 'Messaggio',
     colDuration: 'Durata',
@@ -541,55 +542,32 @@ export const it = {
     statusPartial: 'Parziale',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
     /** Azione distruttiva da admin (#206): etichetta del pulsante, dialogo di
-     *  conferma (`{total}` è il corrente `events_total`) e toast di esito.
-     *  Cancella sia gli eventi di monitoraggio sia i job di sincronizzazione. */
+     *  conferma (`{total}` è il corrente `items_total` del flusso attività) e
+     *  toast di esito. Cancella sia gli eventi di monitoraggio sia i job di
+     *  sincronizzazione. */
     clearEvents: 'Cancella attività',
     clearEventsTitle: 'Cancellare tutta l\'attività di sincronizzazione?',
     clearEventsConfirm: 'Verranno eliminati TUTTI i {total} eventi di monitoraggio e tutti i job di sincronizzazione. Operazione irreversibile.',
     clearEventsDone: '{count} eventi eliminati',
     clearEventsFailed: 'Cancellazione dell\'attività non riuscita',
-    /** Chip di filtro per job sulla card eventi (#195 Fase 4): il chip mostra
-     *  `jobFilter` + `jobFilterCount`, la ✕ rimuove con `jobFilterClearNamed`;
-     *  `jobFilterCap` avvisa quando la finestra client-side ha troncato le
-     *  corrispondenze, `jobFilterNone` quando non ce ne sono. `filterByJob`
-     *  è l'azione di riga che apre il filtro. */
-    jobFilter: 'Job: {type}',
-    jobFilterCount: '{count} eventi in questo job',
-    jobFilterClear: 'Rimuovi',
-    jobFilterClearNamed: 'Rimuovi il filtro per job',
-    jobFilterCap: 'Filtro sui {limit} eventi più recenti',
-    jobFilterNone: 'Nessun evento per questo job tra i {limit} più recenti',
-    filterByJob: "Mostra solo gli eventi di questo job",
-    /** "All" option of the server-side Type/Status event filters (#91). */
+    /** Opzione "tutti" dei filtri server-side Tipo/Stato dell'attività. */
     filterAll: 'Tutti',
   },
   /**
-   * Card dei job di sincronizzazione in `/admin/health` (#195 Fase 4): i 25
-   * job in coda più recenti di tutti gli utenti, con progresso live finché
-   * un job è aperto. I valori `type`/`target_type`/`status` ignoti mostrano
-   * la stringa grezza del backend; il testo `error` è output tecnico e
-   * resta verbatim.
+   * Vocabolario job condiviso tra la tabella attività di `/admin/health`, i
+   * suoi filtri e il pannello di dettaglio del job (#226). I valori
+   * `type`/`target_type` ignoti mostrano la stringa grezza del backend; il
+   * testo `error` è output tecnico e resta verbatim.
    */
   jobs: {
-    title: 'Job di sincronizzazione',
-    scopeNote: 'Job di tutti gli utenti dell’istanza · i 25 più recenti',
-    /** aria-label/didascalia della tabella. */
-    caption: 'Job di sincronizzazione recenti',
     /** Pill d'intestazione mostrata solo con l'auto-refresh a 3s attivo. */
     live: 'Aggiornamento automatico',
-    lastUpdate: 'Aggiornato alle {time}',
-    idle: 'Nessun job in corso',
-    /** Contatori di job aperti/falliti accanto alla nota di quiete. */
-    countRunning: '{count} in corso',
-    countQueued: '{count} in coda',
-    countFailed: '{count} falliti',
-    /** Intestazioni (Tipo/Stato riusano `common.colType` / `positions.colStatus`). */
+    /** Intestazione Destinazione della tabella attività (Tipo/Stato riusano
+     *  `common.colType` / `positions.colStatus`). */
     colTarget: 'Destinazione',
-    colProgress: 'Avanzamento',
-    colStarted: 'Avviato',
-    /** Testo della cella di progresso (la barra `aria-hidden` lo replica). */
+    /** Testo d'avanzamento di un job in corso (la barra `aria-hidden` del
+     *  pannello di dettaglio lo replica). */
     progressOf: '{processed} di {total}',
-    outcome: '{ok} riusciti · {failed} in errore',
     /** Etichette badge del ciclo di vita della coda. */
     statusQueued: 'In coda',
     statusRunning: 'In corso',
@@ -599,18 +577,20 @@ export const it = {
     /** Etichette dei tipi job noti del backend. */
     typePriceRefresh: 'Aggiornamento prezzi',
     typeHistoryBackfill: 'Backfill storico',
+    typeAssetSync: 'Sincronizzazione asset',
     typeMetaBackfill: 'Backfill metadati',
     typeSplitsFetch: 'Recupero split',
     /** Etichette dei tipi di destinazione. */
     targetAsset: 'Asset',
     targetPortfolio: 'Portafoglio',
     targetGlobal: 'Globale',
-    empty: 'Nessun job',
-    emptyHint: 'Gli aggiornamenti prezzi e i backfill avviati dall’app compaiono qui.',
-    /** Azione di riga che apre il filtro job nella card eventi. */
-    viewEvents: "Mostra gli eventi di questo job",
-    viewEventsNamed: 'Mostra gli eventi del job {type}',
-    loadFailed: 'Caricamento dei job non riuscito',
+    /** Nome accessibile del link del tipo job che apre il pannello di
+     *  dettaglio (#226); il testo visibile è il tipo job localizzato. */
+    viewDetailNamed: 'Apri il dettaglio del job {type}',
+    /** Pannello di dettaglio job: intestazione sopra la lista eventi e titolo
+     *  dello stato vuoto. */
+    detailEvents: '{count} eventi',
+    noEventsYet: 'Ancora nessun evento per questo job',
   },
   /**
    * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti

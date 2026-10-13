@@ -283,7 +283,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (streamed `.dump` attachment), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (all admin-only: 403 for non-admin roles) |
-| `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
+| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (window-scoped summary tiles), `GET /health/activity?period=&limit=&offset=&type=&status=` (unified feed: jobs + non-job events), `GET /health/prices?job_id=&limit=200` (one job's events for the detail panel); all reads bypass the GET cache because the health page polls them |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
@@ -1587,36 +1587,64 @@ are translated through the i18n layer (chapter 8).
 
 ### `/admin/health` — Data & Sync (`routes/admin/health/+page.svelte`)
 
-Two stacked cards.
+A summary strip and ONE unified activity table.
 
-**Sync jobs** (top): the recent queue jobs (`jobsApi.list({ limit: 25 })`). Head
-counts (running/queued/failed, only non-zero) and, while a job is open, a
-"Live" pill with a 3-second **auto-refresh** that polls only the job list and
-dies on its own when nothing is queued or running (silent: no skeleton, no
-toast). The table shows type, target (the readable `target_label` — asset
-ticker or portfolio name — resolved server-side, falling back to the short id;
-never a link, the queue is not user-scoped), a status badge (one shared
-status→badge map also used by the events table, so `running` reads as accent
-instead of red), progress (`processed/total` plus a bar while running and the
-`ok`/`failed` rollup), duration via `formatDuration`, and the start time; a
-full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
-"Refresh prices" action. The target label, the duration and the health rollup
-are derived server-side (no column).
+**Summary tiles**: the `24h|7d|all` period `SegmentedControl` sits in the
+card header and scopes the 4 tiles AND the activity feed, so the numbers
+always match the listed rows (`all` = no lower bound; changing the period
+also returns the feed to page one). Success Rate, Total Successes, Total
+Failures and Rate Limited (each a `ui/StatCard`) come from
+`healthApi.summary(period)` (`GET /health/prices`, `limit=1`): the summary is
+window-based and excludes the job-lifecycle rows, and while the window has no
+data every tile shows `N/A` together.
 
-**Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`
-(the period selector scopes the summary only; two `ui/Select` controls
-additionally filter the list server-side by **type** and **status** — empty
-means all — and changing either returns to the first page, with the quoted total
-following the filter). 4 summary tiles (Success Rate,
-Total Successes, Total Failures, Rate Limited — the summary excludes the job
-lifecycle rows) and a paginated table of the events (timestamp, type, status
-badge, code, message, duration; page size 50). Queue-lifecycle rows
-(`event_type: "job"`) are shown with an outline "job" badge; clicking the
-filter action on a job row shows only that job's events (`job_id`), fetched
-client-side over the newest 500 events with a clearable chip, and the "Refresh
-Now" button reloads both cards. A "Clear activity" button opens a danger
-confirm (quoting the current events total) and wipes every job and health event
-(`DELETE /admin/health/events`), then reloads both cards.
+**Activity feed** (`healthApi.activity` →
+`GET /health/activity?period=&limit=&offset=&type=&status=`): every
+queue job plus the health events that are not tied to one — a job's own events
+appear only in its detail panel, never duplicated in the feed — newest first,
+50 per page with Previous/Next and the filtered total quoted. Columns:
+timestamp; type (a job row carries an outline "job" badge followed by the
+localized job type, an event row the raw event type); target (the localized
+target type plus the readable `target_label` — asset ticker or portfolio name —
+resolved server-side; a global target shows just "Global", nothing shows an
+em-dash); a status badge (one shared status→badge map, also used by the filters
+and the detail panel, so `running` reads as accent instead of red); message (a
+job shows its error or the `processed`/`total` progress, an event its message —
+truncated with a `title` tooltip, no expansion); duration via
+`formatDuration`. Below `sm` the summary tiles sit in a 2×2 grid and the table
+collapses to a three-column grid of two-line rows: line one carries the job
+badge, the type, a `- ` separator and the destination; line two places date
+over time, duration over the status badge and the truncated message side by
+side, in a smaller font with much tighter card padding and the header row
+hidden. A job row's type is a real
+`ui/Button variant="link"` (never
+a click-only row) that opens the **job detail panel**
+(`domain/JobDetailPanel.svelte`): the
+right-side `ui/Drawer` (40rem) at ≥ `lg`, the bottom `ui/Sheet` below — the
+same drill-down idiom as the allocation drill. The panel takes the activity
+row's job fields and shows the status badge, target, duration and start-or-
+creation timestamp, the `processed`/`total` progress with a bar, the full
+error wrapping across the panel width, and the job's events — lifecycle rows
+plus per-item events — fetched by `healthApi.jobEvents`
+(`GET /health/prices?job_id=<id>&limit=200`, scoped server-side, no client
+filter), each one a status badge + type with its duration on the right, the
+full message and
+the timestamp · code line, through the usual `ui/AsyncCard` states with a
+dashed empty state while the job has emitted nothing yet. The page holds a
+snapshot of the open job by value and merges each poll's fresh copy by id, so
+the feed never blanks the panel.
+
+**Live and filters**: while any feed row is a `queued`/`running` job (or an
+app-wide price refresh is in flight) the card header shows a "Live" pill and a
+3-second poll refreshes the feed and, on the same tick, the open panel's
+events; it dies on its own when nothing is open (silent: no skeleton, no
+toast). Two `ui/Select` controls filter the feed server-side by **type** (the
+deduplicated union of the job and event types) and **status** (the union of
+the job and event statuses) — empty means all — and changing either returns to
+the first page. The "Refresh Now" button reloads the summary and the feed. A
+"Clear activity" button opens a danger confirm (quoting the current feed
+total), closes any open job panel, and wipes every job and health event
+(`DELETE /admin/health/events`), then reloads both.
 
 ### Admin area (`routes/admin/…`)
 

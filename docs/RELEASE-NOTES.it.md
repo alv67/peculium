@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Nuove funzionalità
+- In "Dati e sincronizzazione" job e attività ora condividono un unico elenco, dal più recente: ogni job compare come una riga con il suo avanzamento o errore, e aprendo un job le sue voci di registro si mostrano in un pannello laterale proprio accanto all'elenco
 - La pagina "Dati e sincronizzazione" ora mostra i job di sincronizzazione e il loro esito — in coda, in esecuzione, completati, parzialmente falliti o falliti — con avanzamento, la durata reale (non più sempre zero) e l'errore quando c'è, aggiornato automaticamente mentre qualcosa è in corso; un download lungo mostra la propria riga di inizio e fine con l'esito anche se supera il tempo a disposizione
 - Ogni download dello storico e ogni controllo degli split ora compare in "Dati e sincronizzazione", una voce per asset, sia che sia riuscito sia che sia fallito, così vedi esattamente quali asset sono stati aggiornati e quando
 - In "Dati e sincronizzazione" ogni job ora indica la propria destinazione — il ticker dell'asset o il nome del portafoglio — invece di un codice opaco
@@ -14,6 +15,7 @@
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 - "Dati e sincronizzazione" ora registra anche le chiamate ai metadati degli asset, così la lista di attività è un inventario completo delle chiamate esterne dell'app, e puoi filtrarla per tipo di chiamata ed esito — per esempio per vedere solo i fallimenti
 - In "Dati e sincronizzazione" le voci di esposizione ETF ora mostrano il ticker dell'asset accanto all'ISIN, così capisci a colpo d'occhio a quale asset si riferiscono
+- In "Dati e sincronizzazione" puoi scegliere la finestra temporale — 24h, 7 giorni o Tutto — che limita insieme le tile di riepilogo e l'elenco di attività, così i numeri corrispondono sempre a quanto elencato
 
 ### Correzioni
 - L'ultimo prezzo e i rendimenti per periodo ora sono gli stessi su ogni installazione che aggiorna nello stesso momento, invece di risultare talvolta diversi

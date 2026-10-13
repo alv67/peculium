@@ -606,6 +606,62 @@ export interface Job {
   summary?: { ok: number; failed: number }
 }
 
+/** Window-scoped price-health summary returned by `GET /health/prices`: the
+ * four `/admin/health` tiles. The summary is always window-based (period
+ * scoped) and excludes job-lifecycle rows; `has_data` is false when the
+ * window holds no provider outcomes, making every tile show `N/A` together. */
+export interface HealthSummary {
+  successes: number
+  failures: number
+  success_rate: number
+  rate_limited: number
+  has_data: boolean
+  period?: string
+}
+
+/** One row of the unified `/admin/health` feed `GET /health/activity`: a queue
+ * job or a health event not tied to one (a job's own events belong to its
+ * detail panel, never to this list). `kind` decides which fields carry data —
+ * `processed`/`total`/`error` are job-only, `message` is event-only, and
+ * `duration_ms` is the wall-clock run of a job or the provider call time of an
+ * event. Non-applicable fields arrive zero-valued, never absent. */
+export interface ActivityItem {
+  kind: 'job' | 'event'
+  id: string
+  /** Job start (fallback created_at) or the event time. */
+  at: string
+  /** Job type for a job, event type for an event. */
+  type: string
+  /** `asset` | `portfolio` | `global`. */
+  target_type: string
+  /** Readable target (asset ticker / portfolio name), resolved server-side. */
+  target_label: string
+  target_id: string | null
+  status: string
+  processed: number
+  total: number
+  duration_ms: number
+  error: string
+  message: string
+}
+
+/** One row of `GET /health/prices` (the Data & Sync event feed): a single
+ * monitored fetch/save. `job_id` links lifecycle/health rows back to the
+ * queue `Job` that emitted them (issue #195). */
+export interface HealthEvent {
+  id: string
+  asset_id: string
+  event_type: string
+  status: string
+  code: string
+  message: string
+  duration_ms: number
+  error_code: string
+  created_at: string
+  /** Set on lifecycle/health rows emitted by a queue job (issue #195). */
+  job_id?: string
+}
+
 export interface AuthResponse {
   user: User
   access_token: string
@@ -780,14 +836,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return cloneCached<T>(data)
 }
 
-export const api = {
-  get: (url: string, init: RequestInit = {}) => request(url, { ...init, method: 'GET' }),
-  post: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'POST', body }),
-  put: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'PUT', body }),
-  patch: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'PATCH', body }),
-  delete: (url: string, init: RequestInit = {}) => request(url, { ...init, method: 'DELETE' }),
-};
-
 export const authApi = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: { email, password } }),
@@ -928,6 +976,43 @@ export const pricesApi = {
       params: portfolioId ? { portfolio_id: portfolioId } : {},
     }),
   byAsset: (assetId: string) => request<Price[]>(`/prices/${assetId}?full=1`),
+}
+
+/** Reads of the `/admin/health` Data & Sync view. Every method bypasses the
+ * shared GET cache: the page polls these while a job is open, and the polled
+ * URLs do not change between ticks. */
+export const healthApi = {
+  /** The window-scoped summary tiles (`GET /health/prices`; the `events` page
+   *  of that endpoint is not consumed — the feed comes from `activity`). */
+  summary: (period: string) =>
+    request<{ summary: HealthSummary }>('/health/prices', {
+      params: { period, limit: '1' },
+      noCache: true,
+    }),
+  /** One page of the unified activity feed, newest first. `period` windows
+   *  the feed exactly like the summary tiles (`all` = no lower bound); `type`
+   *  and `status` are optional raw-value filters (empty means all), applied
+   *  server-side to both the page and `items_total`. */
+  activity: (params: { period: string; limit: number; offset: number; type: string; status: string }) => {
+    const query: Record<string, string> = {
+      period: params.period,
+      limit: String(params.limit),
+      offset: String(params.offset),
+    }
+    if (params.type) query.type = params.type
+    if (params.status) query.status = params.status
+    return request<{ items: ActivityItem[]; items_total: number }>('/health/activity', {
+      params: query,
+      noCache: true,
+    })
+  },
+  /** All events of one job (lifecycle rows plus its item events), newest
+   *  first: the same endpoint scoped server-side by `job_id` for the panel. */
+  jobEvents: (jobId: string) =>
+    request<{ events: HealthEvent[] }>('/health/prices', {
+      params: { job_id: jobId, limit: '200' },
+      noCache: true,
+    }),
 }
 
 const JOB_TERMINAL_STATUSES: Job['status'][] = ['done', 'failed', 'partial']

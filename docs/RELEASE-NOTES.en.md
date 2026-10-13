@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Features
+- On "Data & Sync" jobs and activity now share a single list, newest first: every job appears as one row with its progress or error, and opening a job shows its own log lines in a side panel right next to the list
 - The "Data & Sync" page now shows the sync jobs and their outcome — queued, running, completed, partially failed or failed — with progress, the real duration (no longer always zero) and the error when there is one, refreshed automatically while something is running; a long download shows its own start and finish with the result even if it runs out of time
 - Every history download and split check now appears in "Data & Sync", one entry per asset, whether it succeeded or failed, so you can see exactly which assets were updated and when
 - In "Data & Sync" each job now names its target — the asset ticker or the portfolio name — instead of an opaque code
@@ -14,6 +15,7 @@
 - The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
 - "Data & Sync" now also logs asset-metadata lookups, so the activity list is a complete inventory of the app's external calls, and you can filter it by call type and outcome — for example to see only the failures
 - In "Data & Sync" the ETF exposure entries now show the asset ticker next to the ISIN, so you can tell at a glance which asset they belong to
+- On "Data & Sync" you can pick the time window — 24h, 7 days or All — and it scopes the summary tiles and the activity list together, so the numbers always match what is listed
 
 ### Fixes
 - The latest price and the per-period returns are now the same on every installation that refreshes at the same time, instead of sometimes differing

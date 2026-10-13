@@ -1,21 +1,26 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { toast } from '$lib/stores/toast.svelte'
-  import { api, adminApi, jobsApi, type Job } from '$lib/services/api'
-  import { t, type MessageKey } from '$lib/i18n/index.svelte'
+  import {
+    adminApi,
+    healthApi,
+    type ActivityItem,
+    type HealthEvent,
+    type HealthSummary,
+  } from '$lib/services/api'
+  import { t } from '$lib/i18n/index.svelte'
   import { formatDuration } from '$lib/format'
-  import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
-  import { AlertTriangle, ListChecks, ListFilter, X } from 'lucide-svelte'
-  import AsyncCard from '$lib/components/ui/AsyncCard.svelte'
+  import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
+  import { ChevronRight } from 'lucide-svelte'
   import Badge from '$lib/components/ui/Badge.svelte'
   import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import CardHeader from '$lib/components/ui/CardHeader.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
+  import JobDetailPanel from '$lib/components/domain/JobDetailPanel.svelte'
+  import { JOB_TARGET_KEYS, JOB_TYPE_KEYS, labeled, statusBadge } from '$lib/components/domain/job-status'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
   import Select from '$lib/components/ui/Select.svelte'
-  import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import StatCard from '$lib/components/ui/StatCard.svelte'
   import Table from '$lib/components/ui/Table.svelte'
   import THead from '$lib/components/ui/THead.svelte'
   import TBody from '$lib/components/ui/TBody.svelte'
@@ -23,50 +28,26 @@
   import Th from '$lib/components/ui/Th.svelte'
   import Td from '$lib/components/ui/Td.svelte'
 
-  interface HealthSummary {
-    successes: number
-    failures: number
-    success_rate: number
-    rate_limited: number
-    has_data: boolean
-    period?: string
-  }
-
-  interface HealthEvent {
-    id: string
-    asset_id: string
-    event_type: string
-    status: string
-    code: string
-    message: string
-    duration_ms: number
-    error_code: string
-    created_at: string
-    /** Set on lifecycle/health rows emitted by a queue job (issue #195). */
-    job_id?: string
-  }
-
   const PAGE_SIZE = 50
 
-  // ponytail: job events are filtered client-side over the newest 500 rows;
-  // move to a server-side job_id query only if a job ever emits more.
-  const JOB_FILTER_LIMIT = 500
-
   // `$derived` so a locale switch live-updates the segmented control labels
-  // (same recipe as the preferences page theme items).
+  // (same recipe as the preferences page theme items). The period scopes both
+  // the summary tiles and the activity feed, so the numbers always match the
+  // listed rows. `all` = no lower bound.
   const periodItems = $derived([
-    { value: 'today', label: t('health.periodToday') },
-    { value: '24h', label: t('health.periodLast24h') },
-    { value: '100', label: t('health.periodLast100') },
+    { value: '24h', label: t('health.period24h') },
+    { value: '7d', label: t('health.period7d') },
+    { value: 'all', label: t('health.periodAll') },
   ])
 
-  let period = $state('today')
+  let period = $state('all')
   let offset = $state(0)
-  /** Server-side event filters (`''` = "All", omitted from the query). */
+  /** Server-side activity filters (`''` = "All", omitted from the query). */
   let filterType = $state('')
   let filterStatus = $state('')
-  // shortcut: hard-coded list of backend event types; move to a
-  // server-provided distinct list if it ever drifts.
+
+  // shortcut: hard-coded union of the job types (`JOB_TYPE_KEYS`) and the
+  // backend event types; move to a server-provided distinct list if it drifts.
   const EVENT_TYPES = [
     'price_refresh',
     'fx_fetch',
@@ -85,64 +66,56 @@
     'etf_morningstar_exposure',
     'etf_search',
   ]
-  // `$derived` so a locale switch live-updates the option labels; values are
-  // the exact `status` strings accepted by the health query.
-  const STATUS_OPTIONS = $derived([
-    { value: 'success', label: t('health.statusSuccess') },
-    { value: 'failure', label: t('health.statusFailure') },
-    { value: 'running', label: t('health.statusRunning') },
-    { value: 'partial', label: t('health.statusPartial') },
-  ])
+  const ACTIVITY_TYPES = [...new Set([...Object.keys(JOB_TYPE_KEYS), ...EVENT_TYPES])]
+
+  // The statuses of BOTH feed kinds, deduplicated (`running`/`partial` are
+  // shared); labels come from the one shared status→badge map. `$derived` so a
+  // locale switch live-updates the option labels.
+  const ACTIVITY_STATUSES = ['queued', 'running', 'done', 'failed', 'partial', 'success', 'failure']
+  const STATUS_OPTIONS = $derived(ACTIVITY_STATUSES.map((s) => ({ value: s, label: statusBadge(s).label })))
+
   let summary = $state<HealthSummary | null>(null)
-  let events = $state<HealthEvent[]>([])
-  let eventsTotal = $state(0)
+  let activity = $state<ActivityItem[]>([])
+  let activityTotal = $state(0)
   let loading = $state(true)
-  /** Open flag of the destructive "Clear events" confirm (#206). */
+  /** Open flag of the destructive "Clear activity" confirm (#206). */
   let clearOpen = $state(false)
 
-  let jobs = $state<Job[]>([])
-  let jobsLoading = $state(true)
-  let jobsError = $state(false)
-  let jobsAt = $state<Date | null>(null)
-  /** Active job filter on the events card (`type` is the localized label). */
-  let selectedJob = $state<{ id: string; type: string } | null>(null)
+  /** Job inspected in the detail panel (#226), a snapshot BY VALUE of the
+   *  activity row: the feed pages newest-first, so the panel keys on
+   *  `openJobId` and merges each poll's fresh copy by id. */
+  let openJob = $state<ActivityItem | null>(null)
+  const openJobId = $derived(openJob?.id)
+  let jobEvents = $state<HealthEvent[]>([])
+  let jobEventsLoading = $state(false)
+  let jobEventsError = $state<string | null>(null)
 
-  const periodLabel = $derived(periodItems.find((item) => item.value === period)?.label ?? period)
   const rangeLabel = $derived(
-    events.length === 0
-      ? t('common.rangeEmpty', { total: eventsTotal })
-      : t('common.rangeLabel', { from: offset + 1, to: offset + events.length, total: eventsTotal }),
+    activity.length === 0
+      ? t('common.rangeEmpty', { total: activityTotal })
+      : t('common.rangeLabel', { from: offset + 1, to: offset + activity.length, total: activityTotal }),
   )
-  // Any open queue job (or an app-wide price refresh in flight) keeps the
-  // 3s auto-refresh alive; the pill and the interval both key off this.
+  // Any open queue job in the feed (or an app-wide price refresh in flight)
+  // keeps the 3s auto-refresh alive; the pill and the interval both key off it.
   const hasOpenJob = $derived(
-    priceRefresh.refreshing || jobs.some((j) => j.status === 'queued' || j.status === 'running'),
+    priceRefresh.refreshing ||
+      activity.some((item) => item.kind === 'job' && (item.status === 'queued' || item.status === 'running')),
   )
-  const openCounts = $derived({
-    running: jobs.filter((j) => j.status === 'running').length,
-    queued: jobs.filter((j) => j.status === 'queued').length,
-    failed: jobs.filter((j) => j.status === 'failed').length,
-  })
-  const visibleEvents = $derived(
-    selectedJob ? events.filter((e) => e.job_id === selectedJob?.id) : events,
-  )
+  /** No data in the period: the summary tiles all show `N/A` together. */
+  const noData = $derived(!summary?.has_data)
 
-  async function fetchHealth(silent = false) {
+  /** The Messaggio cell: a job shows its error, else the progress text; an
+   *  event shows its message (empty renders the shared em-dash). */
+  function activityMessage(item: ActivityItem): string {
+    if (item.kind === 'event') return item.message
+    if (item.error) return item.error
+    return item.total > 0 ? t('jobs.progressOf', { processed: item.processed, total: item.total }) : ''
+  }
+
+  async function fetchSummary(silent = false) {
     if (!silent) loading = true
     try {
-      const limit = selectedJob ? JOB_FILTER_LIMIT : PAGE_SIZE
-      const off = selectedJob ? 0 : offset
-      let url = `/health/prices?period=${period}&limit=${limit}&offset=${off}`
-      if (filterType) url += `&type=${filterType}`
-      if (filterStatus) url += `&status=${filterStatus}`
-      const data = (await api.get(url)) as {
-        summary: HealthSummary
-        events: HealthEvent[]
-        events_total: number
-      }
-      summary = data.summary
-      events = data.events ?? []
-      eventsTotal = data.events_total ?? 0
+      summary = (await healthApi.summary(period)).summary
     } catch {
       // Poll errors stay silent: the previous data keeps rendering.
       if (!silent) toast.error(t('health.loadFailed'))
@@ -151,70 +124,113 @@
     }
   }
 
-  async function fetchJobs(silent = false) {
-    if (!silent) {
-      jobsLoading = true
-      jobsError = false
-    }
+  async function fetchActivity(silent = false) {
+    if (!silent) loading = true
     try {
-      jobs = await jobsApi.list({ limit: 25 })
-      jobsAt = new Date()
+      const data = await healthApi.activity({ period, limit: PAGE_SIZE, offset, type: filterType, status: filterStatus })
+      activity = data.items ?? []
+      activityTotal = data.items_total ?? 0
     } catch {
-      if (!silent) jobsError = true
+      if (!silent) toast.error(t('health.loadFailed'))
     } finally {
-      if (!silent) jobsLoading = false
+      if (!silent) loading = false
     }
   }
 
-  $effect(() => {
-    fetchHealth()
-  })
+  // The open job's events: scoped server-side by `job_id`, no client filter.
+  async function fetchJobEvents(silent = false): Promise<void> {
+    const job = openJob
+    if (!job) return
+    if (!silent) {
+      jobEventsLoading = true
+      jobEventsError = null
+    }
+    try {
+      const data = await healthApi.jobEvents(job.id)
+      // The panel was closed or swapped to another job while this ran: drop.
+      if (openJob?.id !== job.id) return
+      jobEvents = data.events ?? []
+      jobEventsError = null
+    } catch (e) {
+      // Silent poll errors keep the previous list rendering (like the feed).
+      if (!silent && openJob?.id === job.id) {
+        jobEventsError = e instanceof Error ? e.message : String(e)
+      }
+    } finally {
+      if (!silent && openJob?.id === job.id) jobEventsLoading = false
+    }
+  }
 
-  // Initial load runs through the visible `jobsLoading` skeleton; locale
-  // changes only re-render the labels (`jobsError` stays a boolean flag).
+  // Period tracks both the summary and the feed; offset/filters track the feed.
   $effect(() => {
-    fetchJobs()
+    void fetchSummary()
+  })
+  $effect(() => {
+    void fetchActivity()
   })
 
   $effect(() => {
     if (!hasOpenJob) return
-    const timer = setInterval(() => void fetchJobs(true), 3000)
+    const timer = setInterval(() => {
+      void fetchActivity(true)
+      // A running/queued open job refreshes its events on the SAME tick —
+      // no second interval. Reads here are outside the effect's tracking.
+      const job = openJob
+      if (job && (job.status === 'running' || job.status === 'queued')) void fetchJobEvents(true)
+    }, 3000)
     return () => clearInterval(timer)
   })
 
-  // Open → none transition: ONE silent events refetch so the just-closed
-  // job's lifecycle rows land in the events card (not on every poll).
+  // Open → none transition: ONE silent refetch so the just-finished job's
+  // lifecycle rows land in the open panel (the feed row itself is already
+  // terminal: this tick's poll is the fetch that flipped the flag).
   let hadOpenJob = false
   $effect(() => {
     const open = hasOpenJob
-    if (hadOpenJob && !open) void fetchHealth(true)
+    if (hadOpenJob && !open) void fetchJobEvents(true)
     hadOpenJob = open
   })
 
+  // `openJobId` (a stable string, not the merged snapshot) loads the panel's
+  // events; `untrack` keeps the 3s snapshot merges from re-firing this fetch.
+  $effect(() => {
+    const id = openJobId
+    if (!id) return
+    untrack(() => void fetchJobEvents())
+  })
+
+  // Keep the open job's snapshot live: merge the polled page's fresh copy of
+  // the open row by id (a row off the current page keeps its last snapshot).
+  $effect(() => {
+    const fresh = activity.find((item) => item.kind === 'job' && item.id === openJob?.id)
+    if (fresh && fresh !== openJob) openJob = fresh
+  })
+
   function refreshAll() {
-    fetchHealth()
-    fetchJobs()
+    void fetchSummary()
+    void fetchActivity()
   }
 
   // Deletes every health event and sync job row, then reloads both views from
-  // page one (the non-GET already invalidated the client GET cache).
+  // page one (the non-GET already invalidated the client GET cache). The jobs
+  // are gone, so a detail panel open on one closes with them.
   async function confirmClearEvents(): Promise<void> {
     try {
       const { deleted } = await adminApi.clearHealthEvents()
       toast.success(t('health.clearEventsDone', { count: deleted }))
       offset = 0
-      await fetchHealth()
-      await fetchJobs()
+      openJob = null
+      await fetchSummary()
+      await fetchActivity()
     } catch {
       toast.error(t('health.clearEventsFailed'))
     }
   }
 
-  function filterToJob(id?: string, type?: string) {
-    if (!id) return
-    selectedJob = { id, type: type || 'job' }
-    // Default (auto) scroll: no motion to neutralise for prefers-reduced-motion.
-    document.getElementById('events-card')?.scrollIntoView()
+  function openJobDetail(item: ActivityItem): void {
+    openJob = item
+    jobEvents = []
+    jobEventsError = null
   }
 
   function getPeriod() {
@@ -222,6 +238,8 @@
   }
 
   function setPeriod(value: string) {
+    // The feed is windowed by the period too: back to page one, and the
+    // tracked fetchActivity effect (which reads `period`) refetches.
     period = value
     offset = 0
   }
@@ -230,60 +248,16 @@
     if (val === null || val === undefined || Number.isNaN(val)) return 'N/A'
     return (val * 100).toFixed(1) + '%'
   }
-
-  // The badge is the one backend value we localise, with ONE map shared by
-  // the jobs and the events tables: known statuses map to a Badge variant +
-  // dictionary label (the raw `running` no longer renders red here), the 429
-  // heuristic covers rate-limited codes, anything unexpected falls back to
-  // the raw value in the negative tone. The label text is always present.
-  type BadgeVariant = 'neutral' | 'accent' | 'positive' | 'negative' | 'warning'
-  const STATUS_BADGES: Record<string, { variant: BadgeVariant; key: MessageKey }> = {
-    done: { variant: 'positive', key: 'jobs.statusDone' },
-    success: { variant: 'positive', key: 'health.statusSuccess' },
-    running: { variant: 'accent', key: 'jobs.statusRunning' },
-    queued: { variant: 'neutral', key: 'jobs.statusQueued' },
-    partial: { variant: 'warning', key: 'jobs.statusPartial' },
-    failed: { variant: 'negative', key: 'jobs.statusFailed' },
-    failure: { variant: 'negative', key: 'health.statusFailure' },
-    rate_limited: { variant: 'warning', key: 'health.statusRateLimited' },
-  }
-
-  function statusBadge(status: string): { variant: BadgeVariant; label: string } {
-    if (status.includes('429')) return { variant: 'warning', label: t('health.statusRateLimited') }
-    const known = STATUS_BADGES[status]
-    if (known) return { variant: known.variant, label: t(known.key) }
-    return { variant: 'negative', label: status }
-  }
-
-  const JOB_TYPE_KEYS: Record<string, MessageKey> = {
-    price_refresh: 'jobs.typePriceRefresh',
-    history_backfill: 'jobs.typeHistoryBackfill',
-    meta_backfill: 'jobs.typeMetaBackfill',
-    splits_fetch: 'jobs.typeSplitsFetch',
-  }
-
-  const JOB_TARGET_KEYS: Record<string, MessageKey> = {
-    asset: 'jobs.targetAsset',
-    portfolio: 'jobs.targetPortfolio',
-    global: 'jobs.targetGlobal',
-  }
-
-  function labeled(keys: Record<string, MessageKey>, value: string | undefined) {
-    if (!value) return ''
-    const key = keys[value]
-    return key ? t(key) : value
-  }
 </script>
 
-<div class="mx-auto max-w-6xl p-6">
+<div class="mx-auto max-w-6xl p-3 sm:p-6">
   <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold text-foreground">{t('health.title')}</h1>
       <p class="text-muted-foreground">{t('health.subtitle')}</p>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-      <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
-      <Button variant="secondary" onclick={refreshAll} disabled={loading || jobsLoading}>
+      <Button variant="secondary" onclick={refreshAll} disabled={loading}>
         {loading ? t('health.refreshing') : t('health.refresh')}
       </Button>
       <Button variant="secondary" onclick={() => (clearOpen = true)} disabled={loading}>
@@ -291,177 +265,6 @@
       </Button>
     </div>
   </div>
-
-  <Card class="mb-8">
-    <CardHeader title={t('jobs.title')} subtitle={t('jobs.scopeNote')}>
-      {#snippet actions()}
-        {#if hasOpenJob}
-          <Badge variant="accent">
-            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
-            {t('jobs.live')}
-          </Badge>
-        {/if}
-        {#if jobsAt}
-          <span class="text-xs tabular-nums text-muted-foreground">
-            {t('jobs.lastUpdate', { time: jobsAt.toLocaleTimeString() })}
-          </span>
-        {/if}
-      {/snippet}
-    </CardHeader>
-    <div class="px-6 pt-3">
-      <AsyncCard
-        loading={jobsLoading}
-        error={jobsError ? t('jobs.loadFailed') : null}
-        onRetry={() => fetchJobs()}
-        empty={jobs.length === 0}
-      >
-        {#snippet skeleton()}
-          <div class="space-y-2 pb-6" aria-hidden="true">
-            <Skeleton class="h-8 w-full" />
-            <Skeleton class="h-8 w-full" />
-            <Skeleton class="h-8 w-full" />
-            <Skeleton class="h-8 w-2/3" />
-          </div>
-        {/snippet}
-        {#snippet emptyContent()}
-          <EmptyState icon={ListChecks} title={t('jobs.empty')} description={t('jobs.emptyHint')} class="p-6">
-            {#snippet action()}
-              <Button
-                variant="secondary"
-                size="sm"
-                onclick={() => void refreshPrices({ announceSuccess: true })}
-              >
-                {t('quickActions.refreshPrices')}
-              </Button>
-            {/snippet}
-          </EmptyState>
-        {/snippet}
-
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs">
-          {#if openCounts.running > 0}
-            <span class="font-medium text-accent-text">{t('jobs.countRunning', { count: openCounts.running })}</span>
-          {/if}
-          {#if openCounts.queued > 0}
-            <span class="text-muted-foreground">{t('jobs.countQueued', { count: openCounts.queued })}</span>
-          {/if}
-          {#if openCounts.failed > 0}
-            <span class="text-negative">{t('jobs.countFailed', { count: openCounts.failed })}</span>
-          {/if}
-          {#if openCounts.running === 0 && openCounts.queued === 0}
-            <span class="text-muted-foreground">{t('jobs.idle')}</span>
-          {/if}
-        </div>
-
-        <div class="overflow-x-auto pb-6">
-          <Table class="max-sm:block table-fixed">
-            <caption class="sr-only">{t('jobs.caption')}</caption>
-            <THead class="max-sm:hidden">
-              <Tr>
-                <Th class="w-40">{t('common.colType')}</Th>
-                <Th class="w-36">{t('jobs.colTarget')}</Th>
-                <Th class="w-28">{t('positions.colStatus')}</Th>
-                <Th class="w-48">{t('jobs.colProgress')}</Th>
-                <Th class="w-24">{t('health.colDuration')}</Th>
-                <Th>{t('jobs.colStarted')}</Th>
-              </Tr>
-            </THead>
-            <TBody class="max-sm:block">
-              {#each jobs as job (job.id)}
-                <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2 align-top">
-                  <Td class="max-sm:order-1 max-sm:col-span-2 max-sm:py-0.5 min-w-0">
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="truncate font-medium">
-                        {labeled(JOB_TYPE_KEYS, job.type)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="shrink-0"
-                        aria-label={t('jobs.viewEventsNamed', { type: labeled(JOB_TYPE_KEYS, job.type) })}
-                        onclick={() => filterToJob(job.id, labeled(JOB_TYPE_KEYS, job.type))}
-                      >
-                        <ListFilter class="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </Td>
-                  <Td class="max-sm:order-2 max-sm:col-span-2 max-sm:py-0.5 min-w-0 text-muted-foreground">
-                    {#if job.target_type || job.target_id}
-                      <span class="whitespace-nowrap">{labeled(JOB_TARGET_KEYS, job.target_type)}</span>
-                      {#if job.target_label}
-                        <span class="ml-1 font-medium text-foreground" title={job.target_id}>
-                          {job.target_label}
-                        </span>
-                      {:else if job.target_id}
-                        <span class="ml-1 break-all font-mono text-xs" title={job.target_id}>
-                          {job.target_id.slice(0, 8)}
-                        </span>
-                      {/if}
-                    {:else}
-                      —
-                    {/if}
-                  </Td>
-                  <Td class="max-sm:order-3 max-sm:py-0.5">
-                    <Badge variant={statusBadge(job.status).variant}>
-                      {#if job.status === 'running'}
-                        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
-                      {/if}
-                      {statusBadge(job.status).label}
-                    </Badge>
-                  </Td>
-                  <Td class="max-sm:order-5 max-sm:col-span-2 max-sm:py-0.5 min-w-0">
-                    {#if job.total > 0}
-                      <div class="flex items-center gap-2">
-                        <span class="whitespace-nowrap tabular-nums">
-                          {t('jobs.progressOf', { processed: job.processed, total: job.total })}
-                        </span>
-                        {#if job.status === 'running'}
-                          <div class="h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                            <div
-                              class="h-full rounded-full bg-accent"
-                              style="width: {Math.min(100, Math.round((job.processed / job.total) * 100))}%"
-                            ></div>
-                          </div>
-                        {/if}
-                      </div>
-                    {:else}
-                      <span class="tabular-nums">{job.processed > 0 ? job.processed : '—'}</span>
-                    {/if}
-                    {#if job.summary}
-                      <div class="text-xs text-muted-foreground">
-                        {t('jobs.outcome', { ok: job.summary.ok, failed: job.summary.failed })}
-                      </div>
-                    {/if}
-                  </Td>
-                  <Td class="max-sm:order-4 max-sm:py-0.5 text-muted-foreground tabular-nums">
-                    {formatDuration(job.duration_ms)}
-                  </Td>
-                  <Td class="max-sm:order-6 max-sm:col-span-2 max-sm:py-0.5 whitespace-nowrap text-muted-foreground">
-                    {#if job.started_at}
-                      <time datetime={job.started_at}>{new Date(job.started_at).toLocaleString()}</time>
-                    {:else}
-                      —
-                    {/if}
-                  </Td>
-                </Tr>
-                {#if (job.status === 'failed' || job.status === 'partial') && job.error}
-                  <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2">
-                    <Td colspan={6} class="max-sm:col-span-2 max-sm:block max-sm:py-0.5">
-                      <div
-                        class="flex items-start gap-2 py-1 {job.status === 'failed' ? 'text-negative' : 'text-warning'}"
-                      >
-                        <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                        <code class="break-words font-mono text-xs">{job.error}</code>
-                      </div>
-                    </Td>
-                  </Tr>
-                {/if}
-              {/each}
-            </TBody>
-          </Table>
-        </div>
-      </AsyncCard>
-    </div>
-  </Card>
 
   {#if loading}
     <div class="flex justify-center py-12">
@@ -472,66 +275,54 @@
       {t('health.noData')}
     </div>
   {:else}
-    <div class="mb-3 text-sm text-muted-foreground">{t('health.periodLabel', { period: periodLabel })}</div>
-    <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.successRate')}</div>
-        {#if !summary.has_data}
-          <div class="text-2xl font-bold tabular-nums text-muted-foreground">N/A</div>
-        {:else}
-          <div class="text-2xl font-bold tabular-nums {summary.success_rate > 0.9 ? 'text-positive' : 'text-warning'}">
-            {formatRate(summary.success_rate)}
-          </div>
-        {/if}
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.totalSuccesses')}</div>
-        <div class="text-2xl font-bold tabular-nums text-foreground">{summary.successes}</div>
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.totalFailures')}</div>
-        <div class="text-2xl font-bold tabular-nums text-negative">{summary.failures}</div>
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.rateLimited')}</div>
-        <div class="text-2xl font-bold tabular-nums text-warning">{summary.rate_limited}</div>
-      </div>
-    </div>
-
-    <div id="events-card" class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-6 py-4">
-        <h2 class="font-semibold text-foreground">{t('health.recentEvents')}</h2>
-        {#if selectedJob}
-          <div class="flex flex-wrap items-center gap-2">
+    <div class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-2 py-4 sm:px-6">
+        <div class="flex items-center gap-2">
+          <h2 class="font-semibold text-foreground">{t('health.activity')}</h2>
+          {#if hasOpenJob}
             <Badge variant="accent">
-              {t('health.jobFilter', { type: selectedJob.type })}
-              · {t('health.jobFilterCount', { count: visibleEvents.length })}
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
+              {t('jobs.live')}
             </Badge>
-            {#if eventsTotal > JOB_FILTER_LIMIT}
-              <span class="text-xs text-muted-foreground">
-                {t('health.jobFilterCap', { limit: JOB_FILTER_LIMIT })}
-              </span>
-            {/if}
-            <Button
-              variant="ghost"
-              size="icon"
-              title={t('health.jobFilterClear')}
-              aria-label={t('health.jobFilterClearNamed')}
-              onclick={() => (selectedJob = null)}
-            >
-              <X class="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        {/if}
+          {/if}
+        </div>
+        <!-- The period selector scopes the summary tiles AND the activity
+             feed below, so the numbers always match the listed rows. -->
+        <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
       </div>
-      <!-- Server-side event filters (#91): changing either resets the
-           pagination window; the tracked fetchHealth effect refetches. -->
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 pt-4">
+      <div class="grid grid-cols-1 gap-4 px-2 pt-4 sm:px-6 md:grid-cols-4 max-sm:grid-cols-2 max-sm:gap-2">
+        <StatCard
+          label={t('health.successRate')}
+          value={noData ? 'N/A' : formatRate(summary.success_rate)}
+          valueClass={noData
+            ? 'text-2xl text-muted-foreground'
+            : `text-2xl ${summary.success_rate > 0.9 ? 'text-positive' : 'text-warning'}`}
+        />
+        <StatCard
+          label={t('health.totalSuccesses')}
+          value={noData ? 'N/A' : String(summary.successes)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl'}
+        />
+        <StatCard
+          label={t('health.totalFailures')}
+          value={noData ? 'N/A' : String(summary.failures)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl text-negative'}
+        />
+        <StatCard
+          label={t('health.rateLimited')}
+          value={noData ? 'N/A' : String(summary.rate_limited)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl text-warning'}
+        />
+      </div>
+      <!-- Server-side activity filters: the feed shows every job plus the
+           events not tied to one; changing either filter resets to page one
+           and the tracked fetchActivity effect refetches. -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-2 pt-4 sm:px-6">
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           {t('common.colType')}
           <Select bind:value={filterType} onchange={() => (offset = 0)} class="w-40">
             <option value="">{t('health.filterAll')}</option>
-            {#each EVENT_TYPES as et (et)}
+            {#each ACTIVITY_TYPES as et (et)}
               <option value={et}>{et}</option>
             {/each}
           </Select>
@@ -546,103 +337,144 @@
           </Select>
         </label>
       </div>
-      <div class="overflow-x-auto px-6 pb-4">
-        {#if selectedJob && visibleEvents.length === 0}
-          <p class="py-8 text-center text-sm text-muted-foreground">
-            {t('health.jobFilterNone', { limit: JOB_FILTER_LIMIT })}
-          </p>
-        {:else}
-          <Table aria-label={t('health.recentEvents')}>
-            <THead>
-              <Tr>
-                <Th>{t('health.colTimestamp')}</Th>
-                <Th>{t('common.colType')}</Th>
-                <Th>{t('positions.colStatus')}</Th>
-                <Th class="max-sm:hidden">{t('common.colCode')}</Th>
-                <Th>{t('health.colMessage')}</Th>
-                <Th align="right" class="max-sm:hidden">{t('health.colDuration')}</Th>
-              </Tr>
-            </THead>
-            <TBody>
-              {#each visibleEvents as event (event.id)}
-                <Tr class="hover:bg-muted">
-                  <Td class="text-muted-foreground">{new Date(event.created_at).toLocaleString()}</Td>
-                  <Td class="font-medium">
+      <div class="overflow-x-auto px-1.5 pb-4 sm:px-6">
+        <!-- Mobile (< sm): the 6-column table collapses to a two-line grid
+             row — line 1 = job badge + type + "- " + destination, line 2 =
+             date/time | duration/status | truncated message. The six Td cells
+             keep their desktop markup and are re-placed with col-start/
+             row-start; duration joins the status cell (duration first, badge
+             second) and the duration column hides. -->
+        <Table class="max-sm:block" aria-label={t('health.activity')}>
+          <THead class="max-sm:hidden">
+            <Tr>
+              <Th class="whitespace-nowrap sm:pr-4">{t('health.colTimestamp')}</Th>
+              <Th class="sm:pr-4">{t('common.colType')}</Th>
+              <Th class="sm:pr-4">{t('jobs.colTarget')}</Th>
+              <Th class="sm:pr-4">{t('positions.colStatus')}</Th>
+              <Th class="sm:pr-4">{t('health.colMessage')}</Th>
+              <!-- The last column gets no trailing padding: it keeps its right
+                   alignment against the card edge. -->
+              <Th align="right">{t('health.colDuration')}</Th>
+            </Tr>
+          </THead>
+          <TBody class="max-sm:block">
+            {#each activity as item (item.id)}
+              <Tr class="max-sm:grid max-sm:grid-cols-[auto_auto_1fr] max-sm:gap-x-2 max-sm:py-2">
+                <Td class="whitespace-nowrap text-muted-foreground sm:pr-4 max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-2">
+                  <time datetime={item.at}>
+                    <span class="max-sm:hidden">{new Date(item.at).toLocaleString()}</span>
+                    <span class="hidden max-sm:block">{new Date(item.at).toLocaleDateString()}</span>
+                    <span class="hidden max-sm:block">{new Date(item.at).toLocaleTimeString()}</span>
+                  </time>
+                </Td>
+                <Td class="font-medium sm:pr-4 sm:whitespace-nowrap max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-1 max-sm:col-span-2 max-sm:row-start-1 max-sm:min-w-0">
+                  {#if item.kind === 'job'}
                     <div class="flex items-center gap-1.5">
-                      {#if event.event_type === 'job'}
-                        <Badge variant="outline">job</Badge>
-                      {:else}
-                        <span>{event.event_type}</span>
-                      {/if}
-                      {#if event.job_id}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="h-6 w-6"
-                          aria-label={t('health.filterByJob')}
-                          onclick={() =>
-                            filterToJob(
-                              event.job_id,
-                              labeled(JOB_TYPE_KEYS, jobs.find((j) => j.id === event.job_id)?.type),
-                            )}
-                        >
-                          <ListFilter class="h-3.5 w-3.5" aria-hidden="true" />
-                        </Button>
-                      {/if}
+                      <Badge variant="outline">job</Badge>
+                      <!-- The real <button> is the job-row affordance (rows are
+                           never click-only); `h-8` keeps the touch target usable. -->
+                      <Button
+                        variant="link"
+                        class="h-8 max-sm:text-[11px] sm:whitespace-nowrap"
+                        aria-label={t('jobs.viewDetailNamed', { type: labeled(JOB_TYPE_KEYS, item.type) })}
+                        onclick={() => openJobDetail(item)}
+                      >
+                        {labeled(JOB_TYPE_KEYS, item.type)}
+                        <ChevronRight class="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                      <!-- Line 1 reads "type - destination": the separator is
+                           mobile-only, the destination lives in its own cell. -->
+                      <span aria-hidden="true" class="hidden max-sm:inline">-</span>
                     </div>
-                  </Td>
-                  <Td>
-                    <Badge variant={statusBadge(event.status).variant}>
-                      {#if event.status === 'running'}
-                        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
-                      {/if}
-                      {statusBadge(event.status).label}
-                    </Badge>
-                  </Td>
-                  <Td class="font-mono text-xs max-sm:hidden">{event.code || '—'}</Td>
-                  <Td class="max-w-xs truncate text-muted-foreground">{event.message || '—'}</Td>
-                  <Td align="right" class="text-muted-foreground max-sm:hidden">
-                    {formatDuration(event.duration_ms)}
-                  </Td>
-                </Tr>
-              {/each}
-            </TBody>
-          </Table>
-        {/if}
+                  {:else}
+                    <span class="max-sm:flex max-sm:items-center max-sm:gap-1.5">
+                      {item.type}
+                      <span aria-hidden="true" class="hidden max-sm:inline">-</span>
+                    </span>
+                  {/if}
+                </Td>
+                <Td class="text-muted-foreground sm:pr-4 max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-1">
+                  {#if item.target_type === 'global'}
+                    {t('jobs.targetGlobal')}
+                  {:else}
+                    {#if item.target_type}
+                      <span class="whitespace-nowrap max-sm:whitespace-normal">{labeled(JOB_TARGET_KEYS, item.target_type)}</span>
+                    {/if}
+                    {#if item.target_label}
+                      <span class="ml-1 font-medium text-foreground max-sm:ml-0" title={item.target_id ?? undefined}>
+                        {item.target_label}
+                      </span>
+                    {/if}
+                    {#if !item.target_type && !item.target_label}—{/if}
+                  {/if}
+                </Td>
+                <Td class="sm:pr-4 max-sm:flex max-sm:min-w-0 max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-2">
+                  <!-- Durata stays visible on mobile: the first line of the
+                       status section (the duration column itself is hidden). -->
+                  <span class="hidden max-sm:inline max-sm:text-muted-foreground max-sm:tabular-nums">
+                    {formatDuration(item.duration_ms)}
+                  </span>
+                  <Badge variant={statusBadge(item.status).variant}>
+                    {#if item.status === 'running'}
+                      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
+                    {/if}
+                    {statusBadge(item.status).label}
+                  </Badge>
+                </Td>
+                <Td class="max-w-md truncate text-muted-foreground sm:pr-4 max-sm:max-w-none max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-2" title={activityMessage(item)}>
+                  {activityMessage(item) || '—'}
+                </Td>
+                <Td align="right" class="text-muted-foreground tabular-nums max-sm:hidden">
+                  {formatDuration(item.duration_ms)}
+                </Td>
+              </Tr>
+            {/each}
+          </TBody>
+        </Table>
       </div>
-      {#if !selectedJob}
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-          <span class="text-sm text-muted-foreground tabular-nums">{rangeLabel}</span>
-          <div class="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={offset === 0}
-              onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
-            >
-              {t('common.previous')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={offset + PAGE_SIZE >= eventsTotal}
-              onclick={() => (offset += PAGE_SIZE)}
-            >
-              {t('common.next')}
-            </Button>
-          </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-2 py-4 sm:px-6">
+        <span class="text-sm text-muted-foreground tabular-nums">{rangeLabel}</span>
+        <div class="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={offset === 0}
+            onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
+          >
+            {t('common.previous')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={offset + PAGE_SIZE >= activityTotal}
+            onclick={() => (offset += PAGE_SIZE)}
+          >
+            {t('common.next')}
+          </Button>
         </div>
-      {/if}
+      </div>
     </div>
   {/if}
 </div>
+
+<!-- Job detail panel (#226): Drawer ≥ lg / Sheet below, fed by this page
+     (`fetchJobEvents` scoped by `job_id` + the live `openJob` snapshot). -->
+<JobDetailPanel
+  open={openJob !== null}
+  onClose={() => (openJob = null)}
+  job={openJob}
+  events={jobEvents}
+  loading={jobEventsLoading}
+  error={jobEventsError}
+  onRetry={() => void fetchJobEvents()}
+/>
 
 <!-- Destructive wipe of the whole health events table (#206): the dialog
      shows the current total and the busy lock while the DELETE runs. -->
 <ConfirmDialog
   bind:open={clearOpen}
   title={t('health.clearEventsTitle')}
-  message={t('health.clearEventsConfirm', { total: eventsTotal })}
+  message={t('health.clearEventsConfirm', { total: activityTotal })}
   confirmLabel={t('health.clearEvents')}
   variant="danger"
   onconfirm={confirmClearEvents}
