@@ -54,7 +54,7 @@ aggregated in your base currency.*
   </tr>
   <tr>
     <td width="50%"><img src="website/public/screenshots/en/asset-exposure.png" alt="Asset detail and exposure"><br><sub><b>Asset detail & exposure</b> — editable metadata, price history and JustETF/Morningstar breakdowns.</sub></td>
-    <td width="50%"><img src="website/public/screenshots/en/price-health.png" alt="Price sync health"><br><sub><b>Data & sync</b> — price-sync health, staleness and data-quality metrics.</sub></td>
+    <td width="50%"><img src="website/public/screenshots/en/price-health.png" alt="Data & sync"><br><sub><b>Data & sync</b> — sync jobs and external API activity, with a per-job detail panel and a time window.</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="website/public/screenshots/en/multi-currency.png" alt="Multi-currency"><br><sub><b>Multi-currency</b> — per-asset currencies aggregated with FX history.</sub></td>
