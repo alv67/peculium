@@ -21,7 +21,7 @@ import (
 // duplicate per-item events: per-bar history saves, split saves and price
 // issues are already logged by the fetchers, so a second identical row per
 // failure would only double the health volume. The one exception is
-// meta_backfill, whose per-asset profile failures have no fetcher-side event
+// meta_backfill, whose per-asset profile outcomes have no fetcher-side event
 // and are recorded here (BackfillAssetMeta).
 func (s *Service) RegisterJobExecutors(runner *JobRunner) {
 	runner.Register(model.JobTypePriceRefresh, s.execPriceRefresh)

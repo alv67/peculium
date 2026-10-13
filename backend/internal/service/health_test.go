@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 
 	"github.com/alv67/peculium/internal/cache"
 	"github.com/alv67/peculium/internal/model"
+	"github.com/alv67/peculium/internal/price"
 	"github.com/alv67/peculium/internal/repository"
 )
 
@@ -20,6 +23,13 @@ type fakeHealthRepo struct {
 	pageCalls  int
 	pageLimit  int
 	pageOffset int
+	// pageEventType/pageStatus and countEventType/countStatus record the
+	// filters forwarded by GetPriceHealth, so the filter tests can assert both
+	// the page and the total are filtered consistently.
+	pageEventType  string
+	pageStatus     string
+	countEventType string
+	countStatus    string
 
 	sinceSummary *model.HealthSummary
 	lastNSummary *model.HealthSummary
@@ -48,14 +58,18 @@ func (f *fakeHealthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (
 	return f.countsByJobs, nil
 }
 
-func (f *fakeHealthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*model.HealthEvent, error) {
+func (f *fakeHealthRepo) GetEventsPage(ctx context.Context, limit, offset int, eventType, status string) ([]*model.HealthEvent, error) {
 	f.pageCalls++
 	f.pageLimit = limit
 	f.pageOffset = offset
+	f.pageEventType = eventType
+	f.pageStatus = status
 	return f.events, nil
 }
 
-func (f *fakeHealthRepo) CountEvents(ctx context.Context) (int, error) {
+func (f *fakeHealthRepo) CountEvents(ctx context.Context, eventType, status string) (int, error) {
+	f.countEventType = eventType
+	f.countStatus = status
 	return f.count, nil
 }
 
@@ -122,7 +136,7 @@ func TestGetPriceHealthTodayUsesSummarySince(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, events, _, err := svc.GetPriceHealth(context.Background(), "today", 0, 0)
+	summary, events, _, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -159,7 +173,7 @@ func TestGetPriceHealth24hUsesSummarySince(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "24h", 0, 0)
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "24h", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -184,7 +198,7 @@ func TestGetPriceHealthLastNUsesSummaryLastN(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "100", 0, 0)
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "100", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -208,7 +222,7 @@ func TestGetPriceHealthInvalidPeriodFallsBackToToday(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "nonsense", 0, 0)
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "nonsense", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -271,7 +285,7 @@ func TestGetPriceHealthPassesNormalizedPaginationAndReturnsTotal(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, events, total, err := svc.GetPriceHealth(context.Background(), "today", 10000, -5)
+	_, events, total, err := svc.GetPriceHealth(context.Background(), "today", 10000, -5, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -296,7 +310,7 @@ func TestGetPriceHealthUsesDefaultPageWhenUnset(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0)
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -315,7 +329,7 @@ func TestGetPriceHealthKeepsValidPagination(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, _, err := svc.GetPriceHealth(context.Background(), "today", 25, 50)
+	_, _, _, err := svc.GetPriceHealth(context.Background(), "today", 25, 50, "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -395,4 +409,244 @@ func TestServiceRecordHealthComputesDuration(t *testing.T) {
 	// not panic.
 	bare := New(&repository.Repository{}, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
 	bare.recordHealth(context.Background(), nil, "meta_backfill", "failure", "error", "x", time.Now())
+}
+
+func TestGetPriceHealthForwardsEventFilters(t *testing.T) {
+	tcs := []struct {
+		name      string
+		eventType string
+		status    string
+	}{
+		{"no filters pass through empty", "", ""},
+		{"type only", "asset_meta", ""},
+		{"status only", "", "failure"},
+		{"type and status", "meta_backfill", "success"},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeHealthRepo{
+				sinceSummary: &model.HealthSummary{Successes: 4, Failures: 1},
+				count:        5,
+			}
+			svc := NewHealthService(&repository.Repository{Health: repo})
+
+			_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 20, 5, tc.eventType, tc.status)
+			if err != nil {
+				t.Fatalf("GetPriceHealth: %v", err)
+			}
+			if repo.pageCalls != 1 {
+				t.Fatalf("GetEventsPage calls = %d, want 1", repo.pageCalls)
+			}
+			if repo.pageLimit != 20 || repo.pageOffset != 5 {
+				t.Fatalf("page = (%d, %d), want (20, 5)", repo.pageLimit, repo.pageOffset)
+			}
+			// The page and the total must be filtered identically, otherwise
+			// pagination under a filter drifts.
+			if repo.pageEventType != tc.eventType || repo.pageStatus != tc.status {
+				t.Fatalf("GetEventsPage filters = (%q, %q), want (%q, %q)",
+					repo.pageEventType, repo.pageStatus, tc.eventType, tc.status)
+			}
+			if repo.countEventType != tc.eventType || repo.countStatus != tc.status {
+				t.Fatalf("CountEvents filters = (%q, %q), want (%q, %q)",
+					repo.countEventType, repo.countStatus, tc.eventType, tc.status)
+			}
+			if total != repo.count {
+				t.Fatalf("events_total = %d, want the filtered count %d", total, repo.count)
+			}
+			// The summary stays window-based and unfiltered.
+			if len(repo.sinceCalls) != 1 {
+				t.Fatalf("SummarySince calls = %d, want 1 (summary is unfiltered)", len(repo.sinceCalls))
+			}
+		})
+	}
+}
+
+func TestGetPriceHealthEventsTotalIsTheFilteredCount(t *testing.T) {
+	repo := &fakeHealthRepo{
+		sinceSummary: &model.HealthSummary{Successes: 90, Failures: 10},
+		count:        12,
+		events:       []*model.HealthEvent{{EventType: "asset_meta", Status: "failure"}},
+	}
+	svc := NewHealthService(&repository.Repository{Health: repo})
+
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "asset_meta", "failure")
+	if err != nil {
+		t.Fatalf("GetPriceHealth: %v", err)
+	}
+	if total != 12 {
+		t.Fatalf("events_total = %d, want 12 (filtered count, not the summary total)", total)
+	}
+}
+
+func TestGetAssetMetaRecordsHealthEvents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		svc := newProviderHealthService(repo, &fakeYahooFetcher{meta: &price.AssetMeta{}}, nil)
+
+		if _, err := svc.GetAssetMeta(ctx, "AAPL"); err != nil {
+			t.Fatalf("GetAssetMeta: %v", err)
+		}
+		assertProviderEvent(t, repo, "asset_meta", "success", "AAPL")
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		svc := newProviderHealthService(repo, &fakeYahooFetcher{metaErr: errors.New("yahoo down")}, nil)
+
+		if _, err := svc.GetAssetMeta(ctx, "MSFT"); err == nil {
+			t.Fatal("GetAssetMeta = nil error, want the provider failure")
+		}
+		assertProviderEvent(t, repo, "asset_meta", "failure", "MSFT")
+	})
+
+	t.Run("cache hit records nothing", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		lk := &fakeLookupRepo{data: map[string][]byte{"meta:AAPL": []byte(`{}`)}}
+		svc := New(&repository.Repository{Asset: &fakeAssetRepo{}, Lookup: lk}, nil,
+			&fakeYahooFetcher{metaErr: errors.New("must not be called")}, nil,
+			time.Minute, time.Hour, cache.New(nil), 0, 0,
+			NewHealthService(&repository.Repository{Health: repo}), nil)
+
+		if _, err := svc.GetAssetMeta(ctx, "aapl"); err != nil {
+			t.Fatalf("GetAssetMeta: %v", err)
+		}
+		if len(repo.recorded) != 0 {
+			t.Fatalf("recorded = %d, want 0 (no external call on a cache hit)", len(repo.recorded))
+		}
+	})
+}
+
+func TestFetchAssetExposureRecordsHealthEvents(t *testing.T) {
+	ctx := context.Background()
+	assetID := uuid.New()
+	asset := &model.Asset{ID: assetID, Ticker: "AAPL", Type: model.AssetTypeStock}
+
+	t.Run("success", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		a := &fakeAssetRepo{asset: asset}
+		svc := newProviderHealthService(repo, &fakeYahooFetcher{sector: "Technology"}, a)
+
+		if _, err := svc.FetchAssetExposure(ctx, assetID); err != nil {
+			t.Fatalf("FetchAssetExposure: %v", err)
+		}
+		ev := assertProviderEvent(t, repo, "asset_profile", "success", "AAPL")
+		if ev.AssetID == nil || *ev.AssetID != assetID {
+			t.Fatalf("event asset id = %v, want %v", ev.AssetID, assetID)
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		a := &fakeAssetRepo{asset: asset}
+		svc := newProviderHealthService(repo, &fakeYahooFetcher{profileExtendedErr: errors.New("yahoo down")}, a)
+
+		if _, err := svc.FetchAssetExposure(ctx, assetID); err == nil {
+			t.Fatal("FetchAssetExposure = nil error, want the provider failure")
+		}
+		ev := assertProviderEvent(t, repo, "asset_profile", "failure", "AAPL")
+		if ev.AssetID == nil || *ev.AssetID != assetID {
+			t.Fatalf("event asset id = %v, want %v", ev.AssetID, assetID)
+		}
+	})
+}
+
+func TestBackfillAssetMetaRecordsHealthEvents(t *testing.T) {
+	ctx := context.Background()
+	stocks := []*model.Asset{
+		{ID: uuid.New(), Ticker: "AAPL", Type: model.AssetTypeStock},
+		{ID: uuid.New(), Ticker: "MSFT", Type: model.AssetTypeStock},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		svc := newProviderHealthService(repo, &fakeYahooFetcher{}, &fakeAssetRepo{stocks: stocks})
+
+		report, err := svc.BackfillAssetMeta(ctx, nil)
+		if err != nil {
+			t.Fatalf("BackfillAssetMeta: %v", err)
+		}
+		if report.Failed != 0 {
+			t.Fatalf("failed = %d, want 0", report.Failed)
+		}
+		if got := countEventsByStatus(repo, "meta_backfill", "success"); got != 2 {
+			t.Fatalf("success events = %d, want 2 (one per asset)", got)
+		}
+		if got := countEventsByStatus(repo, "meta_backfill", "failure"); got != 0 {
+			t.Fatalf("failure events = %d, want 0", got)
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		repo := &fakeHealthRepo{}
+		svc := newProviderHealthService(repo, &failingProfile{fakeYahooFetcher: &fakeYahooFetcher{}}, &fakeAssetRepo{stocks: stocks})
+
+		report, err := svc.BackfillAssetMeta(ctx, nil)
+		if err != nil {
+			t.Fatalf("BackfillAssetMeta: %v", err)
+		}
+		if report.Failed != 2 {
+			t.Fatalf("failed = %d, want 2", report.Failed)
+		}
+		if got := countEventsByStatus(repo, "meta_backfill", "failure"); got != 2 {
+			t.Fatalf("failure events = %d, want 2 (one per asset)", got)
+		}
+		if got := countEventsByStatus(repo, "meta_backfill", "success"); got != 0 {
+			t.Fatalf("success events = %d, want 0", got)
+		}
+	})
+}
+
+// newProviderHealthService wires a Service with health tracking and no job
+// queue, so the provider-boundary tests can assert the recorded events.
+func newProviderHealthService(repo *fakeHealthRepo, yf yahooFetcher, a *fakeAssetRepo) *Service {
+	if a == nil {
+		a = &fakeAssetRepo{}
+	}
+	repos := &repository.Repository{
+		Asset:    a,
+		Exposure: &fakeExposureRepo{},
+		Lookup:   &fakeLookupRepo{},
+	}
+	hs := NewHealthService(&repository.Repository{Health: repo})
+	return New(repos, nil, yf, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, hs, nil)
+}
+
+// assertProviderEvent checks that exactly one event of the wanted type and
+// status was recorded and that the ticker appears in its message.
+func assertProviderEvent(t *testing.T, repo *fakeHealthRepo, eventType, status, ticker string) *model.HealthEvent {
+	t.Helper()
+	var found *model.HealthEvent
+	n := 0
+	for _, ev := range repo.recorded {
+		if ev.EventType != eventType {
+			continue
+		}
+		n++
+		if ev.Status == status {
+			found = ev
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%s events = %d, want 1 (%+v)", eventType, n, repo.recorded)
+	}
+	if found == nil {
+		t.Fatalf("%s event status != %q", eventType, status)
+	}
+	if !strings.Contains(found.Message, ticker) {
+		t.Fatalf("message = %q, want it to contain %q", found.Message, ticker)
+	}
+	return found
+}
+
+func countEventsByStatus(repo *fakeHealthRepo, eventType, status string) int {
+	n := 0
+	for _, ev := range repo.recorded {
+		if ev.EventType == eventType && ev.Status == status {
+			n++
+		}
+	}
+	return n
 }

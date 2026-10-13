@@ -29,7 +29,7 @@ func TestJustETFFetcherFetchExposure(t *testing.T) {
 	defer ts.Close()
 
 	f := NewJustETFFetcher(ts.URL)
-	exposure, err := f.FetchExposure(context.Background(), "IE00B4L5Y983")
+	exposure, err := f.FetchExposure(context.Background(), "IE00B4L5Y983", "CSPX")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestJustETFFetcherFetchMorningstarExposure(t *testing.T) {
 	defer ts.Close()
 
 	f := NewJustETFFetcher(ts.URL)
-	exposure, err := f.FetchMorningstarExposure(context.Background(), "IE00B4L5Y983")
+	exposure, err := f.FetchMorningstarExposure(context.Background(), "IE00B4L5Y983", "CSPX")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestJustETFFetcherFetchMorningstarExposureRegions(t *testing.T) {
 	defer ts.Close()
 
 	f := NewJustETFFetcher(ts.URL)
-	exposure, err := f.FetchMorningstarExposure(context.Background(), "IE00B4L5Y983")
+	exposure, err := f.FetchMorningstarExposure(context.Background(), "IE00B4L5Y983", "CSPX")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestJustETFFetcherStatusError(t *testing.T) {
 	defer ts.Close()
 
 	f := NewJustETFFetcher(ts.URL)
-	_, err := f.FetchExposure(context.Background(), "IE00B4L5Y983")
+	_, err := f.FetchExposure(context.Background(), "IE00B4L5Y983", "CSPX")
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -201,7 +201,7 @@ func TestJustETFFetcherRetriesTransientError(t *testing.T) {
 	defer ts.Close()
 
 	f := NewJustETFFetcher(ts.URL)
-	exposure, err := f.FetchExposure(context.Background(), "IE00B4L5Y983")
+	exposure, err := f.FetchExposure(context.Background(), "IE00B4L5Y983", "CSPX")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1685,7 +1685,10 @@ L'empty state offre l'azione "Aggiorna prezzi". Label di destinazione, durata e
 rollup health sono derivati lato server (nessuna colonna).
 
 **Eventi recenti** (in basso): `api.get('/health/prices?period=today|24h|100')`
-(il selettore di periodo limita solo il riepilogo). 4 tile di riepilogo (Success
+(il selettore di periodo limita solo il riepilogo; due `ui/Select` filtrano
+inoltre la lista lato server per **tipo** e **stato** — vuoto significa tutti —
+e cambiando l'uno o l'altro si torna alla prima pagina, con il totale citato che
+segue il filtro). 4 tile di riepilogo (Success
 Rate, Total Successes, Total Failures, Rate Limited — il riepilogo esclude le
 righe di ciclo di vita dei job) e una tabella paginata degli eventi (timestamp,
 tipo, badge dello stato, codice, messaggio, durata; 50 per pagina). Le righe di

@@ -560,6 +560,8 @@ export const it = {
     jobFilterCap: 'Filtro sui {limit} eventi più recenti',
     jobFilterNone: 'Nessun evento per questo job tra i {limit} più recenti',
     filterByJob: "Mostra solo gli eventi di questo job",
+    /** "All" option of the server-side Type/Status event filters (#91). */
+    filterAll: 'Tutti',
   },
   /**
    * Card dei job di sincronizzazione in `/admin/health` (#195 Fase 4): i 25

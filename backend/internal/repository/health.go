@@ -12,8 +12,8 @@ import (
 
 type HealthRepository interface {
 	RecordEvent(ctx context.Context, event *model.HealthEvent) error
-	GetEventsPage(ctx context.Context, limit, offset int) ([]*model.HealthEvent, error)
-	CountEvents(ctx context.Context) (int, error)
+	GetEventsPage(ctx context.Context, limit, offset int, eventType, status string) ([]*model.HealthEvent, error)
+	CountEvents(ctx context.Context, eventType, status string) (int, error)
 	SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error)
 	SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error)
 	CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error)
@@ -37,12 +37,16 @@ func (r *healthRepo) RecordEvent(ctx context.Context, event *model.HealthEvent) 
 	return err
 }
 
-func (r *healthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*model.HealthEvent, error) {
+// GetEventsPage returns one page of events, newest first. Empty eventType or
+// status means "no filter" on that dimension, so callers pass the raw query
+// parameter through as-is.
+func (r *healthRepo) GetEventsPage(ctx context.Context, limit, offset int, eventType, status string) ([]*model.HealthEvent, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT id, asset_id, event_type, status, code, message, duration_ms, error_code, created_at, job_id 
 		 FROM health_events 
+		 WHERE ($3 = '' OR event_type = $3) AND ($4 = '' OR status = $4)
 		 ORDER BY created_at DESC 
-		 LIMIT $1 OFFSET $2`, limit, offset)
+		 LIMIT $1 OFFSET $2`, limit, offset, eventType, status)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +66,14 @@ func (r *healthRepo) GetEventsPage(ctx context.Context, limit, offset int) ([]*m
 	return events, nil
 }
 
-func (r *healthRepo) CountEvents(ctx context.Context) (int, error) {
+// CountEvents counts the events matching the same optional filters as
+// GetEventsPage, so events_total stays right under a filter.
+func (r *healthRepo) CountEvents(ctx context.Context, eventType, status string) (int, error) {
 	var count int
-	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM health_events`).Scan(&count)
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM health_events 
+		 WHERE ($1 = '' OR event_type = $1) AND ($2 = '' OR status = $2)`,
+		eventType, status).Scan(&count)
 	return count, err
 }
 

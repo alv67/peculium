@@ -118,7 +118,12 @@ func (s *HealthService) ClearAll(ctx context.Context) (int64, error) {
 	return s.repos.Health.ClearAll(ctx)
 }
 
-func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int) (*model.HealthSummary, []*model.HealthEvent, int, error) {
+// GetPriceHealth returns the window summary plus a page of events. period
+// selects the summary window only; eventType and status are optional event
+// filters (empty means no filter) applied to both the page and events_total, so
+// pagination under a filter stays consistent. The summary is always
+// window-based and unfiltered.
+func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int, eventType, status string) (*model.HealthSummary, []*model.HealthEvent, int, error) {
 	limit, offset = normalizeHealthPage(limit, offset)
 	window := healthWindowFor(period, time.Now().UTC())
 
@@ -140,12 +145,12 @@ func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit
 		summary.SuccessRate = float64(summary.Successes) / float64(total)
 	}
 
-	eventsTotal, err := s.repos.Health.CountEvents(ctx)
+	eventsTotal, err := s.repos.Health.CountEvents(ctx, eventType, status)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset)
+	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset, eventType, status)
 	if err != nil {
 		return nil, nil, 0, err
 	}
