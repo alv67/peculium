@@ -33,11 +33,13 @@ DevTools Protocol**, the only way to pin the exact spec (a 1280×800 viewport at
 
 Prerequisites — all on the **isolated test stack**, never the dev/prod one:
 
-1. Test backend on `:8081` with a seeded user:
-   `podman-compose -p peculium-test -f docker-compose.test.yml up -d --build backend`
-   (register/login a user via `POST /api/v1/auth/register` + `/login`, see
-   `tests/api-test.http`). The test compose has no worker: to have activity rows
-   on a page, run a worker image on the same network by hand.
+1. Test backend on `:8081` with a seeded user named **Demo Investor**
+   (register/login via `POST /api/v1/auth/register` + `/login`, see
+   `tests/api-test.http`) — the sidebar shows the account name, so every
+   screenshot must use the same one. Start the stack with
+   `podman-compose -p peculium-test -f docker-compose.test.yml up -d --build backend`.
+   The test compose has no worker: to have activity rows on a page, run a worker
+   image on the same network by hand.
 2. Frontend dev server whose `/api` proxy points at `:8081`: temporarily set
    `server.proxy['/api'].target` to `http://localhost:8081` in
    `frontend/vite.config.ts`, then `cd frontend && npm run dev -- --host`.
