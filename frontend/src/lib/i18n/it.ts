@@ -513,12 +513,11 @@ export const it = {
   health: {
     title: 'Stato sincronizzazione prezzi',
     subtitle: "Monitoraggio di connettività e prestazioni dell'API Yahoo Finance",
-    periodToday: 'Oggi',
-    periodLast24h: 'Ultime 24h',
-    periodLast100: 'Ultimi 100',
-    /** Nome accessibile del SegmentedControl + didascalia "Periodo: …". */
+    period24h: '24h',
+    period7d: '7 giorni',
+    periodAll: 'Tutto',
+    /** Nome accessibile del SegmentedControl del periodo (scopa tile + feed). */
     periodAria: 'Periodo di monitoraggio',
-    periodLabel: 'Periodo: {period}',
     refreshing: 'Aggiornamento…',
     refresh: 'Aggiorna ora',
     noData: 'Nessun dato di monitoraggio disponibile.',

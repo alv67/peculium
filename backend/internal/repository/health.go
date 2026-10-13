@@ -14,10 +14,9 @@ type HealthRepository interface {
 	RecordEvent(ctx context.Context, event *model.HealthEvent) error
 	GetEventsPage(ctx context.Context, limit, offset int, eventType, status, jobID string) ([]*model.HealthEvent, error)
 	CountEvents(ctx context.Context, eventType, status, jobID string) (int, error)
-	GetActivityPage(ctx context.Context, limit, offset int, itemType, status string) ([]*model.ActivityItem, error)
-	CountActivity(ctx context.Context, itemType, status string) (int, error)
-	SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error)
-	SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error)
+	GetActivityPage(ctx context.Context, limit, offset int, itemType, status string, since *time.Time) ([]*model.ActivityItem, error)
+	CountActivity(ctx context.Context, itemType, status string, since *time.Time) (int, error)
+	SummarySince(ctx context.Context, since *time.Time) (*model.HealthSummary, error)
 	CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (map[uuid.UUID]*model.JobHealthCounts, error)
 	DeleteStandaloneBefore(ctx context.Context, cutoff time.Time) (int64, error)
 	ClearAll(ctx context.Context) (int64, error)
@@ -83,13 +82,24 @@ func (r *healthRepo) CountEvents(ctx context.Context, eventType, status, jobID s
 	return count, err
 }
 
+// sinceArg turns a nil window into a plain SQL NULL parameter: a typed nil
+// pointer is not a driver NULL, and the queries key the "no lower bound" case
+// off the parameter being null.
+func sinceArg(since *time.Time) any {
+	if since == nil {
+		return nil
+	}
+	return *since
+}
+
 // activityUnion is the unified activity feed: every queue job plus the health
 // events that are not tied to one (a job's own events belong to its detail
 // panel, not to this list). Both branches are projected onto the same columns;
 // column 3 is the sort timestamp (jobs: when the work actually started) and
 // column 12 the duration — the wall clock between the job timestamps, the
 // recorded provider call time for an event. The optional type/status filters
-// are $1/$2 so the paged and the counting query share it unchanged.
+// are $1/$2 and the optional period lower bound is $3 (nil counts everything),
+// so the paged and the counting query share it unchanged.
 const activityUnion = `
 		SELECT 'job', id, COALESCE(started_at, created_at), type, status,
 		       COALESCE(target_type, ''), target_id,
@@ -97,21 +107,24 @@ const activityUnion = `
 		       COALESCE((EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)::bigint, 0)
 		 FROM jobs
 		 WHERE ($1 = '' OR type = $1) AND ($2 = '' OR status = $2)
+		   AND ($3::timestamptz IS NULL OR COALESCE(started_at, created_at) >= $3)
 		 UNION ALL
 		 SELECT 'event', id, created_at, event_type, status,
 		       CASE WHEN asset_id IS NULL THEN 'global' ELSE 'asset' END, asset_id,
 		       0, 0, ''::text, COALESCE(message, ''), COALESCE(duration_ms, 0)::bigint
 		 FROM health_events
 		 WHERE job_id IS NULL
-		   AND ($1 = '' OR event_type = $1) AND ($2 = '' OR status = $2)`
+		   AND ($1 = '' OR event_type = $1) AND ($2 = '' OR status = $2)
+		   AND ($3::timestamptz IS NULL OR created_at >= $3)`
 
 // GetActivityPage returns one page of the unified activity feed, newest
-// first. Empty itemType or status means "no filter" on that dimension.
-func (r *healthRepo) GetActivityPage(ctx context.Context, limit, offset int, itemType, status string) ([]*model.ActivityItem, error) {
+// first. Empty itemType or status means "no filter" on that dimension; a nil
+// since means no lower time bound.
+func (r *healthRepo) GetActivityPage(ctx context.Context, limit, offset int, itemType, status string, since *time.Time) ([]*model.ActivityItem, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT * FROM (`+activityUnion+`) a
-		 ORDER BY 3 DESC, 2 DESC LIMIT $3 OFFSET $4`,
-		itemType, status, limit, offset)
+		 ORDER BY 3 DESC, 2 DESC LIMIT $4 OFFSET $5`,
+		itemType, status, sinceArg(since), limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -132,37 +145,25 @@ func (r *healthRepo) GetActivityPage(ctx context.Context, limit, offset int, ite
 
 // CountActivity counts the feed rows matching the same optional filters as
 // GetActivityPage, so items_total stays right under a filter.
-func (r *healthRepo) CountActivity(ctx context.Context, itemType, status string) (int, error) {
+func (r *healthRepo) CountActivity(ctx context.Context, itemType, status string, since *time.Time) (int, error) {
 	var count int
 	err := r.db.QueryRow(ctx,
-		`SELECT COUNT(*) FROM (`+activityUnion+`) a`, itemType, status).Scan(&count)
+		`SELECT COUNT(*) FROM (`+activityUnion+`) a`, itemType, status, sinceArg(since)).Scan(&count)
 	return count, err
 }
 
 // SummarySince counts provider outcomes (success vs failure) of a time
 // window. Job lifecycle events are meta rows about the queue, not external
-// interactions, and stay out of the provider-health picture.
-func (r *healthRepo) SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error) {
+// interactions, and stay out of the provider-health picture. A nil since
+// counts every event except those job rows.
+func (r *healthRepo) SummarySince(ctx context.Context, since *time.Time) (*model.HealthSummary, error) {
 	return r.scanSummary(r.db.QueryRow(ctx,
 		`SELECT COUNT(*) FILTER (WHERE status = 'success'),
 		        COUNT(*) FILTER (WHERE status <> 'success'),
 		        COUNT(*) FILTER (WHERE code = 'rate_limited')
 		 FROM health_events
-		 WHERE created_at >= $1 AND event_type <> 'job'`, since))
-}
-
-func (r *healthRepo) SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error) {
-	return r.scanSummary(r.db.QueryRow(ctx,
-		`SELECT COUNT(*) FILTER (WHERE status = 'success'),
-		        COUNT(*) FILTER (WHERE status <> 'success'),
-		        COUNT(*) FILTER (WHERE code = 'rate_limited')
-		 FROM (
-			 SELECT status, code
-			 FROM health_events
-			 WHERE event_type <> 'job'
-			 ORDER BY created_at DESC
-			 LIMIT $1
-		 ) recent`, n))
+		 WHERE event_type <> 'job'
+		   AND ($1::timestamptz IS NULL OR created_at >= $1)`, sinceArg(since)))
 }
 
 // CountsByJobs rolls up the item-level health events of the given jobs

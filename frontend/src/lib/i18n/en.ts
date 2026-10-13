@@ -547,12 +547,11 @@ export const en = {
   health: {
     title: 'Price Sync Health',
     subtitle: 'Monitoring Yahoo Finance API connectivity and performance',
-    periodToday: 'Today',
-    periodLast24h: 'Last 24h',
-    periodLast100: 'Last 100',
-    /** SegmentedControl accessible name + "Period: …" caption below. */
+    period24h: '24h',
+    period7d: '7 days',
+    periodAll: 'All',
+    /** Accessible name of the period SegmentedControl (scopes tiles + feed). */
     periodAria: 'Health period',
-    periodLabel: 'Period: {period}',
     refreshing: 'Refreshing…',
     refresh: 'Refresh Now',
     noData: 'No health data available.',

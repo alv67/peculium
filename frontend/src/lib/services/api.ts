@@ -989,11 +989,13 @@ export const healthApi = {
       params: { period, limit: '1' },
       noCache: true,
     }),
-  /** One page of the unified activity feed, newest first. `type` and `status`
-   *  are optional raw-value filters (empty means all), applied server-side to
-   *  both the page and `items_total`. */
-  activity: (params: { limit: number; offset: number; type: string; status: string }) => {
+  /** One page of the unified activity feed, newest first. `period` windows
+   *  the feed exactly like the summary tiles (`all` = no lower bound); `type`
+   *  and `status` are optional raw-value filters (empty means all), applied
+   *  server-side to both the page and `items_total`. */
+  activity: (params: { period: string; limit: number; offset: number; type: string; status: string }) => {
     const query: Record<string, string> = {
+      period: params.period,
       limit: String(params.limit),
       offset: String(params.offset),
     }

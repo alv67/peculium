@@ -31,15 +31,16 @@
   const PAGE_SIZE = 50
 
   // `$derived` so a locale switch live-updates the segmented control labels
-  // (same recipe as the preferences page theme items). The period scopes the
-  // summary tiles ONLY; the activity feed is unscoped.
+  // (same recipe as the preferences page theme items). The period scopes both
+  // the summary tiles and the activity feed, so the numbers always match the
+  // listed rows. `all` = no lower bound.
   const periodItems = $derived([
-    { value: 'today', label: t('health.periodToday') },
-    { value: '24h', label: t('health.periodLast24h') },
-    { value: '100', label: t('health.periodLast100') },
+    { value: '24h', label: t('health.period24h') },
+    { value: '7d', label: t('health.period7d') },
+    { value: 'all', label: t('health.periodAll') },
   ])
 
-  let period = $state('today')
+  let period = $state('all')
   let offset = $state(0)
   /** Server-side activity filters (`''` = "All", omitted from the query). */
   let filterType = $state('')
@@ -89,7 +90,6 @@
   let jobEventsLoading = $state(false)
   let jobEventsError = $state<string | null>(null)
 
-  const periodLabel = $derived(periodItems.find((item) => item.value === period)?.label ?? period)
   const rangeLabel = $derived(
     activity.length === 0
       ? t('common.rangeEmpty', { total: activityTotal })
@@ -127,7 +127,7 @@
   async function fetchActivity(silent = false) {
     if (!silent) loading = true
     try {
-      const data = await healthApi.activity({ limit: PAGE_SIZE, offset, type: filterType, status: filterStatus })
+      const data = await healthApi.activity({ period, limit: PAGE_SIZE, offset, type: filterType, status: filterStatus })
       activity = data.items ?? []
       activityTotal = data.items_total ?? 0
     } catch {
@@ -161,7 +161,7 @@
     }
   }
 
-  // Period tracks the summary only; offset/filters track the activity feed.
+  // Period tracks both the summary and the feed; offset/filters track the feed.
   $effect(() => {
     void fetchSummary()
   })
@@ -238,7 +238,10 @@
   }
 
   function setPeriod(value: string) {
+    // The feed is windowed by the period too: back to page one, and the
+    // tracked fetchActivity effect (which reads `period`) refetches.
     period = value
+    offset = 0
   }
 
   function formatRate(val: number | null | undefined) {
@@ -283,11 +286,11 @@
             </Badge>
           {/if}
         </div>
-        <!-- The period selector scopes the summary tiles below only. -->
+        <!-- The period selector scopes the summary tiles AND the activity
+             feed below, so the numbers always match the listed rows. -->
         <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
       </div>
-      <p class="px-6 pt-4 text-xs text-muted-foreground">{t('health.periodLabel', { period: periodLabel })}</p>
-      <div class="grid grid-cols-1 gap-4 px-6 pt-2 md:grid-cols-4">
+      <div class="grid grid-cols-1 gap-4 px-6 pt-4 md:grid-cols-4">
         <StatCard
           label={t('health.successRate')}
           value={noData ? 'N/A' : formatRate(summary.success_rate)}

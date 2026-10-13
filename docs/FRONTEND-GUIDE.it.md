@@ -296,7 +296,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (allegato `.dump` in streaming), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (tutti riservati agli amministratori: 403 per gli altri ruoli) |
-| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (tile di riepilogo con finestra a periodo), `GET /health/activity?limit=&offset=&type=&status=` (flusso unificato: job + eventi non legati a un job), `GET /health/prices?job_id=&limit=200` (eventi di un job per il pannello di dettaglio); tutte le letture bypassano la cache GET perché la pagina health le interpella a ciclo |
+| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (tile di riepilogo con finestra a periodo), `GET /health/activity?period=&limit=&offset=&type=&status=` (flusso unificato: job + eventi non legati a un job), `GET /health/prices?job_id=&limit=200` (eventi di un job per il pannello di dettaglio); tutte le letture bypassano la cache GET perché la pagina health le interpella a ciclo |
 
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
@@ -1669,8 +1669,11 @@ sono tradotte tramite il layer i18n (capitolo 8).
 
 Una fascia di riepilogo e UNA tabella attività unificata.
 
-**Tile di riepilogo**: il `SegmentedControl` dei periodi `today|24h|100` siede
-nell'intestazione della card e limita solo le 4 tile. Tasso di successo,
+**Tile di riepilogo**: il `SegmentedControl` dei periodi `24h|7d|all` siede
+nell'intestazione della card e limita le 4 tile E il flusso attività, così i
+numeri corrispondono sempre alle righe elencate (`all` = nessun limite
+inferiore; cambiando periodo il flusso torna anche alla prima pagina). Tasso
+di successo,
 Successi totali, Fallimenti totali e Richieste limitate (ciascuna una
 `ui/StatCard`) arrivano da `healthApi.summary(period)`
 (`GET /health/prices`, `limit=1`): il riepilogo è basato sulla finestra ed
@@ -1678,7 +1681,7 @@ esclude le righe di ciclo di vita dei job; finché la finestra non ha dati tutte
 le tile mostrano `N/A` insieme.
 
 **Flusso attività** (`healthApi.activity` →
-`GET /health/activity?limit=&offset=&type=&status=`): ogni job della coda più
+`GET /health/activity?period=&limit=&offset=&type=&status=`): ogni job della coda più
 gli eventi di monitoraggio non legati a un job — gli eventi di un job compaiono
 solo nel suo pannello di dettaglio, mai duplicati nel flusso — dal più recente,
 50 per pagina con Precedente/Successivo e il totale filtrato citato. Colonne:

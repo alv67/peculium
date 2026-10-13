@@ -743,7 +743,10 @@ preview, each recording success or failure with a real duration, and metadata
 backfills write a `meta_backfill` row per asset on success as well as on
 failure. The events list (`GET /health/prices`) accepts optional `type`,
 `status` and `job_id` filters; the returned total and the pagination follow the
-filter, while the summary always spans the whole selected window.
+filter. The summary window is `period=24h|7d|all` (default `all`) and it counts
+every health event — the job-tagged item events included — except the `job`
+lifecycle rows (their `job_started` status is `running` and would read as a
+failure).
 
 The admin Data & Sync page reads a **unified activity feed**
 (`GET /health/activity`): every queue job plus the health events with no job
@@ -752,7 +755,9 @@ ETF exposure). A job's own events are shown only inside that job's detail
 panel, which reads them back with `GET /health/prices?job_id=<id>`. The feed is
 sorted newest first on the job's start (`COALESCE(started_at, created_at)`) or
 the event's time, is paginated, and accepts the same optional `type`/`status`
-filters; `target_label` is resolved server-side exactly like the jobs list.
+filters plus `period=24h|7d|all` (default `all`, which bounds the feed to the
+same window as the summary); `target_label` is resolved server-side exactly
+like the jobs list.
 
 `GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms`, a readable
 `target_label` (asset ticker / portfolio name, resolved in one batched query

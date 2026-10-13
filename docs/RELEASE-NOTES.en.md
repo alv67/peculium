@@ -15,6 +15,7 @@
 - The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
 - "Data & Sync" now also logs asset-metadata lookups, so the activity list is a complete inventory of the app's external calls, and you can filter it by call type and outcome — for example to see only the failures
 - In "Data & Sync" the ETF exposure entries now show the asset ticker next to the ISIN, so you can tell at a glance which asset they belong to
+- On "Data & Sync" you can pick the time window — 24h, 7 days or All — and it scopes the summary tiles and the activity list together, so the numbers always match what is listed
 
 ### Fixes
 - The latest price and the per-period returns are now the same on every installation that refreshes at the same time, instead of sometimes differing

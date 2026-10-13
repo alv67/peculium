@@ -36,15 +36,16 @@ func (h *HealthHandler) GetPriceHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetHealthActivity returns the unified activity feed: queue jobs plus the
-// health events that are not tied to one, newest first. type and status filter
-// the item's own type and raw status; job events are not part of this list
-// (they come from GET /health/prices?job_id=...).
+// health events that are not tied to one, newest first. period scopes the
+// list to the same window as the summary tiles; type and status filter the
+// item's own type and raw status; job events are not part of this list (they
+// come from GET /health/prices?job_id=...).
 func (h *HealthHandler) GetHealthActivity(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	q := r.URL.Query()
 
-	items, total, err := h.svc.GetActivity(ctx, queryInt(r, "limit", 0), queryInt(r, "offset", 0),
-		q.Get("type"), q.Get("status"))
+	items, total, err := h.svc.GetActivity(ctx, q.Get("period"),
+		queryInt(r, "limit", 0), queryInt(r, "offset", 0), q.Get("type"), q.Get("status"))
 	if err != nil {
 		log.Error().Err(err).Msg("list activity failed")
 		respondError(w, http.StatusInternalServerError, "failed to fetch activity")

@@ -15,6 +15,7 @@
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
 - "Dati e sincronizzazione" ora registra anche le chiamate ai metadati degli asset, così la lista di attività è un inventario completo delle chiamate esterne dell'app, e puoi filtrarla per tipo di chiamata ed esito — per esempio per vedere solo i fallimenti
 - In "Dati e sincronizzazione" le voci di esposizione ETF ora mostrano il ticker dell'asset accanto all'ISIN, così capisci a colpo d'occhio a quale asset si riferiscono
+- In "Dati e sincronizzazione" puoi scegliere la finestra temporale — 24h, 7 giorni o Tutto — che limita insieme le tile di riepilogo e l'elenco di attività, così i numeri corrispondono sempre a quanto elencato
 
 ### Correzioni
 - L'ultimo prezzo e i rendimenti per periodo ora sono gli stessi su ogni installazione che aggiorna nello stesso momento, invece di risultare talvolta diversi

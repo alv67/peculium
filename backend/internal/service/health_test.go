@@ -18,8 +18,7 @@ import (
 type fakeHealthRepo struct {
 	recorded []*model.HealthEvent
 
-	sinceCalls []time.Time
-	lastNCalls []int
+	sinceCalls []*time.Time
 	pageCalls  int
 	pageLimit  int
 	pageOffset int
@@ -46,9 +45,12 @@ type fakeHealthRepo struct {
 	activityStatus  string
 	activityCalls   int
 	activityCounted int
+	// activitySince records the window forwarded by CountActivity and
+	// GetActivityPage (in call order), so the period tests can assert the page
+	// and the total are bounded alike.
+	activitySince []*time.Time
 
 	sinceSummary *model.HealthSummary
-	lastNSummary *model.HealthSummary
 	count        int
 	events       []*model.HealthEvent
 
@@ -91,28 +93,25 @@ func (f *fakeHealthRepo) CountEvents(ctx context.Context, eventType, status, job
 	return f.count, nil
 }
 
-func (f *fakeHealthRepo) GetActivityPage(ctx context.Context, limit, offset int, itemType, status string) ([]*model.ActivityItem, error) {
+func (f *fakeHealthRepo) GetActivityPage(ctx context.Context, limit, offset int, itemType, status string, since *time.Time) ([]*model.ActivityItem, error) {
 	f.activityCalls++
 	f.activityLimit = limit
 	f.activityOffset = offset
 	f.activityType = itemType
 	f.activityStatus = status
+	f.activitySince = append(f.activitySince, since)
 	return f.activityItems, nil
 }
 
-func (f *fakeHealthRepo) CountActivity(ctx context.Context, itemType, status string) (int, error) {
+func (f *fakeHealthRepo) CountActivity(ctx context.Context, itemType, status string, since *time.Time) (int, error) {
 	f.activityCounted++
+	f.activitySince = append(f.activitySince, since)
 	return f.activityTotal, nil
 }
 
-func (f *fakeHealthRepo) SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error) {
+func (f *fakeHealthRepo) SummarySince(ctx context.Context, since *time.Time) (*model.HealthSummary, error) {
 	f.sinceCalls = append(f.sinceCalls, since)
 	return f.sinceSummary, nil
-}
-
-func (f *fakeHealthRepo) SummaryLastN(ctx context.Context, n int) (*model.HealthSummary, error) {
-	f.lastNCalls = append(f.lastNCalls, n)
-	return f.lastNSummary, nil
 }
 
 func (f *fakeHealthRepo) DeleteStandaloneBefore(ctx context.Context, cutoff time.Time) (int64, error) {
@@ -129,18 +128,24 @@ var _ repository.HealthRepository = (*fakeHealthRepo)(nil)
 
 func TestHealthWindowFor(t *testing.T) {
 	now := time.Date(2026, 9, 13, 14, 30, 45, 0, time.UTC)
+	at := func(d time.Duration) *time.Time {
+		since := now.Add(d)
+		return &since
+	}
 
 	tcs := []struct {
 		period     string
 		wantPeriod string
-		wantSince  time.Time
-		wantLastN  int
+		wantSince  *time.Time
 	}{
-		{period: "", wantPeriod: "today", wantSince: time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)},
-		{period: "today", wantPeriod: "today", wantSince: time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)},
-		{period: "24h", wantPeriod: "24h", wantSince: now.Add(-24 * time.Hour)},
-		{period: "100", wantPeriod: "100", wantLastN: 100},
-		{period: "week", wantPeriod: "today", wantSince: time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)},
+		{period: "", wantPeriod: "all"},
+		{period: "all", wantPeriod: "all"},
+		{period: "24h", wantPeriod: "24h", wantSince: at(-24 * time.Hour)},
+		{period: "7d", wantPeriod: "7d", wantSince: at(-7 * 24 * time.Hour)},
+		// Retired and unknown selector values all fall back to the full history.
+		{period: "today", wantPeriod: "all"},
+		{period: "100", wantPeriod: "all"},
+		{period: "week", wantPeriod: "all"},
 	}
 
 	for _, tc := range tcs {
@@ -149,39 +154,37 @@ func TestHealthWindowFor(t *testing.T) {
 			if got.period != tc.wantPeriod {
 				t.Fatalf("period = %q, want %q", got.period, tc.wantPeriod)
 			}
-			if got.lastN != tc.wantLastN {
-				t.Fatalf("lastN = %d, want %d", got.lastN, tc.wantLastN)
-			}
-			if tc.wantLastN == 0 && !got.since.Equal(tc.wantSince) {
-				t.Fatalf("since = %v, want %v", got.since, tc.wantSince)
-			}
-			if tc.wantLastN > 0 && !got.since.IsZero() {
-				t.Fatalf("since = %v, want zero (window is count-based)", got.since)
+			switch {
+			case tc.wantSince == nil && got.since != nil:
+				t.Fatalf("since = %v, want nil (no lower bound)", *got.since)
+			case tc.wantSince != nil && got.since == nil:
+				t.Fatalf("since = nil, want %v", *tc.wantSince)
+			case tc.wantSince != nil && !got.since.Equal(*tc.wantSince):
+				t.Fatalf("since = %v, want %v", *got.since, *tc.wantSince)
 			}
 		})
 	}
 }
 
-func TestGetPriceHealthTodayUsesSummarySince(t *testing.T) {
+func TestGetPriceHealthAllUsesNilSince(t *testing.T) {
 	repo := &fakeHealthRepo{
 		sinceSummary: &model.HealthSummary{Successes: 7, Failures: 3, RateLimited: 1},
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, events, _, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "", "")
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "all", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
-	if len(repo.sinceCalls) != 1 || len(repo.lastNCalls) != 0 {
-		t.Fatalf("SummarySince calls = %d, SummaryLastN calls = %d; want 1 and 0", len(repo.sinceCalls), len(repo.lastNCalls))
+	if len(repo.sinceCalls) != 1 {
+		t.Fatalf("SummarySince calls = %d, want 1", len(repo.sinceCalls))
 	}
-	// "today" must start at the beginning of the current UTC calendar day.
-	wantSince := time.Now().UTC().Truncate(24 * time.Hour)
-	if !repo.sinceCalls[0].Equal(wantSince) {
-		t.Fatalf("since = %v, want %v", repo.sinceCalls[0], wantSince)
+	// "all" has no lower bound: the repo must be called with a nil window.
+	if repo.sinceCalls[0] != nil {
+		t.Fatalf("since = %v, want nil", *repo.sinceCalls[0])
 	}
-	if summary.Period != "today" {
-		t.Fatalf("Period = %q, want %q", summary.Period, "today")
+	if summary.Period != "all" {
+		t.Fatalf("Period = %q, want %q", summary.Period, "all")
 	}
 	if !summary.HasData {
 		t.Fatal("HasData = false, want true")
@@ -196,7 +199,6 @@ func TestGetPriceHealthTodayUsesSummarySince(t *testing.T) {
 		t.Fatalf("GetEventsPage calls = %d with (limit=%d, offset=%d); want 1 with (100, 0)",
 			repo.pageCalls, repo.pageLimit, repo.pageOffset)
 	}
-	_ = events
 }
 
 func TestGetPriceHealth24hUsesSummarySince(t *testing.T) {
@@ -212,9 +214,12 @@ func TestGetPriceHealth24hUsesSummarySince(t *testing.T) {
 	if len(repo.sinceCalls) != 1 {
 		t.Fatalf("SummarySince calls = %d, want 1", len(repo.sinceCalls))
 	}
+	if repo.sinceCalls[0] == nil {
+		t.Fatal("since = nil, want a 24h lower bound")
+	}
 	want := time.Now().UTC().Add(-24 * time.Hour)
 	if diff := repo.sinceCalls[0].Sub(want); diff > time.Minute || diff < -time.Minute {
-		t.Fatalf("since = %v, want ~%v", repo.sinceCalls[0], want)
+		t.Fatalf("since = %v, want ~%v", *repo.sinceCalls[0], want)
 	}
 	if summary.Period != "24h" {
 		t.Fatalf("Period = %q, want %q", summary.Period, "24h")
@@ -224,31 +229,32 @@ func TestGetPriceHealth24hUsesSummarySince(t *testing.T) {
 	}
 }
 
-func TestGetPriceHealthLastNUsesSummaryLastN(t *testing.T) {
+func TestGetPriceHealth7dUsesSummarySince(t *testing.T) {
 	repo := &fakeHealthRepo{
-		lastNSummary: &model.HealthSummary{Successes: 4, Failures: 6},
+		sinceSummary: &model.HealthSummary{Successes: 6, Failures: 4},
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "100", 0, 0, "", "", "")
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "7d", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
-	if len(repo.lastNCalls) != 1 || repo.lastNCalls[0] != 100 {
-		t.Fatalf("SummaryLastN calls = %v, want [100]", repo.lastNCalls)
+	if len(repo.sinceCalls) != 1 || repo.sinceCalls[0] == nil {
+		t.Fatalf("SummarySince windows = %v, want one non-nil bound", repo.sinceCalls)
 	}
-	if len(repo.sinceCalls) != 0 {
-		t.Fatalf("SummarySince calls = %d, want 0", len(repo.sinceCalls))
+	want := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	if diff := repo.sinceCalls[0].Sub(want); diff > time.Minute || diff < -time.Minute {
+		t.Fatalf("since = %v, want ~%v", *repo.sinceCalls[0], want)
 	}
-	if summary.Period != "100" {
-		t.Fatalf("Period = %q, want %q", summary.Period, "100")
+	if summary.Period != "7d" {
+		t.Fatalf("Period = %q, want %q", summary.Period, "7d")
 	}
-	if summary.SuccessRate != 0.4 {
-		t.Fatalf("SuccessRate = %v, want 0.4", summary.SuccessRate)
+	if summary.SuccessRate != 0.6 {
+		t.Fatalf("SuccessRate = %v, want 0.6", summary.SuccessRate)
 	}
 }
 
-func TestGetPriceHealthInvalidPeriodFallsBackToToday(t *testing.T) {
+func TestGetPriceHealthInvalidPeriodFallsBackToAll(t *testing.T) {
 	repo := &fakeHealthRepo{
 		sinceSummary: &model.HealthSummary{},
 	}
@@ -258,8 +264,11 @@ func TestGetPriceHealthInvalidPeriodFallsBackToToday(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
-	if summary.Period != "today" {
-		t.Fatalf("Period = %q, want %q", summary.Period, "today")
+	if len(repo.sinceCalls) != 1 || repo.sinceCalls[0] != nil {
+		t.Fatalf("SummarySince windows = %v, want one nil bound", repo.sinceCalls)
+	}
+	if summary.Period != "all" {
+		t.Fatalf("Period = %q, want %q", summary.Period, "all")
 	}
 	if summary.HasData {
 		t.Fatal("HasData = true, want false for empty counts")
@@ -317,7 +326,7 @@ func TestGetPriceHealthPassesNormalizedPaginationAndReturnsTotal(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, events, total, err := svc.GetPriceHealth(context.Background(), "today", 10000, -5, "", "", "")
+	_, events, total, err := svc.GetPriceHealth(context.Background(), "all", 10000, -5, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -342,7 +351,7 @@ func TestGetPriceHealthUsesDefaultPageWhenUnset(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "", "")
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "all", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -361,7 +370,7 @@ func TestGetPriceHealthKeepsValidPagination(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, _, err := svc.GetPriceHealth(context.Background(), "today", 25, 50, "", "", "")
+	_, _, _, err := svc.GetPriceHealth(context.Background(), "all", 25, 50, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -467,7 +476,7 @@ func TestGetPriceHealthForwardsEventFilters(t *testing.T) {
 			}
 			svc := NewHealthService(&repository.Repository{Health: repo})
 
-			_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 20, 5, tc.eventType, tc.status, tc.jobID)
+			_, _, total, err := svc.GetPriceHealth(context.Background(), "all", 20, 5, tc.eventType, tc.status, tc.jobID)
 			if err != nil {
 				t.Fatalf("GetPriceHealth: %v", err)
 			}
@@ -510,7 +519,7 @@ func TestGetPriceHealthEventsTotalIsTheFilteredCount(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "asset_meta", "failure", "")
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "all", 0, 0, "asset_meta", "failure", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -531,6 +540,7 @@ func TestGetActivityForwardsFiltersAndPagination(t *testing.T) {
 
 	tcs := []struct {
 		name       string
+		period     string
 		limit      int
 		offset     int
 		itemType   string
@@ -538,13 +548,13 @@ func TestGetActivityForwardsFiltersAndPagination(t *testing.T) {
 		wantLimit  int
 		wantOffset int
 	}{
-		{"empty filters fall back to the default page", 0, 0, "", "", 50, 0},
-		{"negative page is normalized", -5, -10, "", "", 50, 0},
-		{"oversized limit is capped", 10000, 0, "", "", 500, 0},
-		{"valid page is kept", 25, 75, "", "", 25, 75},
-		{"type filter", 20, 5, "price_refresh", "", 20, 5},
-		{"status filter", 20, 5, "", "running", 20, 5},
-		{"type and status filters", 20, 5, "etf_exposure", "failure", 20, 5},
+		{"empty filters fall back to the default page", "all", 0, 0, "", "", 50, 0},
+		{"negative page is normalized", "all", -5, -10, "", "", 50, 0},
+		{"oversized limit is capped", "all", 10000, 0, "", "", 500, 0},
+		{"valid page is kept", "all", 25, 75, "", "", 25, 75},
+		{"type filter", "24h", 20, 5, "price_refresh", "", 20, 5},
+		{"status filter", "24h", 20, 5, "", "running", 20, 5},
+		{"type and status filters", "7d", 20, 5, "etf_exposure", "failure", 20, 5},
 	}
 
 	for _, tc := range tcs {
@@ -552,7 +562,7 @@ func TestGetActivityForwardsFiltersAndPagination(t *testing.T) {
 			repo := &fakeHealthRepo{activityItems: items, activityTotal: 137}
 			svc := NewHealthService(&repository.Repository{Health: repo})
 
-			got, total, err := svc.GetActivity(context.Background(), tc.limit, tc.offset, tc.itemType, tc.status)
+			got, total, err := svc.GetActivity(context.Background(), tc.period, tc.limit, tc.offset, tc.itemType, tc.status)
 			if err != nil {
 				t.Fatalf("GetActivity: %v", err)
 			}
@@ -574,6 +584,55 @@ func TestGetActivityForwardsFiltersAndPagination(t *testing.T) {
 			}
 			if len(got) != len(items) {
 				t.Fatalf("items = %d, want %d", len(got), len(items))
+			}
+		})
+	}
+}
+
+// TestGetActivityForwardsPeriodWindow checks the unified feed is windowed by
+// period exactly like the summary tiles: 24h and 7d bound both the page and
+// the count, while all (and any retired or unknown value) leaves it unbounded.
+func TestGetActivityForwardsPeriodWindow(t *testing.T) {
+	now := time.Now().UTC()
+
+	tcs := []struct {
+		name    string
+		period  string
+		wantNil bool
+		want    time.Duration
+	}{
+		{"all is unbounded", "all", true, 0},
+		{"empty falls back to all", "", true, 0},
+		{"unknown falls back to all", "nonsense", true, 0},
+		{"24h", "24h", false, 24 * time.Hour},
+		{"7d", "7d", false, 7 * 24 * time.Hour},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeHealthRepo{}
+			svc := NewHealthService(&repository.Repository{Health: repo})
+
+			if _, _, err := svc.GetActivity(context.Background(), tc.period, 10, 0, "", ""); err != nil {
+				t.Fatalf("GetActivity: %v", err)
+			}
+			if len(repo.activitySince) != 2 {
+				t.Fatalf("windows recorded = %d, want 2 (count and page)", len(repo.activitySince))
+			}
+			want := now.Add(-tc.want)
+			for i, w := range repo.activitySince {
+				if tc.wantNil {
+					if w != nil {
+						t.Fatalf("window %d = %v, want nil (unbounded)", i, *w)
+					}
+					continue
+				}
+				if w == nil {
+					t.Fatalf("window %d = nil, want ~%v", i, want)
+				}
+				if diff := w.Sub(want); diff > time.Minute || diff < -time.Minute {
+					t.Fatalf("window %d = %v, want ~%v", i, *w, want)
+				}
 			}
 		})
 	}
@@ -602,7 +661,7 @@ func TestGetActivityResolvesTargetLabels(t *testing.T) {
 		Portfolio: &fakePortfolioRepo{portfolio: pf},
 	})
 
-	items, _, err := svc.GetActivity(context.Background(), 0, 0, "", "")
+	items, _, err := svc.GetActivity(context.Background(), "all", 0, 0, "", "")
 	if err != nil {
 		t.Fatalf("GetActivity: %v", err)
 	}

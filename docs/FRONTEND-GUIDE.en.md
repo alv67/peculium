@@ -283,7 +283,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (streamed `.dump` attachment), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (all admin-only: 403 for non-admin roles) |
-| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (window-scoped summary tiles), `GET /health/activity?limit=&offset=&type=&status=` (unified feed: jobs + non-job events), `GET /health/prices?job_id=&limit=200` (one job's events for the detail panel); all reads bypass the GET cache because the health page polls them |
+| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (window-scoped summary tiles), `GET /health/activity?period=&limit=&offset=&type=&status=` (unified feed: jobs + non-job events), `GET /health/prices?job_id=&limit=200` (one job's events for the detail panel); all reads bypass the GET cache because the health page polls them |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
@@ -1589,15 +1589,17 @@ are translated through the i18n layer (chapter 8).
 
 A summary strip and ONE unified activity table.
 
-**Summary tiles**: the `today|24h|100` period `SegmentedControl` sits in the
-card header and scopes the 4 tiles only. Success Rate, Total Successes, Total
+**Summary tiles**: the `24h|7d|all` period `SegmentedControl` sits in the
+card header and scopes the 4 tiles AND the activity feed, so the numbers
+always match the listed rows (`all` = no lower bound; changing the period
+also returns the feed to page one). Success Rate, Total Successes, Total
 Failures and Rate Limited (each a `ui/StatCard`) come from
 `healthApi.summary(period)` (`GET /health/prices`, `limit=1`): the summary is
 window-based and excludes the job-lifecycle rows, and while the window has no
 data every tile shows `N/A` together.
 
 **Activity feed** (`healthApi.activity` →
-`GET /health/activity?limit=&offset=&type=&status=`): every
+`GET /health/activity?period=&limit=&offset=&type=&status=`): every
 queue job plus the health events that are not tied to one — a job's own events
 appear only in its detail panel, never duplicated in the feed — newest first,
 50 per page with Previous/Next and the filtered total quoted. Columns:
