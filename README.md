@@ -1,10 +1,36 @@
+<div align="center">
+
+<img src="website/public/peculium.svg" width="88" alt="Peculium logo" />
+
 # Peculium
 
 **Your wealth, self-hosted.**
 
 Self-hosted, multi-user personal finance and investment suite for homelabs.
+Track your investments, monitor asset performance, and gain insights into your
+financial portfolio — all from your own infrastructure.
 
-Track your investments, monitor asset performance, and gain insights into your financial portfolio — all from your own infrastructure.
+[![CI](https://github.com/alv67/peculium/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/alv67/peculium/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/alv67/peculium?style=flat-square)](https://github.com/alv67/peculium/releases)
+[![License: MIT](https://img.shields.io/github/license/alv67/peculium?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/alv67/peculium?style=flat-square&label=stars)](https://github.com/alv67/peculium/stargazers)
+[![Container images](https://img.shields.io/badge/ghcr.io-peculium-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/alv67/peculium/pkgs/container/peculium-backend)
+
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev)
+[![Python](https://img.shields.io/badge/Python-3-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io)
+[![Docker & Podman](https://img.shields.io/badge/Docker%20%26%20Podman-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+
+[**Website**](https://peculium.dev) · [**Features**](https://peculium.dev/features) · [**Install**](https://peculium.dev/install) · [**Manual**](https://peculium.dev/manual) · [**Releases**](https://peculium.dev/releases)
+
+</div>
+
+![Peculium dashboard — portfolio net value, gain/loss and performance charts](website/public/screenshots/en/portfolio-dashboard.png)
+
+*The dashboard: net value, gain/loss, time-weighted performance and allocation,
+aggregated in your base currency.*
 
 ## Features
 
@@ -18,6 +44,23 @@ Track your investments, monitor asset performance, and gain insights into your f
 - **Market prices** — Yahoo Finance with Redis caching, rate-limit/backoff, series materialization, price health dashboard
 - **Data quality** — Summary exposes staleness / missing-country / missing-sector / missing-FX metrics
 - **Self-contained** — Everything runs via Docker/Podman Compose
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/en/allocations.png" alt="Allocations"><br><sub><b>Allocations</b> — by asset class, sector, country and macro-region.</sub></td>
+    <td width="50%"><img src="website/public/screenshots/en/transactions.png" alt="Transactions"><br><sub><b>Transactions</b> — buy, sell, dividends, splits and fees, with filters and undo.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/en/asset-exposure.png" alt="Asset detail and exposure"><br><sub><b>Asset detail & exposure</b> — editable metadata, price history and JustETF/Morningstar breakdowns.</sub></td>
+    <td width="50%"><img src="website/public/screenshots/en/price-health.png" alt="Price sync health"><br><sub><b>Data & sync</b> — price-sync health, staleness and data-quality metrics.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/en/multi-currency.png" alt="Multi-currency"><br><sub><b>Multi-currency</b> — per-asset currencies aggregated with FX history.</sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
 
 ## Tech Stack
 
@@ -59,6 +102,11 @@ Secrets are generated on first boot and stored in the `peculium_secrets` volume
 (back it up). Pin `PECULIUM_VERSION` in `.env` to keep the stack on a fixed
 release.
 
+> Requires Podman (or Docker) with Compose support.
+
+<details>
+<summary><b>Published image tags &amp; test builds</b></summary>
+
 Published image tags:
 
 - `latest` — the most recent release (from a `v*` tag on `main`);
@@ -84,7 +132,7 @@ make publish RC_VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) fo
 build `main`, not `develop`. The `RC_VERSION` value is only an extra image tag,
 never the ref to build.
 
-> Requires Podman (or Docker) with Compose support.
+</details>
 
 ## Testing
 
