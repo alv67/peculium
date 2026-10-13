@@ -1674,31 +1674,53 @@ Due card impilate.
 quelli non nulli) e, mentre un job è aperto, una pill "Live" con **auto-refresh**
 a 3 secondi che interroga solo la lista job e si spegne da sola quando nulla è in
 coda o in corso (silenzioso: niente skeleton, niente toast). La tabella mostra
-tipo, destinazione (la `target_label` leggibile — ticker dell'asset o nome del
-portafoglio — risolta lato server, con fallback all'id corto; mai un link, la
-coda non è per-utente), un badge di stato
-(mappa stato→badge unica, condivisa con la tabella eventi, quindi `running` esce
-in accent e non rosso), avanzamento (`processed/total` più la barra durante
-l'esecuzione e il rollup `ok`/`failed`), durata via `formatDuration` e ora di
-avvio; una sub-riga a tutta larghezza mostra l'errore per `failed`/`partial`.
-L'empty state offre l'azione "Aggiorna prezzi". Label di destinazione, durata e
-rollup health sono derivati lato server (nessuna colonna).
+tipo (un tooltip `title` mantiene leggibile l'etichetta completa), destinazione
+(la `target_label` leggibile — ticker dell'asset o nome del portafoglio — risolta
+lato server, con fallback all'id corto; mai un link, la coda non è per-utente), un
+badge di stato (mappa stato→badge unica, condivisa con la tabella eventi e il
+pannello di dettaglio, quindi `running` esce in accent e non rosso), avanzamento
+(`processed/total` più la barra durante l'esecuzione e il rollup `ok`/`failed`),
+durata via `formatDuration`, ora di avvio e un'azione di dettaglio in coda — un
+pulsante a icona `ChevronRight` (un pulsante etichettato "Dettaglio" sul telefono,
+dove il target a icona da 36px cadrebbe sotto la linea guida dei 44px touch) che
+apre il **pannello di dettaglio del job** (`domain/JobDetailPanel.svelte`).
+Il pannello è il `ui/Drawer` laterale (40rem) a ≥ `lg` e la `ui/Sheet`
+inferiore sotto, con lo stesso schema di drill-down del pannello di allocazione.
+Mostra il badge di stato del job, la destinazione, la durata e l'ora di avvio,
+l'avanzamento (`processed/total` con barra), l'errore completo che va a capo per
+tutta la larghezza del pannello e la lista degli eventi del job — ogni voce un
+badge di stato + tipo con la durata a destra, il messaggio completo (senza
+troncamento) e la riga timestamp · codice — attraverso i consueti stati di
+`ui/AsyncCard`, con uno stato vuoto delimitato tratteggiato finché il job non ha
+emesso nulla. La pagina possiede i dati del pannello: gli eventi sono lo stesso
+feed legato al periodo filtrato lato client sui 500 eventi più recenti (quando la
+finestra tronca, il pannello avvisa che alcuni eventi vecchi potrebbero mancare) e
+vengono ricaricati all'apertura, sullo stesso tick di 3 secondi mentre il job è in
+coda o in esecuzione, e ancora quando si assesta. Il pannello conserva uno
+snapshot del job per valore e fonde a ogni poll la copia fresca per id, così la
+finestra mobile dei 25 più recenti non lo svuota mai. Una sub-riga a tutta
+larghezza mostra comunque l'errore per `failed`/`partial`. L'empty state offre
+l'azione "Aggiorna prezzi". Label di destinazione, durata e rollup health sono
+derivati lato server (nessuna colonna).
 
-**Eventi recenti** (in basso): `api.get('/health/prices?period=today|24h|100')`
-(il selettore di periodo limita solo il riepilogo; due `ui/Select` filtrano
-inoltre la lista lato server per **tipo** e **stato** — vuoto significa tutti —
-e cambiando l'uno o l'altro si torna alla prima pagina, con il totale citato che
-segue il filtro). 4 tile di riepilogo (Success
-Rate, Total Successes, Total Failures, Rate Limited — il riepilogo esclude le
-righe di ciclo di vita dei job) e una tabella paginata degli eventi (timestamp,
-tipo, badge dello stato, codice, messaggio, durata; 50 per pagina). Le righe di
-ciclo di vita della coda (`event_type: "job"`) sono mostrate con un badge
-outline "job"; cliccando l'azione di filtro su una riga job si vedono solo gli
-eventi di quel job (`job_id`), filtrati lato client sui 500 eventi più recenti
-con un chip rimovibile, e il pulsante "Refresh Now" ricarica entrambe le card.
-Un pulsante "Cancella attività" apre una conferma di pericolo (che cita il
-totale eventi corrente) e svuota ogni job ed evento di monitoraggio
-(`DELETE /admin/health/events`), poi ricarica entrambe le card.
+**Eventi recenti** (in basso): `api.get('/health/prices?period=today|24h|100')`.
+Il selettore di periodo limita solo questa card, quindi siede nell'intestazione
+della card accanto alla riga "Periodo: …", sopra le 4 tile di riepilogo (Success
+Rate, Total Successes, Total Failures, Rate Limited, ciascuna una `ui/StatCard`;
+il riepilogo esclude le righe di ciclo di vita dei job e, quando non ha dati,
+tutte le tile mostrano `N/A` insieme). Due `ui/Select` filtrano inoltre la lista
+lato server per **tipo** e **stato** — vuoto significa tutti — e cambiando l'uno o
+l'altro si torna alla prima pagina, con il totale citato che segue il filtro. Il
+feed è una tabella paginata pura degli eventi (timestamp, tipo, badge dello
+stato, codice, messaggio con tooltip `title`, durata; 50 per pagina), e la sua
+posizione di pagina resta intatta mentre un pannello job è aperto. Le righe di
+ciclo di vita della coda (`event_type: "job"`) sono mostrate con un badge outline
+"job" e portano un'icona di filtro in-place che apre il pannello di dettaglio di
+quel job quando il job è tra i 25 più recenti. Il pulsante "Refresh Now" ricarica
+entrambe le card. Un pulsante "Cancella attività" apre una conferma di pericolo
+(che cita il totale eventi corrente), chiude ogni pannello job aperto e svuota
+ogni job ed evento di monitoraggio (`DELETE /admin/health/events`), poi ricarica
+entrambe le card.
 
 ### Area Admin (`routes/admin/…`)
 

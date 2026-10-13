@@ -548,18 +548,10 @@ export const it = {
     clearEventsConfirm: 'Verranno eliminati TUTTI i {total} eventi di monitoraggio e tutti i job di sincronizzazione. Operazione irreversibile.',
     clearEventsDone: '{count} eventi eliminati',
     clearEventsFailed: 'Cancellazione dell\'attività non riuscita',
-    /** Chip di filtro per job sulla card eventi (#195 Fase 4): il chip mostra
-     *  `jobFilter` + `jobFilterCount`, la ✕ rimuove con `jobFilterClearNamed`;
-     *  `jobFilterCap` avvisa quando la finestra client-side ha troncato le
-     *  corrispondenze, `jobFilterNone` quando non ce ne sono. `filterByJob`
-     *  è l'azione di riga che apre il filtro. */
-    jobFilter: 'Job: {type}',
-    jobFilterCount: '{count} eventi in questo job',
-    jobFilterClear: 'Rimuovi',
-    jobFilterClearNamed: 'Rimuovi il filtro per job',
-    jobFilterCap: 'Filtro sui {limit} eventi più recenti',
-    jobFilterNone: 'Nessun evento per questo job tra i {limit} più recenti',
-    filterByJob: "Mostra solo gli eventi di questo job",
+    /** Nota sotto la lista eventi del pannello quando la finestra client-side
+     *  dei 500 righe più recenti potrebbe aver perso eventi vecchi del job
+     *  (#226, nessun filtro lato server). */
+    jobEventsCap: 'Vengono cercati solo i {limit} eventi più recenti: alcuni eventi vecchi di questo job potrebbero mancare',
     /** "All" option of the server-side Type/Status event filters (#91). */
     filterAll: 'Tutti',
   },
@@ -607,9 +599,15 @@ export const it = {
     targetGlobal: 'Globale',
     empty: 'Nessun job',
     emptyHint: 'Gli aggiornamenti prezzi e i backfill avviati dall’app compaiono qui.',
-    /** Azione di riga che apre il filtro job nella card eventi. */
-    viewEvents: "Mostra gli eventi di questo job",
-    viewEventsNamed: 'Mostra gli eventi del job {type}',
+    /** Azione di riga che apre il pannello di dettaglio del job (#226):
+     *  `viewDetail` è il pulsante etichettato sul telefono, `viewDetailNamed`
+     *  il nome accessibile del pulsante a icona sugli schermi più grandi. */
+    viewDetail: 'Dettaglio',
+    viewDetailNamed: 'Apri il dettaglio del job {type}',
+    /** Pannello di dettaglio job: intestazione sopra la lista eventi e titolo
+     *  dello stato vuoto. */
+    detailEvents: '{count} eventi',
+    noEventsYet: 'Ancora nessun evento per questo job',
     loadFailed: 'Caricamento dei job non riuscito',
   },
   /**

@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { toast } from '$lib/stores/toast.svelte'
-  import { api, adminApi, jobsApi, type Job } from '$lib/services/api'
-  import { t, type MessageKey } from '$lib/i18n/index.svelte'
+  import { api, adminApi, jobsApi, type HealthEvent, type Job } from '$lib/services/api'
+  import { t } from '$lib/i18n/index.svelte'
   import { formatDuration } from '$lib/format'
   import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
-  import { AlertTriangle, ListChecks, ListFilter, X } from 'lucide-svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
+  import { AlertTriangle, ChevronRight, ListChecks, ListFilter } from 'lucide-svelte'
   import AsyncCard from '$lib/components/ui/AsyncCard.svelte'
   import Badge from '$lib/components/ui/Badge.svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -12,10 +14,13 @@
   import CardHeader from '$lib/components/ui/CardHeader.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import EmptyState from '$lib/components/ui/EmptyState.svelte'
+  import JobDetailPanel from '$lib/components/domain/JobDetailPanel.svelte'
+  import { JOB_TARGET_KEYS, JOB_TYPE_KEYS, labeled, statusBadge } from '$lib/components/domain/job-status'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import StatCard from '$lib/components/ui/StatCard.svelte'
   import Table from '$lib/components/ui/Table.svelte'
   import THead from '$lib/components/ui/THead.svelte'
   import TBody from '$lib/components/ui/TBody.svelte'
@@ -32,24 +37,11 @@
     period?: string
   }
 
-  interface HealthEvent {
-    id: string
-    asset_id: string
-    event_type: string
-    status: string
-    code: string
-    message: string
-    duration_ms: number
-    error_code: string
-    created_at: string
-    /** Set on lifecycle/health rows emitted by a queue job (issue #195). */
-    job_id?: string
-  }
-
   const PAGE_SIZE = 50
 
-  // ponytail: job events are filtered client-side over the newest 500 rows;
-  // move to a server-side job_id query only if a job ever emits more.
+  // ponytail: the job detail panel's events are filtered client-side over the
+  // newest 500 rows; move to a server-side job_id query only if a job ever
+  // emits more.
   const JOB_FILTER_LIMIT = 500
 
   // `$derived` so a locale switch live-updates the segmented control labels
@@ -104,8 +96,16 @@
   let jobsLoading = $state(true)
   let jobsError = $state(false)
   let jobsAt = $state<Date | null>(null)
-  /** Active job filter on the events card (`type` is the localized label). */
-  let selectedJob = $state<{ id: string; type: string } | null>(null)
+  /** Job inspected in the detail panel (#226), a snapshot BY VALUE: the jobs
+   *  list is a newest-25 sliding window, so the panel keys on `openJobId` and
+   *  merges each poll's fresh copy by id instead of storing only an id. */
+  let openJob = $state<Job | null>(null)
+  const openJobId = $derived(openJob?.id)
+  let jobEvents = $state<HealthEvent[]>([])
+  let jobEventsLoading = $state(false)
+  let jobEventsError = $state<string | null>(null)
+  /** True when the events total exceeded the client-side 500-row window. */
+  let jobEventsCapped = $state(false)
 
   const periodLabel = $derived(periodItems.find((item) => item.value === period)?.label ?? period)
   const rangeLabel = $derived(
@@ -123,16 +123,13 @@
     queued: jobs.filter((j) => j.status === 'queued').length,
     failed: jobs.filter((j) => j.status === 'failed').length,
   })
-  const visibleEvents = $derived(
-    selectedJob ? events.filter((e) => e.job_id === selectedJob?.id) : events,
-  )
+  /** No data in the period: the summary tiles all show `N/A` together. */
+  const noData = $derived(!summary?.has_data)
 
   async function fetchHealth(silent = false) {
     if (!silent) loading = true
     try {
-      const limit = selectedJob ? JOB_FILTER_LIMIT : PAGE_SIZE
-      const off = selectedJob ? 0 : offset
-      let url = `/health/prices?period=${period}&limit=${limit}&offset=${off}`
+      let url = `/health/prices?period=${period}&limit=${PAGE_SIZE}&offset=${offset}`
       if (filterType) url += `&type=${filterType}`
       if (filterStatus) url += `&status=${filterStatus}`
       const data = (await api.get(url)) as {
@@ -166,6 +163,34 @@
     }
   }
 
+  // The open job's events: the same period-scoped feed, filtered client-side
+  // down to the job's rows (see the `JOB_FILTER_LIMIT` ponytail note).
+  async function fetchJobEvents(silent = false): Promise<void> {
+    const job = openJob
+    if (!job) return
+    if (!silent) {
+      jobEventsLoading = true
+      jobEventsError = null
+    }
+    try {
+      const data = (await api.get(
+        `/health/prices?period=${period}&limit=${JOB_FILTER_LIMIT}`,
+      )) as { summary: HealthSummary; events: HealthEvent[]; events_total: number }
+      // The panel was closed or swapped to another job while this ran: drop.
+      if (openJob?.id !== job.id) return
+      jobEvents = (data.events ?? []).filter((e) => e.job_id === job.id)
+      jobEventsCapped = (data.events_total ?? 0) > JOB_FILTER_LIMIT
+      jobEventsError = null
+    } catch (e) {
+      // Silent poll errors keep the previous list rendering (like the feed).
+      if (!silent && openJob?.id === job.id) {
+        jobEventsError = e instanceof Error ? e.message : String(e)
+      }
+    } finally {
+      if (!silent && openJob?.id === job.id) jobEventsLoading = false
+    }
+  }
+
   $effect(() => {
     fetchHealth()
   })
@@ -178,17 +203,45 @@
 
   $effect(() => {
     if (!hasOpenJob) return
-    const timer = setInterval(() => void fetchJobs(true), 3000)
+    const timer = setInterval(() => {
+      void fetchJobs(true)
+      // A running/queued open job refreshes its events on the SAME tick —
+      // no second interval. Reads here are outside the effect's tracking.
+      const job = openJob
+      if (job && (job.status === 'running' || job.status === 'queued')) void fetchJobEvents(true)
+    }, 3000)
     return () => clearInterval(timer)
   })
 
-  // Open → none transition: ONE silent events refetch so the just-closed
-  // job's lifecycle rows land in the events card (not on every poll).
+  // Open → none transition: ONE silent refetch so the just-finished job's
+  // lifecycle rows land in the feed and, when open, in the detail panel.
   let hadOpenJob = false
   $effect(() => {
     const open = hasOpenJob
-    if (hadOpenJob && !open) void fetchHealth(true)
+    if (hadOpenJob && !open) {
+      void fetchHealth(true)
+      void fetchJobEvents(true)
+    }
     hadOpenJob = open
+  })
+
+  // `openJobId` (a stable string, not the merged snapshot) and `period`
+  // (the events window is period-scoped) load the panel's events; `untrack`
+  // keeps the 3s snapshot merges from re-firing this fetch.
+  $effect(() => {
+    const id = openJobId
+    void period
+    if (!id) return
+    untrack(() => void fetchJobEvents())
+  })
+
+  // Keep the open job's snapshot live: `jobsApi.list` is a newest-25 sliding
+  // window, so a burst of new jobs would otherwise slide the open one out and
+  // freeze its progress. Assigning the found copy settles the effect (the
+  // next run resolves the same object reference).
+  $effect(() => {
+    const fresh = jobs.find((j) => j.id === openJob?.id)
+    if (fresh && fresh !== openJob) openJob = fresh
   })
 
   function refreshAll() {
@@ -197,12 +250,14 @@
   }
 
   // Deletes every health event and sync job row, then reloads both views from
-  // page one (the non-GET already invalidated the client GET cache).
+  // page one (the non-GET already invalidated the client GET cache). The jobs
+  // are gone, so a detail panel open on one closes with them.
   async function confirmClearEvents(): Promise<void> {
     try {
       const { deleted } = await adminApi.clearHealthEvents()
       toast.success(t('health.clearEventsDone', { count: deleted }))
       offset = 0
+      openJob = null
       await fetchHealth()
       await fetchJobs()
     } catch {
@@ -210,11 +265,11 @@
     }
   }
 
-  function filterToJob(id?: string, type?: string) {
-    if (!id) return
-    selectedJob = { id, type: type || 'job' }
-    // Default (auto) scroll: no motion to neutralise for prefers-reduced-motion.
-    document.getElementById('events-card')?.scrollIntoView()
+  function openJobDetail(job: Job): void {
+    openJob = job
+    jobEvents = []
+    jobEventsError = null
+    jobEventsCapped = false
   }
 
   function getPeriod() {
@@ -230,49 +285,6 @@
     if (val === null || val === undefined || Number.isNaN(val)) return 'N/A'
     return (val * 100).toFixed(1) + '%'
   }
-
-  // The badge is the one backend value we localise, with ONE map shared by
-  // the jobs and the events tables: known statuses map to a Badge variant +
-  // dictionary label (the raw `running` no longer renders red here), the 429
-  // heuristic covers rate-limited codes, anything unexpected falls back to
-  // the raw value in the negative tone. The label text is always present.
-  type BadgeVariant = 'neutral' | 'accent' | 'positive' | 'negative' | 'warning'
-  const STATUS_BADGES: Record<string, { variant: BadgeVariant; key: MessageKey }> = {
-    done: { variant: 'positive', key: 'jobs.statusDone' },
-    success: { variant: 'positive', key: 'health.statusSuccess' },
-    running: { variant: 'accent', key: 'jobs.statusRunning' },
-    queued: { variant: 'neutral', key: 'jobs.statusQueued' },
-    partial: { variant: 'warning', key: 'jobs.statusPartial' },
-    failed: { variant: 'negative', key: 'jobs.statusFailed' },
-    failure: { variant: 'negative', key: 'health.statusFailure' },
-    rate_limited: { variant: 'warning', key: 'health.statusRateLimited' },
-  }
-
-  function statusBadge(status: string): { variant: BadgeVariant; label: string } {
-    if (status.includes('429')) return { variant: 'warning', label: t('health.statusRateLimited') }
-    const known = STATUS_BADGES[status]
-    if (known) return { variant: known.variant, label: t(known.key) }
-    return { variant: 'negative', label: status }
-  }
-
-  const JOB_TYPE_KEYS: Record<string, MessageKey> = {
-    price_refresh: 'jobs.typePriceRefresh',
-    history_backfill: 'jobs.typeHistoryBackfill',
-    meta_backfill: 'jobs.typeMetaBackfill',
-    splits_fetch: 'jobs.typeSplitsFetch',
-  }
-
-  const JOB_TARGET_KEYS: Record<string, MessageKey> = {
-    asset: 'jobs.targetAsset',
-    portfolio: 'jobs.targetPortfolio',
-    global: 'jobs.targetGlobal',
-  }
-
-  function labeled(keys: Record<string, MessageKey>, value: string | undefined) {
-    if (!value) return ''
-    const key = keys[value]
-    return key ? t(key) : value
-  }
 </script>
 
 <div class="mx-auto max-w-6xl p-6">
@@ -282,7 +294,6 @@
       <p class="text-muted-foreground">{t('health.subtitle')}</p>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-      <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
       <Button variant="secondary" onclick={refreshAll} disabled={loading || jobsLoading}>
         {loading ? t('health.refreshing') : t('health.refresh')}
       </Button>
@@ -357,32 +368,24 @@
             <caption class="sr-only">{t('jobs.caption')}</caption>
             <THead class="max-sm:hidden">
               <Tr>
-                <Th class="w-40">{t('common.colType')}</Th>
+                <Th class="w-52">{t('common.colType')}</Th>
                 <Th class="w-36">{t('jobs.colTarget')}</Th>
                 <Th class="w-28">{t('positions.colStatus')}</Th>
                 <Th class="w-48">{t('jobs.colProgress')}</Th>
                 <Th class="w-24">{t('health.colDuration')}</Th>
-                <Th>{t('jobs.colStarted')}</Th>
+                <Th class="w-44">{t('jobs.colStarted')}</Th>
+                <Th class="w-12">
+                  <span class="sr-only">{t('common.colActions')}</span>
+                </Th>
               </Tr>
             </THead>
             <TBody class="max-sm:block">
               {#each jobs as job (job.id)}
                 <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2 align-top">
                   <Td class="max-sm:order-1 max-sm:col-span-2 max-sm:py-0.5 min-w-0">
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="truncate font-medium">
-                        {labeled(JOB_TYPE_KEYS, job.type)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="shrink-0"
-                        aria-label={t('jobs.viewEventsNamed', { type: labeled(JOB_TYPE_KEYS, job.type) })}
-                        onclick={() => filterToJob(job.id, labeled(JOB_TYPE_KEYS, job.type))}
-                      >
-                        <ListFilter class="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </div>
+                    <span class="font-medium" title={labeled(JOB_TYPE_KEYS, job.type)}>
+                      {labeled(JOB_TYPE_KEYS, job.type)}
+                    </span>
                   </Td>
                   <Td class="max-sm:order-2 max-sm:col-span-2 max-sm:py-0.5 min-w-0 text-muted-foreground">
                     {#if job.target_type || job.target_id}
@@ -442,10 +445,29 @@
                       —
                     {/if}
                   </Td>
+                  <Td class="max-sm:order-7 max-sm:col-span-2 max-sm:py-0.5">
+                    <!-- Phones get a labeled button: the 36px icon target is
+                         under the 44px touch guideline. -->
+                    {#if viewport.isPhone}
+                      <Button size="sm" onclick={() => openJobDetail(job)}>
+                        {t('jobs.viewDetail')}
+                        <span class="sr-only">: {labeled(JOB_TYPE_KEYS, job.type)}</span>
+                      </Button>
+                    {:else}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('jobs.viewDetailNamed', { type: labeled(JOB_TYPE_KEYS, job.type) })}
+                        onclick={() => openJobDetail(job)}
+                      >
+                        <ChevronRight class="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    {/if}
+                  </Td>
                 </Tr>
                 {#if (job.status === 'failed' || job.status === 'partial') && job.error}
                   <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2">
-                    <Td colspan={6} class="max-sm:col-span-2 max-sm:block max-sm:py-0.5">
+                    <Td colspan={7} class="max-sm:col-span-2 max-sm:block max-sm:py-0.5">
                       <div
                         class="flex items-start gap-2 py-1 {job.status === 'failed' ? 'text-negative' : 'text-warning'}"
                       >
@@ -472,57 +494,39 @@
       {t('health.noData')}
     </div>
   {:else}
-    <div class="mb-3 text-sm text-muted-foreground">{t('health.periodLabel', { period: periodLabel })}</div>
-    <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.successRate')}</div>
-        {#if !summary.has_data}
-          <div class="text-2xl font-bold tabular-nums text-muted-foreground">N/A</div>
-        {:else}
-          <div class="text-2xl font-bold tabular-nums {summary.success_rate > 0.9 ? 'text-positive' : 'text-warning'}">
-            {formatRate(summary.success_rate)}
-          </div>
-        {/if}
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.totalSuccesses')}</div>
-        <div class="text-2xl font-bold tabular-nums text-foreground">{summary.successes}</div>
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.totalFailures')}</div>
-        <div class="text-2xl font-bold tabular-nums text-negative">{summary.failures}</div>
-      </div>
-      <div class="rounded-card border border-border bg-surface p-4 shadow-card">
-        <div class="mb-1 text-sm text-muted-foreground">{t('health.rateLimited')}</div>
-        <div class="text-2xl font-bold tabular-nums text-warning">{summary.rate_limited}</div>
-      </div>
-    </div>
-
-    <div id="events-card" class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+    <!-- The period selector scopes only this card (summary + feed), so it
+         lives in the card header, not in the page header. -->
+    <div class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-6 py-4">
-        <h2 class="font-semibold text-foreground">{t('health.recentEvents')}</h2>
-        {#if selectedJob}
-          <div class="flex flex-wrap items-center gap-2">
-            <Badge variant="accent">
-              {t('health.jobFilter', { type: selectedJob.type })}
-              · {t('health.jobFilterCount', { count: visibleEvents.length })}
-            </Badge>
-            {#if eventsTotal > JOB_FILTER_LIMIT}
-              <span class="text-xs text-muted-foreground">
-                {t('health.jobFilterCap', { limit: JOB_FILTER_LIMIT })}
-              </span>
-            {/if}
-            <Button
-              variant="ghost"
-              size="icon"
-              title={t('health.jobFilterClear')}
-              aria-label={t('health.jobFilterClearNamed')}
-              onclick={() => (selectedJob = null)}
-            >
-              <X class="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        {/if}
+        <div>
+          <h2 class="font-semibold text-foreground">{t('health.recentEvents')}</h2>
+          <p class="text-sm text-muted-foreground">{t('health.periodLabel', { period: periodLabel })}</p>
+        </div>
+        <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
+      </div>
+      <div class="grid grid-cols-1 gap-4 px-6 pt-4 md:grid-cols-4">
+        <StatCard
+          label={t('health.successRate')}
+          value={noData ? 'N/A' : formatRate(summary.success_rate)}
+          valueClass={noData
+            ? 'text-2xl text-muted-foreground'
+            : `text-2xl ${summary.success_rate > 0.9 ? 'text-positive' : 'text-warning'}`}
+        />
+        <StatCard
+          label={t('health.totalSuccesses')}
+          value={noData ? 'N/A' : String(summary.successes)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl'}
+        />
+        <StatCard
+          label={t('health.totalFailures')}
+          value={noData ? 'N/A' : String(summary.failures)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl text-negative'}
+        />
+        <StatCard
+          label={t('health.rateLimited')}
+          value={noData ? 'N/A' : String(summary.rate_limited)}
+          valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl text-warning'}
+        />
       </div>
       <!-- Server-side event filters (#91): changing either resets the
            pagination window; the tracked fetchHealth effect refetches. -->
@@ -547,95 +551,101 @@
         </label>
       </div>
       <div class="overflow-x-auto px-6 pb-4">
-        {#if selectedJob && visibleEvents.length === 0}
-          <p class="py-8 text-center text-sm text-muted-foreground">
-            {t('health.jobFilterNone', { limit: JOB_FILTER_LIMIT })}
-          </p>
-        {:else}
-          <Table aria-label={t('health.recentEvents')}>
-            <THead>
-              <Tr>
-                <Th>{t('health.colTimestamp')}</Th>
-                <Th>{t('common.colType')}</Th>
-                <Th>{t('positions.colStatus')}</Th>
-                <Th class="max-sm:hidden">{t('common.colCode')}</Th>
-                <Th>{t('health.colMessage')}</Th>
-                <Th align="right" class="max-sm:hidden">{t('health.colDuration')}</Th>
-              </Tr>
-            </THead>
-            <TBody>
-              {#each visibleEvents as event (event.id)}
-                <Tr class="hover:bg-muted">
-                  <Td class="text-muted-foreground">{new Date(event.created_at).toLocaleString()}</Td>
-                  <Td class="font-medium">
-                    <div class="flex items-center gap-1.5">
-                      {#if event.event_type === 'job'}
-                        <Badge variant="outline">job</Badge>
-                      {:else}
-                        <span>{event.event_type}</span>
-                      {/if}
-                      {#if event.job_id}
+        <Table aria-label={t('health.recentEvents')}>
+          <THead>
+            <Tr>
+              <Th>{t('health.colTimestamp')}</Th>
+              <Th>{t('common.colType')}</Th>
+              <Th>{t('positions.colStatus')}</Th>
+              <Th class="max-sm:hidden">{t('common.colCode')}</Th>
+              <Th>{t('health.colMessage')}</Th>
+              <Th align="right" class="max-sm:hidden">{t('health.colDuration')}</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {#each events as event (event.id)}
+              <Tr class="hover:bg-muted">
+                <Td class="text-muted-foreground">{new Date(event.created_at).toLocaleString()}</Td>
+                <Td class="font-medium">
+                  <div class="flex items-center gap-1.5">
+                    {#if event.event_type === 'job'}
+                      <Badge variant="outline">job</Badge>
+                    {:else}
+                      <span>{event.event_type}</span>
+                    {/if}
+                    {#if event.job_id}
+                      {@const job = jobs.find((j) => j.id === event.job_id)}
+                      {#if job}
                         <Button
                           variant="ghost"
                           size="icon"
                           class="h-6 w-6"
-                          aria-label={t('health.filterByJob')}
-                          onclick={() =>
-                            filterToJob(
-                              event.job_id,
-                              labeled(JOB_TYPE_KEYS, jobs.find((j) => j.id === event.job_id)?.type),
-                            )}
+                          aria-label={t('jobs.viewDetailNamed', { type: labeled(JOB_TYPE_KEYS, job.type) })}
+                          onclick={() => openJobDetail(job)}
                         >
                           <ListFilter class="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                       {/if}
-                    </div>
-                  </Td>
-                  <Td>
-                    <Badge variant={statusBadge(event.status).variant}>
-                      {#if event.status === 'running'}
-                        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
-                      {/if}
-                      {statusBadge(event.status).label}
-                    </Badge>
-                  </Td>
-                  <Td class="font-mono text-xs max-sm:hidden">{event.code || '—'}</Td>
-                  <Td class="max-w-xs truncate text-muted-foreground">{event.message || '—'}</Td>
-                  <Td align="right" class="text-muted-foreground max-sm:hidden">
-                    {formatDuration(event.duration_ms)}
-                  </Td>
-                </Tr>
-              {/each}
-            </TBody>
-          </Table>
-        {/if}
+                    {/if}
+                  </div>
+                </Td>
+                <Td>
+                  <Badge variant={statusBadge(event.status).variant}>
+                    {#if event.status === 'running'}
+                      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
+                    {/if}
+                    {statusBadge(event.status).label}
+                  </Badge>
+                </Td>
+                <Td class="font-mono text-xs max-sm:hidden">{event.code || '—'}</Td>
+                <Td class="max-w-md truncate text-muted-foreground" title={event.message}>
+                  {event.message || '—'}
+                </Td>
+                <Td align="right" class="text-muted-foreground max-sm:hidden">
+                  {formatDuration(event.duration_ms)}
+                </Td>
+              </Tr>
+            {/each}
+          </TBody>
+        </Table>
       </div>
-      {#if !selectedJob}
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-          <span class="text-sm text-muted-foreground tabular-nums">{rangeLabel}</span>
-          <div class="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={offset === 0}
-              onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
-            >
-              {t('common.previous')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={offset + PAGE_SIZE >= eventsTotal}
-              onclick={() => (offset += PAGE_SIZE)}
-            >
-              {t('common.next')}
-            </Button>
-          </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
+        <span class="text-sm text-muted-foreground tabular-nums">{rangeLabel}</span>
+        <div class="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={offset === 0}
+            onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
+          >
+            {t('common.previous')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={offset + PAGE_SIZE >= eventsTotal}
+            onclick={() => (offset += PAGE_SIZE)}
+          >
+            {t('common.next')}
+          </Button>
         </div>
-      {/if}
+      </div>
     </div>
   {/if}
 </div>
+
+<!-- Job detail panel (#226): Drawer ≥ lg / Sheet below, fed by this page
+     (`fetchJobEvents` + the live `openJob` snapshot). -->
+<JobDetailPanel
+  open={openJob !== null}
+  onClose={() => (openJob = null)}
+  job={openJob}
+  events={jobEvents}
+  loading={jobEventsLoading}
+  error={jobEventsError}
+  onRetry={() => void fetchJobEvents()}
+  capNote={jobEventsCapped ? t('health.jobEventsCap', { limit: JOB_FILTER_LIMIT }) : undefined}
+/>
 
 <!-- Destructive wipe of the whole health events table (#206): the dialog
      shows the current total and the busy lock while the DELETE runs. -->

@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Features
+- On "Data & Sync" a job now opens its events in a side panel right next to the job — status, progress, error and its own log lines, all readable without scrolling down the page or hunting through the global activity feed
 - The "Data & Sync" page now shows the sync jobs and their outcome — queued, running, completed, partially failed or failed — with progress, the real duration (no longer always zero) and the error when there is one, refreshed automatically while something is running; a long download shows its own start and finish with the result even if it runs out of time
 - Every history download and split check now appears in "Data & Sync", one entry per asset, whether it succeeded or failed, so you can see exactly which assets were updated and when
 - In "Data & Sync" each job now names its target — the asset ticker or the portfolio name — instead of an opaque code

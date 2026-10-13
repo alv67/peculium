@@ -1593,30 +1593,50 @@ Two stacked cards.
 counts (running/queued/failed, only non-zero) and, while a job is open, a
 "Live" pill with a 3-second **auto-refresh** that polls only the job list and
 dies on its own when nothing is queued or running (silent: no skeleton, no
-toast). The table shows type, target (the readable `target_label` — asset
-ticker or portfolio name — resolved server-side, falling back to the short id;
-never a link, the queue is not user-scoped), a status badge (one shared
-status→badge map also used by the events table, so `running` reads as accent
-instead of red), progress (`processed/total` plus a bar while running and the
-`ok`/`failed` rollup), duration via `formatDuration`, and the start time; a
-full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
-"Refresh prices" action. The target label, the duration and the health rollup
-are derived server-side (no column).
+toast). The table shows type (a `title` tooltip keeps the full label readable),
+target (the readable `target_label` — asset ticker or portfolio name — resolved
+server-side, falling back to the short id; never a link, the queue is not
+user-scoped), a status badge (one shared status→badge map also used by the
+events table and the detail panel, so `running` reads as accent instead of
+red), progress (`processed/total` plus a bar while running and the `ok`/`failed`
+rollup), duration via `formatDuration`, the start time, and a trailing detail
+action — a `ChevronRight` icon button (a labeled "Details" button on phones,
+where the 36px icon target would fall under the 44px touch guideline) that
+opens the **job detail panel** (`domain/JobDetailPanel.svelte`).
+The panel is the right-side `ui/Drawer` (40rem) at ≥ `lg` and the bottom
+`ui/Sheet` below, the same drill-down idiom as the allocation drill. It shows
+the job's status badge, target, duration and start time, the progress
+(`processed/total` with a bar), the full error wrapping across the panel width,
+and the list of the job's events — each item a status badge + type with its
+duration on the right, the full message (no truncation), and the timestamp ·
+code line — through the usual `ui/AsyncCard` states, with a dashed empty state
+while the job has emitted nothing yet. The page owns the panel's data: the
+events are the same period-scoped feed filtered client-side over the newest 500
+rows (when the window truncates, the panel says some older events may be
+missing) and refetched on open, on the same 3-second tick while the job is
+queued or running, and once more when it settles. The panel holds a snapshot of
+the job by value and merges each poll's fresh copy by id, so the newest-25
+sliding window never blanks it. A full-width sub-row still shows the error for
+`failed`/`partial`. Empty state offers a "Refresh prices" action. The target
+label, the duration and the health rollup are derived server-side (no column).
 
-**Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`
-(the period selector scopes the summary only; two `ui/Select` controls
-additionally filter the list server-side by **type** and **status** — empty
-means all — and changing either returns to the first page, with the quoted total
-following the filter). 4 summary tiles (Success Rate,
-Total Successes, Total Failures, Rate Limited — the summary excludes the job
-lifecycle rows) and a paginated table of the events (timestamp, type, status
-badge, code, message, duration; page size 50). Queue-lifecycle rows
-(`event_type: "job"`) are shown with an outline "job" badge; clicking the
-filter action on a job row shows only that job's events (`job_id`), fetched
-client-side over the newest 500 events with a clearable chip, and the "Refresh
-Now" button reloads both cards. A "Clear activity" button opens a danger
-confirm (quoting the current events total) and wipes every job and health event
-(`DELETE /admin/health/events`), then reloads both cards.
+**Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`.
+The period selector scopes only this card, so it sits in the card header next
+to the "Period: …" line, above the 4 summary tiles (Success Rate, Total
+Successes, Total Failures, Rate Limited, each a `ui/StatCard`; the summary
+excludes the job lifecycle rows, and while it has no data every tile shows `N/A`
+together). Two `ui/Select` controls additionally filter the list server-side by
+**type** and **status** — empty means all — and changing either returns to the
+first page, with the quoted total following the filter. The feed is a pure
+paginated table of the events (timestamp, type, status badge, code, message
+with a `title` tooltip, duration; page size 50), and its page position is
+untouched while a job panel is open. Queue-lifecycle rows (`event_type: "job"`)
+are shown with an outline "job" badge and carry an in-place filter icon that
+opens that job's detail panel whenever the job is among the newest 25. The
+"Refresh Now" button reloads both cards. A "Clear activity" button opens a
+danger confirm (quoting the current events total), closes any open job panel,
+and wipes every job and health event (`DELETE /admin/health/events`), then
+reloads both cards.
 
 ### Admin area (`routes/admin/…`)
 

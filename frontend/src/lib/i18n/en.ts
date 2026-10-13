@@ -583,18 +583,9 @@ export const en = {
     clearEventsConfirm: 'This deletes ALL {total} health events and every sync job. This cannot be undone.',
     clearEventsDone: '{count} events deleted',
     clearEventsFailed: 'Failed to clear activity',
-    /** Job-origin filter chip over the events card (issue #195): the chip
-     *  shows `jobFilter` + `jobFilterCount`, the ✕ clears through
-     *  `jobFilterClearNamed`; `jobFilterCap` warns when the client-side
-     *  window truncated the matches and `jobFilterNone` when none matched.
-     *  `filterByJob` is the row action opening the filter. */
-    jobFilter: 'Job: {type}',
-    jobFilterCount: '{count} events in this job',
-    jobFilterClear: 'Clear',
-    jobFilterClearNamed: 'Clear the job filter',
-    jobFilterCap: 'Filtered from the newest {limit} events',
-    jobFilterNone: 'No events for this job among the newest {limit}',
-    filterByJob: "Show only this job's events",
+    /** Note under the panel's event list when the client-side 500-row window
+     *  may have missed older events of the job (#226, no server-side filter). */
+    jobEventsCap: 'Only the newest {limit} events are searched, older events of this job may be missing',
     /** "All" option of the server-side Type/Status event filters (#91). */
     filterAll: 'All',
   },
@@ -641,9 +632,14 @@ export const en = {
     targetGlobal: 'Global',
     empty: 'No jobs yet',
     emptyHint: 'Price refreshes and backfills started from the app show up here.',
-    /** Row action opening the events-card job filter. */
-    viewEvents: "Show this job's events",
-    viewEventsNamed: 'Show the events of the {type} job',
+    /** Row action opening the job detail panel (#226): `viewDetail` is the
+     *  labeled button on phones, `viewDetailNamed` the accessible name of the
+     *  icon button on larger screens. */
+    viewDetail: 'Details',
+    viewDetailNamed: 'Open the {type} job details',
+    /** Job detail panel: heading above the event list and empty-state title. */
+    detailEvents: '{count} events',
+    noEventsYet: 'No events for this job yet',
     loadFailed: 'Failed to load jobs',
   },
   /**

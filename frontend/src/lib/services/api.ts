@@ -606,6 +606,23 @@ export interface Job {
   summary?: { ok: number; failed: number }
 }
 
+/** One row of `GET /health/prices` (the Data & Sync event feed): a single
+ * monitored fetch/save. `job_id` links lifecycle/health rows back to the
+ * queue `Job` that emitted them (issue #195). */
+export interface HealthEvent {
+  id: string
+  asset_id: string
+  event_type: string
+  status: string
+  code: string
+  message: string
+  duration_ms: number
+  error_code: string
+  created_at: string
+  /** Set on lifecycle/health rows emitted by a queue job (issue #195). */
+  job_id?: string
+}
+
 export interface AuthResponse {
   user: User
   access_token: string

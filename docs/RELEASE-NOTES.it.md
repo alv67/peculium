@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Nuove funzionalità
+- In "Dati e sincronizzazione" un job ora apre i suoi eventi in un pannello laterale proprio accanto al job — stato, avanzamento, errore e le sue voci di registro, tutto leggibile senza scorrere la pagina o cercare nel flusso di attività globale
 - La pagina "Dati e sincronizzazione" ora mostra i job di sincronizzazione e il loro esito — in coda, in esecuzione, completati, parzialmente falliti o falliti — con avanzamento, la durata reale (non più sempre zero) e l'errore quando c'è, aggiornato automaticamente mentre qualcosa è in corso; un download lungo mostra la propria riga di inizio e fine con l'esito anche se supera il tempo a disposizione
 - Ogni download dello storico e ogni controllo degli split ora compare in "Dati e sincronizzazione", una voce per asset, sia che sia riuscito sia che sia fallito, così vedi esattamente quali asset sono stati aggiornati e quando
 - In "Dati e sincronizzazione" ogni job ora indica la propria destinazione — il ticker dell'asset o il nome del portafoglio — invece di un codice opaco
