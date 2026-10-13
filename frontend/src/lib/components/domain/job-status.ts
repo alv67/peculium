@@ -35,6 +35,7 @@ export function statusBadge(status: string): { variant: BadgeVariant; label: str
 export const JOB_TYPE_KEYS: Record<string, MessageKey> = {
   price_refresh: 'jobs.typePriceRefresh',
   history_backfill: 'jobs.typeHistoryBackfill',
+  asset_sync: 'jobs.typeAssetSync',
   meta_backfill: 'jobs.typeMetaBackfill',
   splits_fetch: 'jobs.typeSplitsFetch',
 }

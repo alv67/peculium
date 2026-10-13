@@ -538,15 +538,16 @@ export const en = {
     partialHint: 'Prices as of {time} — some updates failed or were rate-limited',
   },
   /**
-   * Admin price-sync health page (`/admin/health`, nav entry `nav.dataSync`).
-   * Table values fetched from the backend (`type`, `message`) are rendered
-   * verbatim; only the status badge is localised through the shared status map
-   * of `domain/job-status`, falling back to the raw value for unknown
-   * statuses. `N/A` and the `ms` duration unit are kept as technical terms.
+   * Admin Data & Sync page (`/admin/health`, nav entry `nav.dataSync`): the
+   * activity feed of sync jobs and external API calls. The event `type` and the
+   * `message` are rendered verbatim; job types and statuses go through the
+   * shared maps of `domain/job-status`, falling back to the raw value for
+   * unknown entries. `N/A` and the `ms` duration unit are kept as technical
+   * terms.
    */
   health: {
-    title: 'Price Sync Health',
-    subtitle: 'Monitoring Yahoo Finance API connectivity and performance',
+    title: 'Data & Sync',
+    subtitle: 'Sync jobs and external API activity',
     period24h: '24h',
     period7d: '7 days',
     periodAll: 'All',
@@ -609,6 +610,7 @@ export const en = {
     /** Job-type labels for the known backend values. */
     typePriceRefresh: 'Price refresh',
     typeHistoryBackfill: 'History backfill',
+    typeAssetSync: 'Asset sync',
     typeMetaBackfill: 'Metadata backfill',
     typeSplitsFetch: 'Splits fetch',
     /** Target-type labels. */

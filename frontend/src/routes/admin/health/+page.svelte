@@ -347,25 +347,27 @@
         <Table class="max-sm:block" aria-label={t('health.activity')}>
           <THead class="max-sm:hidden">
             <Tr>
-              <Th class="whitespace-nowrap">{t('health.colTimestamp')}</Th>
-              <Th>{t('common.colType')}</Th>
-              <Th>{t('jobs.colTarget')}</Th>
-              <Th>{t('positions.colStatus')}</Th>
-              <Th>{t('health.colMessage')}</Th>
+              <Th class="whitespace-nowrap sm:pr-4">{t('health.colTimestamp')}</Th>
+              <Th class="sm:pr-4">{t('common.colType')}</Th>
+              <Th class="sm:pr-4">{t('jobs.colTarget')}</Th>
+              <Th class="sm:pr-4">{t('positions.colStatus')}</Th>
+              <Th class="sm:pr-4">{t('health.colMessage')}</Th>
+              <!-- The last column gets no trailing padding: it keeps its right
+                   alignment against the card edge. -->
               <Th align="right">{t('health.colDuration')}</Th>
             </Tr>
           </THead>
           <TBody class="max-sm:block">
             {#each activity as item (item.id)}
               <Tr class="max-sm:grid max-sm:grid-cols-[auto_auto_1fr] max-sm:gap-x-2 max-sm:py-2">
-                <Td class="whitespace-nowrap text-muted-foreground max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-2">
+                <Td class="whitespace-nowrap text-muted-foreground sm:pr-4 max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-2">
                   <time datetime={item.at}>
                     <span class="max-sm:hidden">{new Date(item.at).toLocaleString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleDateString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleTimeString()}</span>
                   </time>
                 </Td>
-                <Td class="font-medium max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-1 max-sm:col-span-2 max-sm:row-start-1 max-sm:min-w-0">
+                <Td class="font-medium sm:pr-4 sm:whitespace-nowrap max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-1 max-sm:col-span-2 max-sm:row-start-1 max-sm:min-w-0">
                   {#if item.kind === 'job'}
                     <div class="flex items-center gap-1.5">
                       <Badge variant="outline">job</Badge>
@@ -373,7 +375,7 @@
                            never click-only); `h-8` keeps the touch target usable. -->
                       <Button
                         variant="link"
-                        class="h-8 max-sm:text-[11px]"
+                        class="h-8 max-sm:text-[11px] sm:whitespace-nowrap"
                         aria-label={t('jobs.viewDetailNamed', { type: labeled(JOB_TYPE_KEYS, item.type) })}
                         onclick={() => openJobDetail(item)}
                       >
@@ -391,7 +393,7 @@
                     </span>
                   {/if}
                 </Td>
-                <Td class="text-muted-foreground max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-1">
+                <Td class="text-muted-foreground sm:pr-4 max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-1">
                   {#if item.target_type === 'global'}
                     {t('jobs.targetGlobal')}
                   {:else}
@@ -406,7 +408,7 @@
                     {#if !item.target_type && !item.target_label}—{/if}
                   {/if}
                 </Td>
-                <Td class="max-sm:flex max-sm:min-w-0 max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-2">
+                <Td class="sm:pr-4 max-sm:flex max-sm:min-w-0 max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-2">
                   <!-- Durata stays visible on mobile: the first line of the
                        status section (the duration column itself is hidden). -->
                   <span class="hidden max-sm:inline max-sm:text-muted-foreground max-sm:tabular-nums">
@@ -419,7 +421,7 @@
                     {statusBadge(item.status).label}
                   </Badge>
                 </Td>
-                <Td class="max-w-md truncate text-muted-foreground max-sm:max-w-none max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-2" title={activityMessage(item)}>
+                <Td class="max-w-md truncate text-muted-foreground sm:pr-4 max-sm:max-w-none max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-2" title={activityMessage(item)}>
                   {activityMessage(item) || '—'}
                 </Td>
                 <Td align="right" class="text-muted-foreground tabular-nums max-sm:hidden">

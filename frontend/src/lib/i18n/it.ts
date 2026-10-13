@@ -504,15 +504,16 @@ export const it = {
     partialHint: 'Prezzi alle {time}: alcuni aggiornamenti non riusciti o limitati',
   },
   /**
-   * Pagina di stato sincronizzazione prezzi (`/admin/health`, voce di nav
-   * `nav.dataSync`). I valori backend (`type`, `message`) sono mostrati
-   * verbatim; solo il badge di stato è localizzato dalla mappa status→badge
-   * condivisa di `domain/job-status`, con fallback al valore grezzo. `N/A` e
-   * l'unità `ms` restano.
+   * Pagina admin Dati e sincronizzazione (`/admin/health`, voce di nav
+   * `nav.dataSync`): il flusso attività dei job di sincronizzazione e delle
+   * chiamate API esterne. Il `type` degli eventi e il `message` sono mostrati
+   * verbatim; i tipi job e gli stati passano dalle mappe condivise di
+   * `domain/job-status`, con fallback al valore grezzo. `N/A` e l'unità `ms`
+   * restano.
    */
   health: {
-    title: 'Stato sincronizzazione prezzi',
-    subtitle: "Monitoraggio di connettività e prestazioni dell'API Yahoo Finance",
+    title: 'Dati e sincronizzazione',
+    subtitle: 'Job di sincronizzazione e attività delle API esterne',
     period24h: '24h',
     period7d: '7 giorni',
     periodAll: 'Tutto',
@@ -576,6 +577,7 @@ export const it = {
     /** Etichette dei tipi job noti del backend. */
     typePriceRefresh: 'Aggiornamento prezzi',
     typeHistoryBackfill: 'Backfill storico',
+    typeAssetSync: 'Sincronizzazione asset',
     typeMetaBackfill: 'Backfill metadati',
     typeSplitsFetch: 'Recupero split',
     /** Etichette dei tipi di destinazione. */
