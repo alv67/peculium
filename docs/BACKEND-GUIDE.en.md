@@ -741,9 +741,18 @@ Asset **metadata** lookups are covered too: an `asset_meta` event per
 `GET /assets/meta` call and an `asset_profile` event per sector-exposure
 preview, each recording success or failure with a real duration, and metadata
 backfills write a `meta_backfill` row per asset on success as well as on
-failure. The events list (`GET /health/prices`) accepts optional `type` and
-`status` filters; the returned total and the pagination follow the filter,
-while the summary always spans the whole selected window.
+failure. The events list (`GET /health/prices`) accepts optional `type`,
+`status` and `job_id` filters; the returned total and the pagination follow the
+filter, while the summary always spans the whole selected window.
+
+The admin Data & Sync page reads a **unified activity feed**
+(`GET /health/activity`): every queue job plus the health events with no job
+(`job_id IS NULL` — the request-path calls: search, asset metadata/profile,
+ETF exposure). A job's own events are shown only inside that job's detail
+panel, which reads them back with `GET /health/prices?job_id=<id>`. The feed is
+sorted newest first on the job's start (`COALESCE(started_at, created_at)`) or
+the event's time, is paginated, and accepts the same optional `type`/`status`
+filters; `target_label` is resolved server-side exactly like the jobs list.
 
 `GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms`, a readable
 `target_label` (asset ticker / portfolio name, resolved in one batched query
