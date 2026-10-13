@@ -1611,7 +1611,11 @@ em-dash); a status badge (one shared status→badge map, also used by the filter
 and the detail panel, so `running` reads as accent instead of red); message (a
 job shows its error or the `processed`/`total` progress, an event its message —
 truncated with a `title` tooltip, no expansion); duration via
-`formatDuration`. A job row's type is a real `ui/Button variant="link"` (never
+`formatDuration`. Below `sm` the table collapses to a stacked three-column grid
+with two lines per cell (date · time, type · target, status badge with the
+duration beside it · message below), in a smaller font with tighter card
+padding and the header row hidden. A job row's type is a real
+`ui/Button variant="link"` (never
 a click-only row) that opens the **job detail panel**
 (`domain/JobDetailPanel.svelte`): the
 right-side `ui/Drawer` (40rem) at ≥ `lg`, the bottom `ui/Sheet` below — the
