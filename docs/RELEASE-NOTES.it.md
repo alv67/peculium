@@ -12,6 +12,8 @@
 - La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre è ancora in download vedi uno stato di caricamento invece di un grafico vuoto (aggiornato da solo), quando lo storico non c'è ancora hai un pulsante per scaricarlo, e quando è scaricato solo in parte una nota te lo segnala, con lo stesso pulsante per completarlo
 - La lista degli asset ora mostra l'ultimo close di ogni asset con la sua data, e la pagina dell'asset etichetta quella data come "dati al": dato che i mercati chiudono in orari diversi, l'ultimo valore di ogni asset può avere una data diversa, ed è normale
 - L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
+- "Dati e sincronizzazione" ora registra anche le chiamate ai metadati degli asset, così la lista di attività è un inventario completo delle chiamate esterne dell'app, e puoi filtrarla per tipo di chiamata ed esito — per esempio per vedere solo i fallimenti
+- In "Dati e sincronizzazione" le voci di esposizione ETF ora mostrano il ticker dell'asset accanto all'ISIN, così capisci a colpo d'occhio a quale asset si riferiscono
 
 ### Correzioni
 - L'ultimo prezzo e i rendimenti per periodo ora sono gli stessi su ogni installazione che aggiorna nello stesso momento, invece di risultare talvolta diversi

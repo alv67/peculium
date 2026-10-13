@@ -12,6 +12,8 @@
 - The asset page now shows the state of its price history: while it is still downloading you see a loading state instead of an empty chart (updated automatically), when there is no history yet you get a button to download it, and when the history is only partially downloaded a note tells you so, with the same button to complete it
 - The assets list now shows each asset's last close with its date, and the asset page labels that date as "data as of": since markets close at different times, each asset's latest value can be dated differently, and that is normal
 - The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
+- "Data & Sync" now also logs asset-metadata lookups, so the activity list is a complete inventory of the app's external calls, and you can filter it by call type and outcome — for example to see only the failures
+- In "Data & Sync" the ETF exposure entries now show the asset ticker next to the ISIN, so you can tell at a glance which asset they belong to
 
 ### Fixes
 - The latest price and the per-period returns are now the same on every installation that refreshes at the same time, instead of sometimes differing

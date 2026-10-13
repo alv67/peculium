@@ -27,13 +27,14 @@ func TestJustETFFetcherRecordsHealth(t *testing.T) {
 	f := NewJustETFFetcher(ts.URL, WithETFHealthRecorder(rec))
 	ctx := context.Background()
 
-	if _, err := f.FetchExposure(ctx, "IE00B4L5Y983"); err != nil {
+	if _, err := f.FetchExposure(ctx, "IE00B4L5Y983", "CSPX"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.SearchTicker(ctx, "spx"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.FetchExposure(ctx, "ZZZZ"); err == nil {
+	// Empty ticker: the label falls back to the bare ISIN.
+	if _, err := f.FetchExposure(ctx, "ZZZZ", ""); err == nil {
 		t.Fatal("expected a 404 failure")
 	}
 
@@ -41,7 +42,7 @@ func TestJustETFFetcherRecordsHealth(t *testing.T) {
 		t.Fatalf("events = %d, want 3: %+v", len(rec.events), rec.events)
 	}
 	ok, search, fail := rec.events[0], rec.events[1], rec.events[2]
-	if ok.EventType != "etf_exposure" || ok.Status != "success" || ok.Message != "IE00B4L5Y983" {
+	if ok.EventType != "etf_exposure" || ok.Status != "success" || ok.Message != "CSPX (IE00B4L5Y983)" {
 		t.Fatalf("success event = %+v", ok)
 	}
 	if search.EventType != "etf_search" || search.Status != "success" {
@@ -63,7 +64,7 @@ func TestJustETFRecorderOptional(t *testing.T) {
 
 	// No WithETFHealthRecorder: calls work and nothing panics.
 	f := NewJustETFFetcher(ts.URL)
-	if _, err := f.FetchExposure(context.Background(), "IE00B4L5Y983"); err != nil {
+	if _, err := f.FetchExposure(context.Background(), "IE00B4L5Y983", "CSPX"); err != nil {
 		t.Fatal(err)
 	}
 }

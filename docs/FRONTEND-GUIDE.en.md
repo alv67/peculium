@@ -1604,7 +1604,10 @@ full-width sub-row shows the error for `failed`/`partial`. Empty state offers a
 are derived server-side (no column).
 
 **Recent events** (bottom): `api.get('/health/prices?period=today|24h|100')`
-(the period selector scopes the summary only). 4 summary tiles (Success Rate,
+(the period selector scopes the summary only; two `ui/Select` controls
+additionally filter the list server-side by **type** and **status** — empty
+means all — and changing either returns to the first page, with the quoted total
+following the filter). 4 summary tiles (Success Rate,
 Total Successes, Total Failures, Rate Limited — the summary excludes the job
 lifecycle rows) and a paginated table of the events (timestamp, type, status
 badge, code, message, duration; page size 50). Queue-lifecycle rows

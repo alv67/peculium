@@ -595,6 +595,8 @@ export const en = {
     jobFilterCap: 'Filtered from the newest {limit} events',
     jobFilterNone: 'No events for this job among the newest {limit}',
     filterByJob: "Show only this job's events",
+    /** "All" option of the server-side Type/Status event filters (#91). */
+    filterAll: 'All',
   },
   /**
    * Sync-jobs card on `/admin/health` (issue #195 Phase 4): the 25 most

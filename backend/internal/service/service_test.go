@@ -277,6 +277,13 @@ type fakeYahooFetcher struct {
 	sector   string
 	industry string
 	country  string
+	// meta/metaErr drive the FetchMeta seam and profileExtendedErr drives the
+	// FetchAssetProfileExtended one, so the health-coverage tests can force a
+	// provider success or failure. All nil defaults keep the previous inert
+	// behaviour.
+	meta               *price.AssetMeta
+	metaErr            error
+	profileExtendedErr error
 	// weightings is what the provider reports as sectorWeightings; gotISIN
 	// style counters record the calls so tests can assert the fetch ran.
 	weightings           []model.ExposureRow
@@ -295,10 +302,10 @@ func (f *fakeYahooFetcher) FetchAssetProfile(ctx context.Context, ticker string)
 }
 func (f *fakeYahooFetcher) FetchAssetProfileExtended(ctx context.Context, ticker string) (string, string, string, []model.ExposureRow, error) {
 	f.profileExtendedCalls++
-	return f.sector, f.industry, f.country, f.weightings, nil
+	return f.sector, f.industry, f.country, f.weightings, f.profileExtendedErr
 }
 func (f *fakeYahooFetcher) FetchMeta(ctx context.Context, ticker string) (*price.AssetMeta, error) {
-	return nil, nil
+	return f.meta, f.metaErr
 }
 func (f *fakeYahooFetcher) FetchFXRate(ctx context.Context, quote string) (decimal.Decimal, error) {
 	return decimal.Zero, nil
@@ -332,23 +339,27 @@ func (f *fakeYahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Ass
 // *Calls counters record how often the provider was actually reached, which
 // lets the cache tests verify that a hit skips the fetch entirely.
 type fakeETFFetcher struct {
-	exposure        *model.AssetExposure
-	morningstar     *model.AssetExposure
-	search          []price.EtfSearchResult
-	exposureISIN    string
-	morningstarISIN string
-	searchTicker    string
-	exposureCalls   int
-	morningstarCall int
+	exposure          *model.AssetExposure
+	morningstar       *model.AssetExposure
+	search            []price.EtfSearchResult
+	exposureISIN      string
+	morningstarISIN   string
+	exposureTicker    string
+	morningstarTicker string
+	searchTicker      string
+	exposureCalls     int
+	morningstarCall   int
 }
 
-func (f *fakeETFFetcher) FetchExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
 	f.exposureISIN = isin
+	f.exposureTicker = ticker
 	f.exposureCalls++
 	return f.exposure, nil
 }
-func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
 	f.morningstarISIN = isin
+	f.morningstarTicker = ticker
 	f.morningstarCall++
 	return f.morningstar, nil
 }

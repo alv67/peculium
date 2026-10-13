@@ -872,10 +872,13 @@ func (s *Service) FetchAssetExposure(ctx context.Context, id uuid.UUID) (*model.
 		return nil, err
 	}
 
+	start := time.Now()
 	sector, _, _, weightings, err := s.fetcher.FetchAssetProfileExtended(ctx, asset.Ticker)
 	if err != nil {
+		s.recordHealth(ctx, &id, "asset_profile", "failure", "error", asset.Ticker+": profile fetch failed: "+err.Error(), start)
 		return nil, err
 	}
+	s.recordHealth(ctx, &id, "asset_profile", "success", "", asset.Ticker+": profile fetched", start)
 
 	sectors := make([]model.ExposureRow, 0, len(weightings))
 	for _, w := range weightings {
@@ -940,7 +943,7 @@ func (s *Service) FetchETFExposure(ctx context.Context, id uuid.UUID, refresh bo
 		raw, _ = s.getCachedExposure(ctx, "justetf", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchExposure(ctx, asset.ISIN)
+		raw, err = s.etfFetcher.FetchExposure(ctx, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}
@@ -1177,7 +1180,7 @@ func (s *Service) FetchMorningstarExposure(ctx context.Context, id uuid.UUID, re
 		raw, _ = s.getCachedExposure(ctx, "morningstar", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, asset.ISIN)
+		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}
@@ -1225,10 +1228,13 @@ func (s *Service) GetAssetMeta(ctx context.Context, ticker string) (*price.Asset
 		}
 	}
 
+	start := time.Now()
 	meta, err := s.fetcher.FetchMeta(ctx, ticker)
 	if err != nil {
+		s.recordHealth(ctx, nil, "asset_meta", "failure", "error", ticker+": meta fetch failed: "+err.Error(), start)
 		return nil, err
 	}
+	s.recordHealth(ctx, nil, "asset_meta", "success", "", ticker+": meta fetched", start)
 
 	if data, err := json.Marshal(meta); err == nil {
 		if err := s.repos.Lookup.Set(ctx, key, data, s.lookupCacheTTL); err != nil {
@@ -2723,10 +2729,9 @@ func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed
 		if progress != nil {
 			progress(i+1, len(assets))
 		}
-		// Per-asset failures are the only health signal for meta backfills
-		// (the profile fetcher logs nothing itself): job id rides on the
-		// context, successes are summarised by the runner's terminal job
-		// event, so only failures get a row.
+		// Per-asset outcomes are the only health signal for meta backfills
+		// (the profile fetcher logs nothing itself): the job id rides on the
+		// context, so every asset gets one row, success or failure.
 		start := time.Now()
 		sector, industry, country, err := s.fetcher.FetchAssetProfile(ctx, a.Ticker)
 		if err != nil {
@@ -2735,6 +2740,7 @@ func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed
 			s.recordHealth(ctx, &a.ID, "meta_backfill", "failure", "error", fmt.Sprintf("%s: profile fetch failed: %v", a.Ticker, err), start)
 			continue
 		}
+		s.recordHealth(ctx, &a.ID, "meta_backfill", "success", "", a.Ticker+": profile fetched", start)
 
 		changed := false
 

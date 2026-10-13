@@ -244,7 +244,7 @@ The migrations (`backend/migrations/`, files numbered from `000001` to
 | `lookup_cache` | the ticker-search cache | results already downloaded from Yahoo for autocomplete |
 | `portfolio_series` | per-portfolio series | portfolio value and cost for each day |
 | `asset_series` | per-security series | value and cost of each security for each day |
-| `health_events` | the price-health events | records of stale/failed price updates on the health page |
+| `health_events` | the health events | records of every external call (price updates, metadata, provider fetches) shown on the Data & Sync page |
 | `server_settings` | the server options | a single row: registration auto-approval (chapter 14) |
 
 Two fundamental ideas about the database:
@@ -736,6 +736,14 @@ operation (count + first error), never one row per date. A **successful**
 history backfill and split check each record one success row per asset (with
 the bar/split count), so the page lists every backfill call, not just the
 failures; assets skipped by cooldown or already up to date leave no row.
+
+Asset **metadata** lookups are covered too: an `asset_meta` event per
+`GET /assets/meta` call and an `asset_profile` event per sector-exposure
+preview, each recording success or failure with a real duration, and metadata
+backfills write a `meta_backfill` row per asset on success as well as on
+failure. The events list (`GET /health/prices`) accepts optional `type` and
+`status` filters; the returned total and the pagination follow the filter,
+while the summary always spans the whole selected window.
 
 `GET /jobs/{id}` (and `GET /jobs`) expose the derived `duration_ms`, a readable
 `target_label` (asset ticker / portfolio name, resolved in one batched query

@@ -237,7 +237,7 @@ costruiscono lo schema. Le tabelle principali:
 | `lookup_cache` | la cache del cerca-titolo | risultati già scaricati da Yahoo per la ricerca automatica |
 | `portfolio_series` | serie per portafoglio | valore e costo del portafoglio per ogni giorno |
 | `asset_series` | serie per titolo | valore e costo di ogni titolo per ogni giorno |
-| `health_events` | gli eventi di health dei prezzi | registrazioni di aggiornamenti prezzi vecchi/falliti nella pagina health |
+| `health_events` | gli eventi di health | registrazioni di ogni chiamata esterna (aggiornamenti prezzi, metadati, fetch dei provider) mostrate nella pagina "Dati e sincronizzazione" |
 | `server_settings` | le opzioni del server | una sola riga: auto-approvazione delle registrazioni (capitolo 14) |
 
 Due idee fondamentali del database:
@@ -750,6 +750,14 @@ primo errore), mai una riga per data. Un backfill storico e un controllo split
 **riusciti** registrano ciascuno una riga di successo per asset (col numero di
 barre/split), così la pagina elenca ogni chiamata di backfill, non solo i
 fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
+
+Anche le **chiamate ai metadati** sono coperte: un evento `asset_meta` per ogni
+`GET /assets/meta` e un evento `asset_profile` per l'anteprima dell'esposizione
+settoriale, ciascuno con esito e durata reale, e i backfill dei metadati
+scrivono una riga `meta_backfill` per asset sia in caso di successo sia di
+fallimento. La lista degli eventi (`GET /health/prices`) accetta i filtri
+opzionali `type` e `status`; il totale restituito e la paginazione seguono il
+filtro, mentre il riepilogo copre sempre l'intera finestra selezionata.
 
 `GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato, una
 `target_label` leggibile (ticker dell'asset / nome del portafoglio, risolta con

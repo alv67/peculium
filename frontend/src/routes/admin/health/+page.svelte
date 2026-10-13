@@ -13,6 +13,7 @@
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import EmptyState from '$lib/components/ui/EmptyState.svelte'
   import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
   import Table from '$lib/components/ui/Table.svelte'
@@ -61,6 +62,37 @@
 
   let period = $state('today')
   let offset = $state(0)
+  /** Server-side event filters (`''` = "All", omitted from the query). */
+  let filterType = $state('')
+  let filterStatus = $state('')
+  // shortcut: hard-coded list of backend event types; move to a
+  // server-provided distinct list if it ever drifts.
+  const EVENT_TYPES = [
+    'price_refresh',
+    'fx_fetch',
+    'fx_history_fetch',
+    'fx_history_save',
+    'history_fetch',
+    'history_save',
+    'history_backfill',
+    'split_fetch',
+    'split_save',
+    'search',
+    'asset_meta',
+    'asset_profile',
+    'meta_backfill',
+    'etf_exposure',
+    'etf_morningstar_exposure',
+    'etf_search',
+  ]
+  // `$derived` so a locale switch live-updates the option labels; values are
+  // the exact `status` strings accepted by the health query.
+  const STATUS_OPTIONS = $derived([
+    { value: 'success', label: t('health.statusSuccess') },
+    { value: 'failure', label: t('health.statusFailure') },
+    { value: 'running', label: t('health.statusRunning') },
+    { value: 'partial', label: t('health.statusPartial') },
+  ])
   let summary = $state<HealthSummary | null>(null)
   let events = $state<HealthEvent[]>([])
   let eventsTotal = $state(0)
@@ -100,9 +132,10 @@
     try {
       const limit = selectedJob ? JOB_FILTER_LIMIT : PAGE_SIZE
       const off = selectedJob ? 0 : offset
-      const data = (await api.get(
-        `/health/prices?period=${period}&limit=${limit}&offset=${off}`,
-      )) as {
+      let url = `/health/prices?period=${period}&limit=${limit}&offset=${off}`
+      if (filterType) url += `&type=${filterType}`
+      if (filterStatus) url += `&status=${filterStatus}`
+      const data = (await api.get(url)) as {
         summary: HealthSummary
         events: HealthEvent[]
         events_total: number
@@ -490,6 +523,28 @@
             </Button>
           </div>
         {/if}
+      </div>
+      <!-- Server-side event filters (#91): changing either resets the
+           pagination window; the tracked fetchHealth effect refetches. -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 pt-4">
+        <label class="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('common.colType')}
+          <Select bind:value={filterType} onchange={() => (offset = 0)} class="w-40">
+            <option value="">{t('health.filterAll')}</option>
+            {#each EVENT_TYPES as et (et)}
+              <option value={et}>{et}</option>
+            {/each}
+          </Select>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('positions.colStatus')}
+          <Select bind:value={filterStatus} onchange={() => (offset = 0)} class="w-32">
+            <option value="">{t('health.filterAll')}</option>
+            {#each STATUS_OPTIONS as opt (opt.value)}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
+          </Select>
+        </label>
       </div>
       <div class="overflow-x-auto px-6 pb-4">
         {#if selectedJob && visibleEvents.length === 0}

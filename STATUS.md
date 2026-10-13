@@ -131,11 +131,6 @@ European assets on Yahoo use an exchange suffix (e.g. `VWCE.DE`, `VWCE.AS`). The
 know the correct ticker; this should be documented or the autocomplete should offer an
 exchange selector.
 
-### Health events coverage and retention
-
-Health events do not yet cover every external call (meta/profile, JustETF/Morningstar,
-successes) and there is no retention policy for the `health_events` table.
-
 ## Not yet implemented
 
 - **EPIC J — new asset classes** (#113): manual price entry (J.1 #105), fixed-income
