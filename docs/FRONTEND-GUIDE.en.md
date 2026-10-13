@@ -1611,10 +1611,12 @@ em-dash); a status badge (one shared status→badge map, also used by the filter
 and the detail panel, so `running` reads as accent instead of red); message (a
 job shows its error or the `processed`/`total` progress, an event its message —
 truncated with a `title` tooltip, no expansion); duration via
-`formatDuration`. Below `sm` the table collapses to a stacked three-column grid
-with two lines per cell (date · time, type · target, status badge with the
-duration beside it · message below), in a smaller font with tighter card
-padding and the header row hidden. A job row's type is a real
+`formatDuration`. Below `sm` the summary tiles sit in a 2×2 grid and the table
+collapses to a stacked three-column grid whose first column is only as wide as
+the date needs (auto), with two lines per cell (date · time with the job badge
+under it, type · target, status badge with the duration beside it · message
+below), in a smaller font with much tighter card padding and the header row
+hidden. A job row's type is a real
 `ui/Button variant="link"` (never
 a click-only row) that opens the **job detail panel**
 (`domain/JobDetailPanel.svelte`): the

@@ -250,7 +250,7 @@
   }
 </script>
 
-<div class="mx-auto max-w-6xl p-6">
+<div class="mx-auto max-w-6xl p-3 sm:p-6">
   <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold text-foreground">{t('health.title')}</h1>
@@ -276,7 +276,7 @@
     </div>
   {:else}
     <div class="overflow-hidden rounded-card border border-border bg-surface shadow-card">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-3 py-4 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-2 py-4 sm:px-6">
         <div class="flex items-center gap-2">
           <h2 class="font-semibold text-foreground">{t('health.activity')}</h2>
           {#if hasOpenJob}
@@ -290,7 +290,7 @@
              feed below, so the numbers always match the listed rows. -->
         <SegmentedControl items={periodItems} bind:value={getPeriod, setPeriod} ariaLabel={t('health.periodAria')} />
       </div>
-      <div class="grid grid-cols-1 gap-4 px-3 pt-4 sm:px-6 md:grid-cols-4">
+      <div class="grid grid-cols-1 gap-4 px-2 pt-4 sm:px-6 md:grid-cols-4 max-sm:grid-cols-2 max-sm:gap-2">
         <StatCard
           label={t('health.successRate')}
           value={noData ? 'N/A' : formatRate(summary.success_rate)}
@@ -317,7 +317,7 @@
       <!-- Server-side activity filters: the feed shows every job plus the
            events not tied to one; changing either filter resets to page one
            and the tracked fetchActivity effect refetches. -->
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-3 pt-4 sm:px-6">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-2 pt-4 sm:px-6">
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           {t('common.colType')}
           <Select bind:value={filterType} onchange={() => (offset = 0)} class="w-40">
@@ -337,12 +337,13 @@
           </Select>
         </label>
       </div>
-      <div class="overflow-x-auto px-3 pb-4 sm:px-6">
+      <div class="overflow-x-auto px-1.5 pb-4 sm:px-6">
         <!-- Mobile (< sm): the 6-column table collapses to a 3-column grid
-             with 2 stacked lines per cell (date/time · type/target · status/
-             message). The six Td cells keep their desktop markup and are
-             re-placed with col-start/row-start; duration joins the status
-             line via a mobile-only span and the duration column hides. -->
+             (auto-sized date column) with 2 stacked lines per cell (date/time
+             + job badge · type/target · status/message). The six Td cells keep
+             their desktop markup and are re-placed with col-start/row-start;
+             duration joins the status line via a mobile-only span and the
+             duration column hides. -->
         <Table class="max-sm:block" aria-label={t('health.activity')}>
           <THead class="max-sm:hidden">
             <Tr>
@@ -356,23 +357,28 @@
           </THead>
           <TBody class="max-sm:block">
             {#each activity as item (item.id)}
-              <Tr class="max-sm:grid max-sm:grid-cols-3 max-sm:gap-x-2 max-sm:py-2">
+              <Tr class="max-sm:grid max-sm:grid-cols-[auto_1fr_1fr] max-sm:gap-x-2 max-sm:py-2">
                 <Td class="whitespace-nowrap text-muted-foreground max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-1 max-sm:row-span-2">
                   <time datetime={item.at}>
                     <span class="max-sm:hidden">{new Date(item.at).toLocaleString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleDateString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleTimeString()}</span>
                   </time>
+                  <!-- The job badge reads better under the date/time than beside
+                       the type: duplicated here, hidden in the type cell. -->
+                  {#if item.kind === 'job'}
+                    <Badge variant="outline" class="mt-1 hidden max-sm:inline-flex">job</Badge>
+                  {/if}
                 </Td>
-                <Td class="font-medium max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-1">
+                <Td class="font-medium max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-2 max-sm:row-start-1">
                   {#if item.kind === 'job'}
                     <div class="flex items-center gap-1.5">
-                      <Badge variant="outline">job</Badge>
+                      <Badge variant="outline" class="max-sm:hidden">job</Badge>
                       <!-- The real <button> is the job-row affordance (rows are
                            never click-only); `h-8` keeps the touch target usable. -->
                       <Button
                         variant="link"
-                        class="h-8"
+                        class="h-8 max-sm:text-[11px]"
                         aria-label={t('jobs.viewDetailNamed', { type: labeled(JOB_TYPE_KEYS, item.type) })}
                         onclick={() => openJobDetail(item)}
                       >
@@ -423,7 +429,7 @@
           </TBody>
         </Table>
       </div>
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-4 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-2 py-4 sm:px-6">
         <span class="text-sm text-muted-foreground tabular-nums">{rangeLabel}</span>
         <div class="flex items-center gap-2">
           <Button

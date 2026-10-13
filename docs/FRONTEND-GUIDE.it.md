@@ -1694,9 +1694,11 @@ mappa stato→badge unica, usata anche dai filtri e dal pannello di dettaglio,
 quindi `running` esce in accent e non rosso); messaggio (un job mostra il suo
 errore o l'avanzamento `processed`/`total`, un evento il suo messaggio —
 troncato con tooltip `title`, senza espansione); durata via `formatDuration`.
-Sotto `sm` la tabella si collassa in una griglia impilata a tre colonne con due
-righe per cella (data · ora, tipo · destinazione, badge di stato con la durata
-accanto · messaggio sotto), con carattere più piccolo, padding della card più
+Sotto `sm` le tile di riepilogo si dispongono in una griglia 2×2 e la tabella
+si collassa in una griglia impilata a tre colonne la cui prima colonna è larga
+quanto serve alla data (auto), con due righe per cella (data · ora con il badge
+del job sotto, tipo · destinazione, badge di stato con la durata accanto ·
+messaggio sotto), con carattere più piccolo, padding della card molto più
 stretto e riga di intestazione nascosta.
 Il tipo di una riga job è un vero `ui/Button variant="link"` (mai righe solo
 cliccabili) che apre il **pannello di dettaglio del job**
