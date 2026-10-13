@@ -4,8 +4,8 @@
 
 | Service | Stack | Notes |
 |---------|-------|-------|
-| Backend | Go 1.25 + Chi + pgx + golang-migrate | Containerised |
-| Frontend | SvelteKit 5 + TypeScript + Tailwind + ECharts | Containerised (nginx) |
+| Backend | Go 1.27 + Chi + pgx + golang-migrate | Containerised |
+| Frontend | SvelteKit (Svelte 5) + TypeScript + Tailwind + ECharts | Containerised (nginx) |
 | Database | PostgreSQL 16 | With a Docker volume |
 | Cache | Redis 7 | Dashboard/series caching, Yahoo rate limiting |
 | Worker | Go (prices) | Separate container |

@@ -19,7 +19,7 @@ allocazione, prezzi).
 
 Alcuni fatti sullo stato attuale:
 
-- **Tecnologia**: SvelteKit 5 (Svelte 5 "rune"), TypeScript, Tailwind CSS e
+- **Tecnologia**: SvelteKit (Svelte 5 "rune"), TypeScript, Tailwind CSS e
   **ECharts** per i grafici.
 - **Modello di esecuzione**: una **SPA lato client** ("single page
   application"): il server invia un guscio statico e tutto il rendering avviene

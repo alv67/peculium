@@ -9,8 +9,8 @@ and personal finances.
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
-| **Backend** | Go 1.25 (with Chi) | Performance, single binary, minimal container — ideal for a homelab |
-| **Frontend** | SvelteKit 2 + Svelte 5 + TypeScript + Vite | Modern SPA, runes API, file-based routing |
+| **Backend** | Go 1.27 (with Chi) | Performance, single binary, minimal container — ideal for a homelab |
+| **Frontend** | SvelteKit (Svelte 5) + TypeScript + Vite | Modern SPA, runes API, file-based routing |
 | **Database** | PostgreSQL 16 | Relational financial data, CTEs for statistics |
 | **Cache/Jobs** | Redis 7 | Yahoo rate limiting, price caching |
 | **Container** | Docker/Podman + Compose | Homelab standard |

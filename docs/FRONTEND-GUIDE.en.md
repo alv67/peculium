@@ -18,7 +18,7 @@ portfolios, records transactions, adds securities and looks at charts
 
 A few facts about the current state:
 
-- **Technology**: SvelteKit 5 (Svelte 5 "runes"), TypeScript, Tailwind CSS and
+- **Technology**: SvelteKit (Svelte 5 "runes"), TypeScript, Tailwind CSS and
   **ECharts** for the charts.
 - **Runtime model**: a **client-side SPA** ("single page application"): the
   server sends a static shell and all rendering happens in the browser, which
