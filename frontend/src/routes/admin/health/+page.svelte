@@ -338,12 +338,12 @@
         </label>
       </div>
       <div class="overflow-x-auto px-1.5 pb-4 sm:px-6">
-        <!-- Mobile (< sm): the 6-column table collapses to a 3-column grid
-             (auto-sized date column) with 2 stacked lines per cell (date/time
-             + job badge · type/target · status/message). The six Td cells keep
-             their desktop markup and are re-placed with col-start/row-start;
-             duration joins the status line via a mobile-only span and the
-             duration column hides. -->
+        <!-- Mobile (< sm): the 6-column table collapses to a two-line grid
+             row — line 1 = job badge + type + "- " + destination, line 2 =
+             date/time | duration/status | truncated message. The six Td cells
+             keep their desktop markup and are re-placed with col-start/
+             row-start; duration joins the status cell (duration first, badge
+             second) and the duration column hides. -->
         <Table class="max-sm:block" aria-label={t('health.activity')}>
           <THead class="max-sm:hidden">
             <Tr>
@@ -357,23 +357,18 @@
           </THead>
           <TBody class="max-sm:block">
             {#each activity as item (item.id)}
-              <Tr class="max-sm:grid max-sm:grid-cols-[auto_1fr_1fr] max-sm:gap-x-2 max-sm:py-2">
-                <Td class="whitespace-nowrap text-muted-foreground max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-1 max-sm:row-span-2">
+              <Tr class="max-sm:grid max-sm:grid-cols-[auto_auto_1fr] max-sm:gap-x-2 max-sm:py-2">
+                <Td class="whitespace-nowrap text-muted-foreground max-sm:whitespace-normal max-sm:py-0.5 max-sm:text-xs max-sm:col-start-1 max-sm:row-start-2">
                   <time datetime={item.at}>
                     <span class="max-sm:hidden">{new Date(item.at).toLocaleString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleDateString()}</span>
                     <span class="hidden max-sm:block">{new Date(item.at).toLocaleTimeString()}</span>
                   </time>
-                  <!-- The job badge reads better under the date/time than beside
-                       the type: duplicated here, hidden in the type cell. -->
-                  {#if item.kind === 'job'}
-                    <Badge variant="outline" class="mt-1 hidden max-sm:inline-flex">job</Badge>
-                  {/if}
                 </Td>
-                <Td class="font-medium max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-2 max-sm:row-start-1">
+                <Td class="font-medium max-sm:py-0.5 max-sm:text-[11px] max-sm:col-start-1 max-sm:col-span-2 max-sm:row-start-1 max-sm:min-w-0">
                   {#if item.kind === 'job'}
                     <div class="flex items-center gap-1.5">
-                      <Badge variant="outline" class="max-sm:hidden">job</Badge>
+                      <Badge variant="outline">job</Badge>
                       <!-- The real <button> is the job-row affordance (rows are
                            never click-only); `h-8` keeps the touch target usable. -->
                       <Button
@@ -385,12 +380,18 @@
                         {labeled(JOB_TYPE_KEYS, item.type)}
                         <ChevronRight class="h-3.5 w-3.5" aria-hidden="true" />
                       </Button>
+                      <!-- Line 1 reads "type - destination": the separator is
+                           mobile-only, the destination lives in its own cell. -->
+                      <span aria-hidden="true" class="hidden max-sm:inline">-</span>
                     </div>
                   {:else}
-                    {item.type}
+                    <span class="max-sm:flex max-sm:items-center max-sm:gap-1.5">
+                      {item.type}
+                      <span aria-hidden="true" class="hidden max-sm:inline">-</span>
+                    </span>
                   {/if}
                 </Td>
-                <Td class="text-muted-foreground max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-2">
+                <Td class="text-muted-foreground max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-1">
                   {#if item.target_type === 'global'}
                     {t('jobs.targetGlobal')}
                   {:else}
@@ -405,18 +406,18 @@
                     {#if !item.target_type && !item.target_label}—{/if}
                   {/if}
                 </Td>
-                <Td class="max-sm:flex max-sm:min-w-0 max-sm:items-center max-sm:justify-between max-sm:gap-2 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-1">
+                <Td class="max-sm:flex max-sm:min-w-0 max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-2 max-sm:row-start-2">
+                  <!-- Durata stays visible on mobile: the first line of the
+                       status section (the duration column itself is hidden). -->
+                  <span class="hidden max-sm:inline max-sm:text-muted-foreground max-sm:tabular-nums">
+                    {formatDuration(item.duration_ms)}
+                  </span>
                   <Badge variant={statusBadge(item.status).variant}>
                     {#if item.status === 'running'}
                       <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true"></span>
                     {/if}
                     {statusBadge(item.status).label}
                   </Badge>
-                  <!-- Durata stays visible on mobile: right-aligned next to
-                       the badge (the duration column itself is hidden). -->
-                  <span class="hidden max-sm:inline max-sm:text-muted-foreground max-sm:tabular-nums">
-                    {formatDuration(item.duration_ms)}
-                  </span>
                 </Td>
                 <Td class="max-w-md truncate text-muted-foreground max-sm:max-w-none max-sm:min-w-0 max-sm:py-0.5 max-sm:text-xs max-sm:col-start-3 max-sm:row-start-2" title={activityMessage(item)}>
                   {activityMessage(item) || '—'}
