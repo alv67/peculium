@@ -16,9 +16,9 @@ financial portfolio — all from your own infrastructure.
 [![Stars](https://img.shields.io/github/stars/alv67/peculium?style=flat-square&label=stars)](https://github.com/alv67/peculium/stargazers)
 [![Container images](https://img.shields.io/badge/ghcr.io-peculium-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/alv67/peculium/pkgs/container/peculium-backend)
 
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev)
-[![Python](https://img.shields.io/badge/Python-3-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
+[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev)
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io)
 [![Docker & Podman](https://img.shields.io/badge/Docker%20%26%20Podman-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
@@ -66,9 +66,9 @@ aggregated in your base currency.*
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Go 1.25, Chi router, pgx (PostgreSQL), golang-migrate |
-| Frontend | SvelteKit 5, TypeScript, Tailwind CSS, ECharts |
-| ETF metadata | Python microservice (FastAPI, requests, BeautifulSoup) — JustETF scraping |
+| Backend | Go 1.27, Chi router, pgx (PostgreSQL), golang-migrate |
+| Frontend | SvelteKit (Svelte 5), TypeScript, Tailwind CSS, ECharts |
+| ETF metadata | Python 3.14 microservice (FastAPI, requests, BeautifulSoup) — JustETF scraping |
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 |
 | Container | Docker / Podman + Compose |
