@@ -22,10 +22,12 @@ import (
 )
 
 // ETFFetcher resolves the geographic and sector exposure of an ETF from its ISIN
-// and can look up an ETF ISIN from a ticker through the python-service.
+// and can look up an ETF ISIN from a ticker through the python-service. The
+// exposure calls carry the asset id so the recorded health event points back at
+// the asset the destination ticker belongs to.
 type ETFFetcher interface {
-	FetchExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error)
-	FetchMorningstarExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error)
+	FetchExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error)
+	FetchMorningstarExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error)
 	SearchTicker(ctx context.Context, query string) ([]EtfSearchResult, error)
 }
 
@@ -61,7 +63,8 @@ const (
 // duration measured from since (which spans the whole retry sequence). No-op
 // without a recorder and never fails the call: health tracking must not
 // break exposure fetching. Job attribution rides on the context via the
-// HealthService chokepoint.
+// HealthService chokepoint. assetID is uuid.Nil for calls that belong to no
+// asset (the ticker search).
 // etfTargetLabel builds the health-log label of a python-service call: the
 // asset ticker (when known) plus the ISIN, so an event can be traced back to an
 // asset from the Data & Sync page. Falls back to the bare ISIN without a
@@ -73,7 +76,7 @@ func etfTargetLabel(ticker, isin string) string {
 	return fmt.Sprintf("%s (%s)", ticker, isin)
 }
 
-func (f *JustETFFetcher) recordOutcome(ctx context.Context, eventType, target string, err error, since time.Time) {
+func (f *JustETFFetcher) recordOutcome(ctx context.Context, eventType, target string, assetID uuid.UUID, err error, since time.Time) {
 	if f.health == nil {
 		return
 	}
@@ -89,6 +92,9 @@ func (f *JustETFFetcher) recordOutcome(ctx context.Context, eventType, target st
 		Message:    message,
 		DurationMs: int(time.Since(since).Milliseconds()),
 		CreatedAt:  time.Now().UTC(),
+	}
+	if assetID != uuid.Nil {
+		ev.AssetID = &assetID
 	}
 	if err := f.health.RecordEvent(ctx, ev); err != nil {
 		log.Warn().Err(err).Str("event_type", eventType).Msg("failed to record health event")
@@ -141,21 +147,21 @@ func NewJustETFFetcher(baseURL string, opts ...ETFFetcherOption) *JustETFFetcher
 // FetchExposure calls the python-service exposure endpoint for an ISIN. Non-2xx
 // responses are returned without retrying; network/timeout failures are retried
 // up to etfMaxRetries times with a small backoff.
-func (f *JustETFFetcher) FetchExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
+func (f *JustETFFetcher) FetchExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	url := fmt.Sprintf("%s/api/v1/etf/%s/exposure", f.baseURL, isin)
 	start := time.Now()
 	exposure, err := f.fetchPath(ctx, url, isin)
-	f.recordOutcome(ctx, "etf_exposure", etfTargetLabel(ticker, isin), err, start)
+	f.recordOutcome(ctx, "etf_exposure", etfTargetLabel(ticker, isin), assetID, err, start)
 	return exposure, err
 }
 
 // FetchMorningstarExposure calls the python-service Morningstar exposure
 // endpoint for an ISIN, using the same retry pattern as FetchExposure.
-func (f *JustETFFetcher) FetchMorningstarExposure(ctx context.Context, isin, ticker string) (*model.AssetExposure, error) {
+func (f *JustETFFetcher) FetchMorningstarExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	url := fmt.Sprintf("%s/api/v1/etf/%s/morningstar-exposure", f.baseURL, isin)
 	start := time.Now()
 	exposure, err := f.fetchPath(ctx, url, isin)
-	f.recordOutcome(ctx, "etf_morningstar_exposure", etfTargetLabel(ticker, isin), err, start)
+	f.recordOutcome(ctx, "etf_morningstar_exposure", etfTargetLabel(ticker, isin), assetID, err, start)
 	return exposure, err
 }
 
@@ -230,7 +236,7 @@ func statusMessage(status int, body []byte) string {
 func (f *JustETFFetcher) SearchTicker(ctx context.Context, query string) ([]EtfSearchResult, error) {
 	start := time.Now()
 	results, err := f.searchTicker(ctx, query)
-	f.recordOutcome(ctx, "etf_search", query, err, start)
+	f.recordOutcome(ctx, "etf_search", query, uuid.Nil, err, start)
 	return results, err
 }
 

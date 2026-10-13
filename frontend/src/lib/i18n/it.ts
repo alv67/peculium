@@ -29,7 +29,7 @@ export const it = {
     colValue: 'Valore',
     colTotal: 'Totale',
     colActions: 'Azioni',
-    /** Etichetta Code condivisa tra form/tabella valute e tabella eventi health. */
+    /** Etichetta Code del form e della tabella valute. */
     colCode: 'Codice',
     /** Pulsanti del piè di pagina di paginazione della tabella transazioni. */
     previous: 'Precedente',
@@ -505,9 +505,10 @@ export const it = {
   },
   /**
    * Pagina di stato sincronizzazione prezzi (`/admin/health`, voce di nav
-   * `nav.dataSync`). I valori backend (`event_type`, `code`, `message`) sono
-   * mostrati verbatim; solo il badge di stato è localizzato dalle chiavi
-   * `status*` con fallback al valore grezzo. `N/A` e l'unità `ms` restano.
+   * `nav.dataSync`). I valori backend (`type`, `message`) sono mostrati
+   * verbatim; solo il badge di stato è localizzato dalla mappa status→badge
+   * condivisa di `domain/job-status`, con fallback al valore grezzo. `N/A` e
+   * l'unità `ms` restano.
    */
   health: {
     title: 'Stato sincronizzazione prezzi',
@@ -526,10 +527,10 @@ export const it = {
     totalSuccesses: 'Successi totali',
     totalFailures: 'Fallimenti totali',
     rateLimited: 'Richieste limitate',
-    /** Tabella eventi (titolo, aria-label della tabella e intestazioni;
-     *  Tipo/Stato/Code riusano `common.colType`, `positions.colStatus` e
-     *  `common.colCode`). */
-    recentEvents: 'Eventi recenti',
+    /** Tabella attività (titolo e aria-label della tabella; le intestazioni
+     *  Tipo/Destinazione/Stato riusano `common.colType`, `jobs.colTarget` e
+     *  `positions.colStatus`, le altre sono le chiavi `col*` qui sotto). */
+    activity: 'Attività',
     colTimestamp: 'Data e ora',
     colMessage: 'Messaggio',
     colDuration: 'Durata',
@@ -541,47 +542,32 @@ export const it = {
     statusPartial: 'Parziale',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
     /** Azione distruttiva da admin (#206): etichetta del pulsante, dialogo di
-     *  conferma (`{total}` è il corrente `events_total`) e toast di esito.
-     *  Cancella sia gli eventi di monitoraggio sia i job di sincronizzazione. */
+     *  conferma (`{total}` è il corrente `items_total` del flusso attività) e
+     *  toast di esito. Cancella sia gli eventi di monitoraggio sia i job di
+     *  sincronizzazione. */
     clearEvents: 'Cancella attività',
     clearEventsTitle: 'Cancellare tutta l\'attività di sincronizzazione?',
     clearEventsConfirm: 'Verranno eliminati TUTTI i {total} eventi di monitoraggio e tutti i job di sincronizzazione. Operazione irreversibile.',
     clearEventsDone: '{count} eventi eliminati',
     clearEventsFailed: 'Cancellazione dell\'attività non riuscita',
-    /** Nota sotto la lista eventi del pannello quando la finestra client-side
-     *  dei 500 righe più recenti potrebbe aver perso eventi vecchi del job
-     *  (#226, nessun filtro lato server). */
-    jobEventsCap: 'Vengono cercati solo i {limit} eventi più recenti: alcuni eventi vecchi di questo job potrebbero mancare',
-    /** "All" option of the server-side Type/Status event filters (#91). */
+    /** Opzione "tutti" dei filtri server-side Tipo/Stato dell'attività. */
     filterAll: 'Tutti',
   },
   /**
-   * Card dei job di sincronizzazione in `/admin/health` (#195 Fase 4): i 25
-   * job in coda più recenti di tutti gli utenti, con progresso live finché
-   * un job è aperto. I valori `type`/`target_type`/`status` ignoti mostrano
-   * la stringa grezza del backend; il testo `error` è output tecnico e
-   * resta verbatim.
+   * Vocabolario job condiviso tra la tabella attività di `/admin/health`, i
+   * suoi filtri e il pannello di dettaglio del job (#226). I valori
+   * `type`/`target_type` ignoti mostrano la stringa grezza del backend; il
+   * testo `error` è output tecnico e resta verbatim.
    */
   jobs: {
-    title: 'Job di sincronizzazione',
-    scopeNote: 'Job di tutti gli utenti dell’istanza · i 25 più recenti',
-    /** aria-label/didascalia della tabella. */
-    caption: 'Job di sincronizzazione recenti',
     /** Pill d'intestazione mostrata solo con l'auto-refresh a 3s attivo. */
     live: 'Aggiornamento automatico',
-    lastUpdate: 'Aggiornato alle {time}',
-    idle: 'Nessun job in corso',
-    /** Contatori di job aperti/falliti accanto alla nota di quiete. */
-    countRunning: '{count} in corso',
-    countQueued: '{count} in coda',
-    countFailed: '{count} falliti',
-    /** Intestazioni (Tipo/Stato riusano `common.colType` / `positions.colStatus`). */
+    /** Intestazione Destinazione della tabella attività (Tipo/Stato riusano
+     *  `common.colType` / `positions.colStatus`). */
     colTarget: 'Destinazione',
-    colProgress: 'Avanzamento',
-    colStarted: 'Avviato',
-    /** Testo della cella di progresso (la barra `aria-hidden` lo replica). */
+    /** Testo d'avanzamento di un job in corso (la barra `aria-hidden` del
+     *  pannello di dettaglio lo replica). */
     progressOf: '{processed} di {total}',
-    outcome: '{ok} riusciti · {failed} in errore',
     /** Etichette badge del ciclo di vita della coda. */
     statusQueued: 'In coda',
     statusRunning: 'In corso',
@@ -597,18 +583,13 @@ export const it = {
     targetAsset: 'Asset',
     targetPortfolio: 'Portafoglio',
     targetGlobal: 'Globale',
-    empty: 'Nessun job',
-    emptyHint: 'Gli aggiornamenti prezzi e i backfill avviati dall’app compaiono qui.',
-    /** Azione di riga che apre il pannello di dettaglio del job (#226):
-     *  `viewDetail` è il pulsante etichettato sul telefono, `viewDetailNamed`
-     *  il nome accessibile del pulsante a icona sugli schermi più grandi. */
-    viewDetail: 'Dettaglio',
+    /** Nome accessibile del link del tipo job che apre il pannello di
+     *  dettaglio (#226); il testo visibile è il tipo job localizzato. */
     viewDetailNamed: 'Apri il dettaglio del job {type}',
     /** Pannello di dettaglio job: intestazione sopra la lista eventi e titolo
      *  dello stato vuoto. */
     detailEvents: '{count} eventi',
     noEventsYet: 'Ancora nessun evento per questo job',
-    loadFailed: 'Caricamento dei job non riuscito',
   },
   /**
    * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti

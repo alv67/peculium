@@ -34,8 +34,7 @@ export const en = {
     colValue: 'Value',
     colTotal: 'Total',
     colActions: 'Actions',
-    /** Code label shared by the currencies form/table and the health
-     *  events table. */
+    /** Code label of the currencies form and table. */
     colCode: 'Code',
     /** Pagination footer buttons of the transactions table. */
     previous: 'Previous',
@@ -540,9 +539,9 @@ export const en = {
   },
   /**
    * Admin price-sync health page (`/admin/health`, nav entry `nav.dataSync`).
-   * Table values fetched from the backend (`event_type`, `code`, `message`)
-   * are rendered verbatim; only the status badge is localised through the
-   * `status*` keys below, falling back to the raw value for unknown
+   * Table values fetched from the backend (`type`, `message`) are rendered
+   * verbatim; only the status badge is localised through the shared status map
+   * of `domain/job-status`, falling back to the raw value for unknown
    * statuses. `N/A` and the `ms` duration unit are kept as technical terms.
    */
   health: {
@@ -562,9 +561,10 @@ export const en = {
     totalSuccesses: 'Total Successes',
     totalFailures: 'Total Failures',
     rateLimited: 'Rate Limited',
-    /** Events table (heading, table aria-label and headers; Type/Status/Code
-     *  reuse `common.colType`, `positions.colStatus` and `common.colCode`). */
-    recentEvents: 'Recent Events',
+    /** Activity table (heading and table aria-label; the Type/Target/Status
+     *  headers reuse `common.colType`, `jobs.colTarget` and
+     *  `positions.colStatus`, the rest are the `col*` keys below). */
+    activity: 'Activity',
     colTimestamp: 'Timestamp',
     colMessage: 'Message',
     colDuration: 'Duration',
@@ -576,45 +576,31 @@ export const en = {
     statusPartial: 'Partial',
     loadFailed: 'Failed to fetch health data',
     /** Destructive admin action (issue #206): header button label, confirm
-     *  dialog (`{total}` is the current `events_total`) and result toasts.
-     *  Clears both health events and sync jobs. */
+     *  dialog (`{total}` is the current activity `items_total`) and result
+     *  toasts. Clears both health events and sync jobs. */
     clearEvents: 'Clear activity',
     clearEventsTitle: 'Clear all sync activity?',
     clearEventsConfirm: 'This deletes ALL {total} health events and every sync job. This cannot be undone.',
     clearEventsDone: '{count} events deleted',
     clearEventsFailed: 'Failed to clear activity',
-    /** Note under the panel's event list when the client-side 500-row window
-     *  may have missed older events of the job (#226, no server-side filter). */
-    jobEventsCap: 'Only the newest {limit} events are searched, older events of this job may be missing',
-    /** "All" option of the server-side Type/Status event filters (#91). */
+    /** "All" option of the server-side Type/Status activity filters. */
     filterAll: 'All',
   },
   /**
-   * Sync-jobs card on `/admin/health` (issue #195 Phase 4): the 25 most
-   * recent queue jobs of every user, with live progress while any job is
-   * open. Unknown `type`/`target_type`/`status` values fall back to the raw
-   * backend string; the `error` text is technical output shown verbatim.
+   * Job vocabulary shared by the `/admin/health` activity table, its filters
+   * and the job detail panel (issue #226). Unknown `type`/`target_type` values
+   * fall back to the raw backend string; the `error` text is technical output
+   * shown verbatim.
    */
   jobs: {
-    title: 'Sync jobs',
-    scopeNote: 'Jobs from every user of this instance · newest 25',
-    /** Table aria-label/caption. */
-    caption: 'Recent sync jobs',
     /** Header pill shown only while the 3s auto-refresh is live. */
     live: 'Auto-refresh',
-    lastUpdate: 'Updated at {time}',
-    idle: 'No jobs running',
-    /** Open/failed job counters beside the idle note. */
-    countRunning: '{count} running',
-    countQueued: '{count} queued',
-    countFailed: '{count} failed',
-    /** Headers (Type/Status reuse `common.colType` / `positions.colStatus`). */
+    /** Activity-table Target header (Type/Status reuse `common.colType` /
+     *  `positions.colStatus`). */
     colTarget: 'Target',
-    colProgress: 'Progress',
-    colStarted: 'Started',
-    /** Progress cell text (`aria-hidden` bar mirrors it for sighted users). */
+    /** Progress text of a running job (the detail panel's `aria-hidden` bar
+     *  mirrors it for sighted users). */
     progressOf: '{processed} of {total}',
-    outcome: '{ok} succeeded · {failed} failed',
     /** Badge labels for the queue lifecycle. */
     statusQueued: 'Queued',
     statusRunning: 'Running',
@@ -630,17 +616,12 @@ export const en = {
     targetAsset: 'Asset',
     targetPortfolio: 'Portfolio',
     targetGlobal: 'Global',
-    empty: 'No jobs yet',
-    emptyHint: 'Price refreshes and backfills started from the app show up here.',
-    /** Row action opening the job detail panel (#226): `viewDetail` is the
-     *  labeled button on phones, `viewDetailNamed` the accessible name of the
-     *  icon button on larger screens. */
-    viewDetail: 'Details',
+    /** Accessible name of the job-type link that opens the detail panel
+     *  (#226); the visible text is the localized job type itself. */
     viewDetailNamed: 'Open the {type} job details',
     /** Job detail panel: heading above the event list and empty-state title. */
     detailEvents: '{count} events',
     noEventsYet: 'No events for this job yet',
-    loadFailed: 'Failed to load jobs',
   },
   /**
    * Admin area (issue #57 Phase A): the shared gate state, the Users page

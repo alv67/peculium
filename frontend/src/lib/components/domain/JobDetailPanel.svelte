@@ -2,7 +2,7 @@
   import { AlertTriangle } from 'lucide-svelte'
   import { formatDuration } from '$lib/format'
   import { t } from '$lib/i18n/index.svelte'
-  import type { HealthEvent, Job } from '$lib/services/api'
+  import type { ActivityItem, HealthEvent } from '$lib/services/api'
   import { viewport } from '$lib/stores/viewport.svelte'
   import AsyncCard from '$lib/components/ui/AsyncCard.svelte'
   import Badge from '$lib/components/ui/Badge.svelte'
@@ -13,15 +13,16 @@
 
   /**
    * Job detail panel (issue #226): the events and outcome of one queue job,
-   * opened from the `/admin/health` jobs table. Renders as the right-side
+   * opened from the `/admin/health` activity table. Renders as the right-side
    * `ui/Drawer` (40rem) at ≥ `lg` and the bottom `ui/Sheet` below it — the
    * same drill-down split as `AllocationDrillPanel` (spec §8.3, decision D4).
    *
    * Dumb component: the page owns the data and the fetches, we only present
-   * the `job` snapshot plus its `events` through the `ui/AsyncCard` states
-   * (skeleton / one-line error + Retry / content). The events render as a
-   * list, not a `Table`: six columns never fit 32–40rem, while here each
-   * item gets its own block with the full, wrapping message.
+   * the `job` snapshot (an activity row of kind `job`) plus its `events`
+   * through the `ui/AsyncCard` states (skeleton / one-line error + Retry /
+   * content). The events render as a list, not a `Table`: six columns never
+   * fit 32–40rem, while here each item gets its own block with the full,
+   * wrapping message.
    */
   let {
     open,
@@ -31,13 +32,12 @@
     loading,
     error = null,
     onRetry = undefined,
-    capNote = undefined,
   }: {
     open: boolean
     /** Called on Esc, backdrop click and the ✕ (forwarded to Drawer/Sheet). */
     onClose: () => void
-    /** The inspected job; `null` while the panel is closed. */
-    job: Job | null
+    /** The inspected job (an activity-feed row); `null` while the panel is closed. */
+    job: ActivityItem | null
     /** The job's health events, newest first, owned by the page. */
     events: HealthEvent[]
     loading: boolean
@@ -45,8 +45,6 @@
     error?: string | null
     /** Retry action for the error state. */
     onRetry?: () => void
-    /** Note shown when the client-side events window may have truncated. */
-    capNote?: string
   } = $props()
 
   const title = $derived(job ? labeled(JOB_TYPE_KEYS, job.type) : '')
@@ -77,7 +75,7 @@
           <p class="mt-2 text-sm text-muted-foreground">
             {labeled(JOB_TARGET_KEYS, job.target_type) || '—'}
             {#if job.target_label}
-              <span class="ml-1 font-medium text-foreground" title={job.target_id}>{job.target_label}</span>
+              <span class="ml-1 font-medium text-foreground" title={job.target_id ?? undefined}>{job.target_label}</span>
             {:else if job.target_id}
               <span class="ml-1 break-all font-mono text-xs" title={job.target_id}>
                 {job.target_id.slice(0, 8)}
@@ -87,9 +85,7 @@
         </div>
         <div class="shrink-0 text-right text-xs text-muted-foreground">
           <p class="tabular-nums">{formatDuration(job.duration_ms)}</p>
-          {#if job.started_at}
-            <time datetime={job.started_at}>{new Date(job.started_at).toLocaleString()}</time>
-          {/if}
+          <time datetime={job.at}>{new Date(job.at).toLocaleString()}</time>
         </div>
       </div>
 
@@ -121,9 +117,6 @@
         <p class="mb-1 mt-4 text-sm text-muted-foreground">
           {t('jobs.detailEvents', { count: events.length })}
         </p>
-        {#if capNote}
-          <p class="mb-2 text-xs text-muted-foreground">{capNote}</p>
-        {/if}
         <ul class="divide-y divide-border">
           {#each events as event (event.id)}
             <li class="py-2">

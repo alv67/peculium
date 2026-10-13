@@ -943,7 +943,7 @@ func (s *Service) FetchETFExposure(ctx context.Context, id uuid.UUID, refresh bo
 		raw, _ = s.getCachedExposure(ctx, "justetf", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchExposure(ctx, asset.ISIN, asset.Ticker)
+		raw, err = s.etfFetcher.FetchExposure(ctx, id, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}
@@ -1180,7 +1180,7 @@ func (s *Service) FetchMorningstarExposure(ctx context.Context, id uuid.UUID, re
 		raw, _ = s.getCachedExposure(ctx, "morningstar", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, asset.ISIN, asset.Ticker)
+		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, id, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}

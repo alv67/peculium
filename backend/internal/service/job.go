@@ -98,10 +98,8 @@ func (s *JobService) decorate(ctx context.Context, jobs []*model.Job) {
 }
 
 // labelTargets fills TargetLabel from the job's target entity — the asset
-// ticker or the portfolio name — so the UI never shows a bare uuid. Asset ids
-// are resolved in one batched query; portfolio targets are rare, so they are
-// looked up one by one. Global or unresolvable targets stay empty and the UI
-// falls back to the short id.
+// ticker or the portfolio name — so the UI never shows a bare uuid. Global or
+// unresolvable targets stay empty and the UI falls back to the short id.
 func (s *JobService) labelTargets(ctx context.Context, jobs []*model.Job) {
 	assetIDs := make([]uuid.UUID, 0)
 	portfolioIDs := make([]uuid.UUID, 0)
@@ -116,21 +114,7 @@ func (s *JobService) labelTargets(ctx context.Context, jobs []*model.Job) {
 			portfolioIDs = append(portfolioIDs, *j.TargetID)
 		}
 	}
-	labels := make(map[uuid.UUID]string, len(assetIDs)+len(portfolioIDs))
-	if len(assetIDs) > 0 && s.repos.Asset != nil {
-		if assets, err := s.repos.Asset.FindByIDs(ctx, assetIDs); err == nil {
-			for _, a := range assets {
-				labels[a.ID] = a.Ticker
-			}
-		}
-	}
-	if s.repos.Portfolio != nil {
-		for _, id := range portfolioIDs {
-			if p, err := s.repos.Portfolio.FindByID(ctx, id); err == nil && p != nil {
-				labels[id] = p.Name
-			}
-		}
-	}
+	labels := targetLabels(ctx, s.repos, assetIDs, portfolioIDs)
 	for _, j := range jobs {
 		if j.TargetID != nil {
 			if label, ok := labels[*j.TargetID]; ok {
@@ -138,6 +122,30 @@ func (s *JobService) labelTargets(ctx context.Context, jobs []*model.Job) {
 			}
 		}
 	}
+}
+
+// targetLabels resolves target ids into readable labels: asset tickers come
+// from one batched query, portfolio names one lookup each (rare target, never
+// on a page of many). Unresolvable ids are simply absent from the result. It
+// backs both the job list and the unified activity feed, so neither re-implements
+// the batching.
+func targetLabels(ctx context.Context, repos *repository.Repository, assetIDs, portfolioIDs []uuid.UUID) map[uuid.UUID]string {
+	labels := make(map[uuid.UUID]string, len(assetIDs)+len(portfolioIDs))
+	if len(assetIDs) > 0 && repos.Asset != nil {
+		if assets, err := repos.Asset.FindByIDs(ctx, assetIDs); err == nil {
+			for _, a := range assets {
+				labels[a.ID] = a.Ticker
+			}
+		}
+	}
+	if repos.Portfolio != nil {
+		for _, id := range portfolioIDs {
+			if p, err := repos.Portfolio.FindByID(ctx, id); err == nil && p != nil {
+				labels[id] = p.Name
+			}
+		}
+	}
+	return labels
 }
 
 // DeleteBefore prunes jobs older than cutoff, any status; their events go

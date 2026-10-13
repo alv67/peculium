@@ -30,6 +30,22 @@ type fakeHealthRepo struct {
 	pageStatus     string
 	countEventType string
 	countStatus    string
+	// pageJobID/countJobID record the job filter forwarded by GetPriceHealth,
+	// so the detail-panel filter test can assert page and total stay in sync.
+	pageJobID  string
+	countJobID string
+
+	// activityItems/activityTotal are the canned union rows returned by
+	// GetActivityPage/CountActivity; the activity* fields record what
+	// GetActivity forwarded.
+	activityItems   []*model.ActivityItem
+	activityTotal   int
+	activityLimit   int
+	activityOffset  int
+	activityType    string
+	activityStatus  string
+	activityCalls   int
+	activityCounted int
 
 	sinceSummary *model.HealthSummary
 	lastNSummary *model.HealthSummary
@@ -58,19 +74,35 @@ func (f *fakeHealthRepo) CountsByJobs(ctx context.Context, jobIDs []uuid.UUID) (
 	return f.countsByJobs, nil
 }
 
-func (f *fakeHealthRepo) GetEventsPage(ctx context.Context, limit, offset int, eventType, status string) ([]*model.HealthEvent, error) {
+func (f *fakeHealthRepo) GetEventsPage(ctx context.Context, limit, offset int, eventType, status, jobID string) ([]*model.HealthEvent, error) {
 	f.pageCalls++
 	f.pageLimit = limit
 	f.pageOffset = offset
 	f.pageEventType = eventType
 	f.pageStatus = status
+	f.pageJobID = jobID
 	return f.events, nil
 }
 
-func (f *fakeHealthRepo) CountEvents(ctx context.Context, eventType, status string) (int, error) {
+func (f *fakeHealthRepo) CountEvents(ctx context.Context, eventType, status, jobID string) (int, error) {
 	f.countEventType = eventType
 	f.countStatus = status
+	f.countJobID = jobID
 	return f.count, nil
+}
+
+func (f *fakeHealthRepo) GetActivityPage(ctx context.Context, limit, offset int, itemType, status string) ([]*model.ActivityItem, error) {
+	f.activityCalls++
+	f.activityLimit = limit
+	f.activityOffset = offset
+	f.activityType = itemType
+	f.activityStatus = status
+	return f.activityItems, nil
+}
+
+func (f *fakeHealthRepo) CountActivity(ctx context.Context, itemType, status string) (int, error) {
+	f.activityCounted++
+	return f.activityTotal, nil
 }
 
 func (f *fakeHealthRepo) SummarySince(ctx context.Context, since time.Time) (*model.HealthSummary, error) {
@@ -136,7 +168,7 @@ func TestGetPriceHealthTodayUsesSummarySince(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, events, _, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "")
+	summary, events, _, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -173,7 +205,7 @@ func TestGetPriceHealth24hUsesSummarySince(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "24h", 0, 0, "", "")
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "24h", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -198,7 +230,7 @@ func TestGetPriceHealthLastNUsesSummaryLastN(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "100", 0, 0, "", "")
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "100", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -222,7 +254,7 @@ func TestGetPriceHealthInvalidPeriodFallsBackToToday(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	summary, _, _, err := svc.GetPriceHealth(context.Background(), "nonsense", 0, 0, "", "")
+	summary, _, _, err := svc.GetPriceHealth(context.Background(), "nonsense", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -285,7 +317,7 @@ func TestGetPriceHealthPassesNormalizedPaginationAndReturnsTotal(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, events, total, err := svc.GetPriceHealth(context.Background(), "today", 10000, -5, "", "")
+	_, events, total, err := svc.GetPriceHealth(context.Background(), "today", 10000, -5, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -310,7 +342,7 @@ func TestGetPriceHealthUsesDefaultPageWhenUnset(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "")
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -329,7 +361,7 @@ func TestGetPriceHealthKeepsValidPagination(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, _, err := svc.GetPriceHealth(context.Background(), "today", 25, 50, "", "")
+	_, _, _, err := svc.GetPriceHealth(context.Background(), "today", 25, 50, "", "", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
@@ -412,15 +444,19 @@ func TestServiceRecordHealthComputesDuration(t *testing.T) {
 }
 
 func TestGetPriceHealthForwardsEventFilters(t *testing.T) {
+	anyJob := uuid.New()
 	tcs := []struct {
 		name      string
 		eventType string
 		status    string
+		jobID     string
 	}{
-		{"no filters pass through empty", "", ""},
-		{"type only", "asset_meta", ""},
-		{"status only", "", "failure"},
-		{"type and status", "meta_backfill", "success"},
+		{"no filters pass through empty", "", "", ""},
+		{"type only", "asset_meta", "", ""},
+		{"status only", "", "failure", ""},
+		{"type and status", "meta_backfill", "success", ""},
+		{"job only", "", "", anyJob.String()},
+		{"job with type and status", "etf_exposure", "failure", anyJob.String()},
 	}
 
 	for _, tc := range tcs {
@@ -431,7 +467,7 @@ func TestGetPriceHealthForwardsEventFilters(t *testing.T) {
 			}
 			svc := NewHealthService(&repository.Repository{Health: repo})
 
-			_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 20, 5, tc.eventType, tc.status)
+			_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 20, 5, tc.eventType, tc.status, tc.jobID)
 			if err != nil {
 				t.Fatalf("GetPriceHealth: %v", err)
 			}
@@ -450,6 +486,10 @@ func TestGetPriceHealthForwardsEventFilters(t *testing.T) {
 			if repo.countEventType != tc.eventType || repo.countStatus != tc.status {
 				t.Fatalf("CountEvents filters = (%q, %q), want (%q, %q)",
 					repo.countEventType, repo.countStatus, tc.eventType, tc.status)
+			}
+			if repo.pageJobID != tc.jobID || repo.countJobID != tc.jobID {
+				t.Fatalf("job filter = page %q, count %q, want %q",
+					repo.pageJobID, repo.countJobID, tc.jobID)
 			}
 			if total != repo.count {
 				t.Fatalf("events_total = %d, want the filtered count %d", total, repo.count)
@@ -470,12 +510,111 @@ func TestGetPriceHealthEventsTotalIsTheFilteredCount(t *testing.T) {
 	}
 	svc := NewHealthService(&repository.Repository{Health: repo})
 
-	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "asset_meta", "failure")
+	_, _, total, err := svc.GetPriceHealth(context.Background(), "today", 0, 0, "asset_meta", "failure", "")
 	if err != nil {
 		t.Fatalf("GetPriceHealth: %v", err)
 	}
 	if total != 12 {
 		t.Fatalf("events_total = %d, want 12 (filtered count, not the summary total)", total)
+	}
+}
+
+// TestGetActivityForwardsFiltersAndPagination covers the unified feed's
+// pagination (default page size, clamp, passthrough), the type/status filters
+// and the filtered items_total, including the empty-filter path.
+func TestGetActivityForwardsFiltersAndPagination(t *testing.T) {
+	jobID := uuid.New()
+	items := []*model.ActivityItem{
+		{Kind: "job", ID: jobID, Type: model.JobTypePriceRefresh, Status: model.JobStatusRunning, TargetType: model.JobTargetGlobal},
+		{Kind: "event", ID: uuid.New(), Type: "etf_exposure", Status: "failure", TargetType: model.JobTargetGlobal},
+	}
+
+	tcs := []struct {
+		name       string
+		limit      int
+		offset     int
+		itemType   string
+		status     string
+		wantLimit  int
+		wantOffset int
+	}{
+		{"empty filters fall back to the default page", 0, 0, "", "", 50, 0},
+		{"negative page is normalized", -5, -10, "", "", 50, 0},
+		{"oversized limit is capped", 10000, 0, "", "", 500, 0},
+		{"valid page is kept", 25, 75, "", "", 25, 75},
+		{"type filter", 20, 5, "price_refresh", "", 20, 5},
+		{"status filter", 20, 5, "", "running", 20, 5},
+		{"type and status filters", 20, 5, "etf_exposure", "failure", 20, 5},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeHealthRepo{activityItems: items, activityTotal: 137}
+			svc := NewHealthService(&repository.Repository{Health: repo})
+
+			got, total, err := svc.GetActivity(context.Background(), tc.limit, tc.offset, tc.itemType, tc.status)
+			if err != nil {
+				t.Fatalf("GetActivity: %v", err)
+			}
+			if repo.activityCalls != 1 || repo.activityCounted != 1 {
+				t.Fatalf("calls = page %d, count %d; want 1 and 1", repo.activityCalls, repo.activityCounted)
+			}
+			if repo.activityLimit != tc.wantLimit || repo.activityOffset != tc.wantOffset {
+				t.Fatalf("page = (%d, %d), want (%d, %d)",
+					repo.activityLimit, repo.activityOffset, tc.wantLimit, tc.wantOffset)
+			}
+			// The page and the total ride on the same filters, otherwise
+			// pagination under a filter drifts.
+			if repo.activityType != tc.itemType || repo.activityStatus != tc.status {
+				t.Fatalf("filters = (%q, %q), want (%q, %q)",
+					repo.activityType, repo.activityStatus, tc.itemType, tc.status)
+			}
+			if total != 137 {
+				t.Fatalf("items_total = %d, want 137", total)
+			}
+			if len(got) != len(items) {
+				t.Fatalf("items = %d, want %d", len(got), len(items))
+			}
+		})
+	}
+}
+
+// TestGetActivityResolvesTargetLabels checks that a job's and an event's asset
+// target both resolve to the asset ticker through the batched job-label helper,
+// while a global target stays empty.
+func TestGetActivityResolvesTargetLabels(t *testing.T) {
+	asset := &model.Asset{ID: uuid.New(), Ticker: "AAPL"}
+	pf := &model.Portfolio{ID: uuid.New(), Name: "Mediolanum"}
+	assetID := asset.ID
+	pfID := pf.ID
+	repo := &fakeHealthRepo{
+		activityItems: []*model.ActivityItem{
+			{Kind: "job", Type: model.JobTypeHistoryBackfill, TargetType: model.JobTargetAsset, TargetID: &assetID},
+			{Kind: "job", Type: model.JobTypePriceRefresh, TargetType: model.JobTargetPortfolio, TargetID: &pfID},
+			{Kind: "job", Type: model.JobTypeAssetSync, TargetType: model.JobTargetGlobal},
+			{Kind: "event", Type: "etf_exposure", TargetType: model.JobTargetAsset, TargetID: &assetID},
+			{Kind: "event", Type: "fx_refresh", TargetType: model.JobTargetGlobal},
+		},
+	}
+	svc := NewHealthService(&repository.Repository{
+		Health:    repo,
+		Asset:     &fakeAssetRepo{assets: []*model.Asset{asset}},
+		Portfolio: &fakePortfolioRepo{portfolio: pf},
+	})
+
+	items, _, err := svc.GetActivity(context.Background(), 0, 0, "", "")
+	if err != nil {
+		t.Fatalf("GetActivity: %v", err)
+	}
+	want := []string{"AAPL", "Mediolanum", "", "AAPL", ""}
+	if len(items) != len(want) {
+		t.Fatalf("items = %d, want %d", len(items), len(want))
+	}
+	for i, label := range want {
+		if items[i].TargetLabel != label {
+			t.Fatalf("item %d (%s/%s) label = %q, want %q",
+				i, items[i].Kind, items[i].Type, items[i].TargetLabel, label)
+		}
 	}
 }
 

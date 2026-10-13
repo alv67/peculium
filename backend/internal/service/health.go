@@ -18,6 +18,9 @@ const (
 	healthLastNEvents   = 100
 	healthDefaultEvents = 100
 	healthMaxEvents     = 500
+	// activityDefaultItems is the page size of the unified activity feed; the
+	// max stays healthMaxEvents, shared with the event page.
+	activityDefaultItems = 50
 )
 
 type HealthService struct {
@@ -119,11 +122,12 @@ func (s *HealthService) ClearAll(ctx context.Context) (int64, error) {
 }
 
 // GetPriceHealth returns the window summary plus a page of events. period
-// selects the summary window only; eventType and status are optional event
-// filters (empty means no filter) applied to both the page and events_total, so
-// pagination under a filter stays consistent. The summary is always
-// window-based and unfiltered.
-func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int, eventType, status string) (*model.HealthSummary, []*model.HealthEvent, int, error) {
+// selects the summary window only; eventType, status and jobID are optional
+// event filters (empty means no filter) applied to both the page and
+// events_total, so pagination under a filter stays consistent. jobID scopes
+// the page to one job's events (the activity detail panel). The summary is
+// always window-based and unfiltered.
+func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit, offset int, eventType, status, jobID string) (*model.HealthSummary, []*model.HealthEvent, int, error) {
 	limit, offset = normalizeHealthPage(limit, offset)
 	window := healthWindowFor(period, time.Now().UTC())
 
@@ -145,15 +149,59 @@ func (s *HealthService) GetPriceHealth(ctx context.Context, period string, limit
 		summary.SuccessRate = float64(summary.Successes) / float64(total)
 	}
 
-	eventsTotal, err := s.repos.Health.CountEvents(ctx, eventType, status)
+	eventsTotal, err := s.repos.Health.CountEvents(ctx, eventType, status, jobID)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset, eventType, status)
+	events, err := s.repos.Health.GetEventsPage(ctx, limit, offset, eventType, status, jobID)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
 	return summary, events, eventsTotal, nil
+}
+
+// GetActivity returns one page of the unified activity feed — every queue job
+// plus the health events not tied to a job (a job's own events belong to its
+// detail panel) — newest first, with the filtered total. type and status are
+// optional filters applied to the item's own type and raw status (empty means
+// no filter) and cover both the page and items_total, so pagination under a
+// filter stays consistent. Target labels are resolved server-side in one
+// batched lookup, the same way the job list does it.
+func (s *HealthService) GetActivity(ctx context.Context, limit, offset int, itemType, status string) ([]*model.ActivityItem, int, error) {
+	if limit <= 0 {
+		limit = activityDefaultItems
+	}
+	limit, offset = normalizeHealthPage(limit, offset)
+
+	total, err := s.repos.Health.CountActivity(ctx, itemType, status)
+	if err != nil {
+		return nil, 0, err
+	}
+	items, err := s.repos.Health.GetActivityPage(ctx, limit, offset, itemType, status)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	assetIDs := make([]uuid.UUID, 0, len(items))
+	portfolioIDs := make([]uuid.UUID, 0)
+	for _, it := range items {
+		if it.TargetID == nil {
+			continue
+		}
+		switch it.TargetType {
+		case model.JobTargetAsset:
+			assetIDs = append(assetIDs, *it.TargetID)
+		case model.JobTargetPortfolio:
+			portfolioIDs = append(portfolioIDs, *it.TargetID)
+		}
+	}
+	labels := targetLabels(ctx, s.repos, assetIDs, portfolioIDs)
+	for _, it := range items {
+		if it.TargetID != nil {
+			it.TargetLabel = labels[*it.TargetID]
+		}
+	}
+	return items, total, nil
 }

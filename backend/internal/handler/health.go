@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/alv67/peculium/internal/service"
 )
 
@@ -17,9 +19,10 @@ func NewHealthHandler(svc *service.HealthService) *HealthHandler {
 
 func (h *HealthHandler) GetPriceHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	q := r.URL.Query()
 
-	summary, events, eventsTotal, err := h.svc.GetPriceHealth(ctx, r.URL.Query().Get("period"),
-		queryInt(r, "limit", 0), queryInt(r, "offset", 0), r.URL.Query().Get("type"), r.URL.Query().Get("status"))
+	summary, events, eventsTotal, err := h.svc.GetPriceHealth(ctx, q.Get("period"),
+		queryInt(r, "limit", 0), queryInt(r, "offset", 0), q.Get("type"), q.Get("status"), q.Get("job_id"))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch price health")
 		return
@@ -29,6 +32,28 @@ func (h *HealthHandler) GetPriceHealth(w http.ResponseWriter, r *http.Request) {
 		"summary":      summary,
 		"events":       events,
 		"events_total": eventsTotal,
+	})
+}
+
+// GetHealthActivity returns the unified activity feed: queue jobs plus the
+// health events that are not tied to one, newest first. type and status filter
+// the item's own type and raw status; job events are not part of this list
+// (they come from GET /health/prices?job_id=...).
+func (h *HealthHandler) GetHealthActivity(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	q := r.URL.Query()
+
+	items, total, err := h.svc.GetActivity(ctx, queryInt(r, "limit", 0), queryInt(r, "offset", 0),
+		q.Get("type"), q.Get("status"))
+	if err != nil {
+		log.Error().Err(err).Msg("list activity failed")
+		respondError(w, http.StatusInternalServerError, "failed to fetch activity")
+		return
+	}
+
+	respond(w, http.StatusOK, map[string]any{
+		"items":       items,
+		"items_total": total,
 	})
 }
 
