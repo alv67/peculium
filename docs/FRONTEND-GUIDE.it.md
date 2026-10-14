@@ -1722,9 +1722,10 @@ pannello.
 
 **Live e filtri**: finché una riga del flusso è un job `queued`/`running` (o è
 in corso un aggiornamento prezzi dell'app) l'intestazione della card mostra una
-pill "Live" e un poll da 3 secondi ricarica il flusso e, sullo stesso tick,
-gli eventi del pannello aperto; si spegne da solo quando nulla è aperto
-(silenzioso: niente skeleton, niente toast). Due `ui/Select` filtrano il flusso
+pill "Live" e un poll da 3 secondi ricarica le tile di riepilogo insieme al
+flusso e, sullo stesso tick, gli eventi del pannello aperto; si spegne da
+solo quando nulla è aperto (silenzioso: niente skeleton, niente toast). Due
+`ui/Select` filtrano il flusso
 lato server per **tipo** (l'unione deduplicata dei tipi job ed evento) e
 **stato** (l'unione degli stati job ed evento) — vuoto significa tutti — e
 cambiando l'uno o l'altro si torna alla prima pagina. Il pulsante "Aggiorna

@@ -172,9 +172,12 @@
   $effect(() => {
     if (!hasOpenJob) return
     const timer = setInterval(() => {
+      // The summary tiles share this tick with the feed so the numbers always
+      // match the listed rows while a job runs. A running/queued open job
+      // refreshes its events too — no second interval. Reads here are outside
+      // the effect's tracking.
+      void fetchSummary(true)
       void fetchActivity(true)
-      // A running/queued open job refreshes its events on the SAME tick —
-      // no second interval. Reads here are outside the effect's tracking.
       const job = openJob
       if (job && (job.status === 'running' || job.status === 'queued')) void fetchJobEvents(true)
     }, 3000)

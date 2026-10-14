@@ -1639,15 +1639,15 @@ the feed never blanks the panel.
 
 **Live and filters**: while any feed row is a `queued`/`running` job (or an
 app-wide price refresh is in flight) the card header shows a "Live" pill and a
-3-second poll refreshes the feed and, on the same tick, the open panel's
-events; it dies on its own when nothing is open (silent: no skeleton, no
-toast). Two `ui/Select` controls filter the feed server-side by **type** (the
-deduplicated union of the job and event types) and **status** (the union of
-the job and event statuses) — empty means all — and changing either returns to
-the first page. The "Refresh Now" button reloads the summary and the feed. A
-"Clear activity" button opens a danger confirm (quoting the current feed
-total), closes any open job panel, and wipes every job and health event
-(`DELETE /admin/health/events`), then reloads both.
+3-second poll refreshes the summary tiles together with the feed and, on the
+same tick, the open panel's events; it dies on its own when nothing is open
+(silent: no skeleton, no toast). Two `ui/Select` controls filter the feed
+server-side by **type** (the deduplicated union of the job and event types) and
+**status** (the union of the job and event statuses) — empty means all — and
+changing either returns to the first page. The "Refresh Now" button reloads the
+summary and the feed. A "Clear activity" button opens a danger confirm (quoting
+the current feed total), closes any open job panel, and wipes every job and
+health event (`DELETE /admin/health/events`), then reloads both.
 
 ### Admin area (`routes/admin/…`)
 
