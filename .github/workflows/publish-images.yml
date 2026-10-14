@@ -13,10 +13,10 @@ name: Publish images
 # package visibility, so anonymous `podman/docker pull` fails until that is
 # done.
 #
-# WEBSITE DEPLOY: the website workflow (issue #102) does not exist yet; it
-# will trigger on the same `push: tags: v*` event, so no workflow_dispatch
-# call is wired here. When #102 lands, tag pushes deploy the site alongside
-# this workflow automatically.
+# WEBSITE DEPLOY: deploy-site.yml publishes the website on every push to main
+# and on the same `push: tags: v*` event, so a release deploys the site
+# alongside this workflow automatically; no workflow_dispatch call is wired
+# here.
 #
 # TRIGGERS: images are built on a `v*` tag (the release) and on manual
 # dispatch (test/RC builds). Plain pushes/merges on `main` do NOT build:
