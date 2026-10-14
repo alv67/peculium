@@ -314,6 +314,15 @@
           valueClass={noData ? 'text-2xl text-muted-foreground' : 'text-2xl text-warning'}
         />
       </div>
+      {#if noData}
+        <!-- The tiles count provider calls only, so with no provider events in
+             the window they all show `N/A`; every row the feed can then show is
+             a job, so point the reader there. The count is not quoted: the feed
+             total is filter-scoped, the tiles are not. -->
+        <p class="px-2 pt-3 text-sm text-muted-foreground sm:px-6">
+          {activityTotal > 0 ? t('health.noProviderCalls') : t('health.noData')}
+        </p>
+      {/if}
       <!-- Server-side activity filters: the feed shows every job plus the
            events not tied to one; changing either filter resets to page one
            and the tracked fetchActivity effect refetches. -->

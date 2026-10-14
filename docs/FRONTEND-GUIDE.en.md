@@ -1596,7 +1596,10 @@ also returns the feed to page one). Success Rate, Total Successes, Total
 Failures and Rate Limited (each a `ui/StatCard`) come from
 `healthApi.summary(period)` (`GET /health/prices`, `limit=1`): the summary is
 window-based and excludes the job-lifecycle rows, and while the window has no
-data every tile shows `N/A` together.
+provider outcomes every tile shows `N/A` together, with a one-line note below
+them explaining it — when the window still holds jobs the note points the
+reader to the activity list below, otherwise it is the generic no-data
+message.
 
 **Activity feed** (`healthApi.activity` →
 `GET /health/activity?period=&limit=&offset=&type=&status=`): every

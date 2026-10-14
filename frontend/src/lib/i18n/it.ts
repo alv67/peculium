@@ -522,6 +522,7 @@ export const it = {
     refreshing: 'Aggiornamento…',
     refresh: 'Aggiorna ora',
     noData: 'Nessun dato di monitoraggio disponibile.',
+    noProviderCalls: 'Nessuna chiamata ai provider in questa finestra: le caselle contano solo le chiamate esterne. I job eseguiti sono nell\'elenco qui sotto.',
     /** Card delle metriche. */
     successRate: 'Tasso di successo',
     totalSuccesses: 'Successi totali',

@@ -556,6 +556,7 @@ export const en = {
     refreshing: 'Refreshing…',
     refresh: 'Refresh Now',
     noData: 'No health data available.',
+    noProviderCalls: 'No provider calls in this window: the tiles count external calls only. Jobs that ran are listed below.',
     /** Metric cards. */
     successRate: 'Success Rate',
     totalSuccesses: 'Total Successes',

@@ -1677,8 +1677,11 @@ di successo,
 Successi totali, Fallimenti totali e Richieste limitate (ciascuna una
 `ui/StatCard`) arrivano da `healthApi.summary(period)`
 (`GET /health/prices`, `limit=1`): il riepilogo è basato sulla finestra ed
-esclude le righe di ciclo di vita dei job; finché la finestra non ha dati tutte
-le tile mostrano `N/A` insieme.
+esclude le righe di ciclo di vita dei job; finché la finestra non ha esiti di
+chiamate ai provider tutte le tile mostrano `N/A` insieme, con una nota di una
+riga sotto di esse che lo spiega — se la finestra contiene ancora job la nota
+rimanda all'elenco attività qui sotto, altrimenti è il messaggio generico di
+assenza dati.
 
 **Flusso attività** (`healthApi.activity` →
 `GET /health/activity?period=&limit=&offset=&type=&status=`): ogni job della coda più
