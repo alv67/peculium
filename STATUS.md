@@ -1,4 +1,4 @@
-# Peculium — Project Status (30 Sep 2026)
+# Peculium — Project Status (14 Oct 2026)
 
 ## Infrastructure
 
@@ -8,7 +8,8 @@
 | Frontend | SvelteKit (Svelte 5) + TypeScript + Tailwind + ECharts | Containerised (nginx) |
 | Database | PostgreSQL 16 | With a Docker volume |
 | Cache | Redis 7 | Dashboard/series caching, Yahoo rate limiting |
-| Worker | Go (prices) | Separate container |
+| Job queue | PostgreSQL 16 (`jobs`) | One row per sync job (price, history, splits, metadata) with progress and checkpoint, claimed by the worker |
+| Worker | Go | Separate container; runs the jobs queued in PostgreSQL |
 | Python Service | FastAPI + uvicorn + requests + bs4 + selenium (headless Chromium) | ETF metadata from JustETF (country + sector exposure) and Morningstar (countries + official regions + sectors via a custom resolver; market-aware ticker→ISIN auto-resolve) — EPIC B.5, B.14 |
 | Container | podman + podman-compose on macOS | |
 
@@ -110,20 +111,48 @@ a server-wide database dump/restore with destructive confirmation.
 
 ### Infrastructure & quality (EPIC H)
 
-GitHub Actions CI (Go build/vet/test, frontend check/lint, Python pytest, Compose
+GitHub Actions CI (Go 1.27 build/vet/test, frontend check/lint, Python pytest, Compose
 validation) with branch protection and required checks; multi-arch GHCR publishing and
-GitHub Release automation on `v*` tags; GitHub Pages website deployment; price-sync health
-with a selectable window (Today / Last 24h / Last 100 events), paginated events and
-per-asset `asset_id`; Dependabot security and version updates.
+GitHub Release automation on `v*` tags, plus a rolling `develop` tag published on manual
+dispatch; GitHub Pages website deployment; Dependabot security and version updates.
+
+### External data & sync
+
+Price, history, splits and metadata work runs through a PostgreSQL-backed job queue: each job
+carries its type, target, status (queued / running / done / failed / partial), progress and a
+checkpoint, and is claimed by the worker. On the **Data & Sync** page the jobs and the external
+calls they produce form a single activity list, newest first, with a real duration and the error
+when there is one and refreshed while something runs; the list filters by call type and outcome,
+and a selectable window (24h / 7d / all) scopes the summary tiles together with the list.
+Opening a job shows its own log lines in a side panel, an admin can clear the whole activity
+with one confirmed action, and activity older than 90 days is removed automatically. Every
+external call is covered — prices, FX, splits, asset metadata and the ETF/Morningstar exposure
+lookups, with the ticker beside the ISIN — and the pages read from the cache and update as the
+queued work completes, so a slow source no longer blocks the interface.
+
+The asset page reports the completeness of its price history (still downloading, absent, or
+partial, each with the action to complete it) and labels the date of its latest close, which the
+backend resolves from a single source across installations. The running build (version, commit
+and build time) is visible in the sidebar, on the login page and in Settings → Preferences
+("About this app").
+
+### Website
+
+Astro static site on GitHub Pages (homepage, features, install guide, release notes), deployed
+on every push to `main` and on `v*` tags. It carries the **user manual** in English and Italian
+(quickstart, concepts, daily use, dashboard, data & sync, settings, backup, administration, FAQ)
+under `/manual` and `/it/manual`, linked from the site menu (#135); the chapters are on
+`develop` and publish with the next deployment from `main`.
 
 ## Open problems
 
 ### Yahoo Finance rate-limited (429)
 
-Mitigated with rate limiting/backoff and throttling, but Yahoo can still block the podman
-container. From the macOS host it works. If the worker stays blocked, consider an external
-macOS script (curl/cron) that POSTs prices to the backend, or an alternative API (Finnhub,
-Alpha Vantage with an API key).
+Mitigated with rate limiting/backoff and throttling, and the sync work now runs in the
+background queue, so a blocked worker no longer blocks the interface. Yahoo can still block the
+podman container (from the macOS host it works) and the remaining mitigation is tracked in #34.
+If the worker stays blocked, consider an external macOS script (curl/cron) that POSTs prices to
+the backend, or an alternative API (Finnhub, Alpha Vantage with an API key).
 
 ### European tickers
 
@@ -137,12 +166,21 @@ exchange selector.
   metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure
   (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit
   allocation (J.7 #111), pension wrappers (J.8 #112).
-- **EPIC C — risk metrics** (#39): Sharpe, max drawdown, volatility, regression, Monte Carlo.
-- Portfolio/cash management (#101): available capital, deposits/withdrawals, brokerage account.
+- **EPIC C — risk metrics** (#39): Sharpe, max drawdown and volatility (C.1 #22), benchmark
+  regression (C.2 #23), Monte Carlo (C.3 #24) and investment strategy & rebalancing (C.4 #114).
+- Securities-account model (#101): available capital, deposits/withdrawals and wealth-based
+  performance.
 - Portfolio sharing among family members, per-user asset visibility (#141) and aggregated
-  family views (Phase 3).
+  family views (G.5 #30).
+- Transaction CSV import (G.1 #26), watchlist and price-target alerts (G.2 #27), periodic
+  reports (G.3 #28) and the annual tax report (G.4 #29).
+- Domicile country and GICS sector auto-identified from the exposure lists on creation (#202).
+- PWA / offline (G.6 #31) and in-app contextual help (#149).
+- Audit log for shared data, admin-only view (#207).
 - Expense tracking, budget and goals (Phase 4).
-- Periodic (monthly/quarterly) reports.
+- Test coverage extension (H.2 #33), Yahoo 429 mitigation (H.3 #34), slimmer python-service
+  image (#205), portfolios page summary cards (#104) and real per-bar backfill progress (#219).
+- Publication of the user manual on the website (#135).
 
 ## Useful commands
 
@@ -155,6 +193,7 @@ make migrate         # Run DB migrations
 make test            # Go tests (in container)
 make test-e2e        # End-to-end tests on the isolated stack
 make frontend-dev    # Frontend development with hot reload
+make publish         # Dispatch a GHCR image build from a branch (RC_REF=develop, RC_VERSION=extra tag)
 # Manual API testing (VS Code REST Client) on the test stack:
 #   tests/api-test.http — requests in order against http://localhost:8081/api/v1
 # EPIC B allocation smoke test (test stack, port 8081):
