@@ -132,6 +132,11 @@ make publish RC_VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) fo
 build `main`, not `develop`. The `RC_VERSION` value is only an extra image tag,
 never the ref to build.
 
+Old test builds are pruned weekly by the `prune-images` workflow (a manual
+dispatch runs in dry-run by default): `v*`, `latest` and `develop` are never
+deleted, and of the remaining tags only the 10 newest older than 30 days are
+kept.
+
 </details>
 
 ## Testing

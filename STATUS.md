@@ -114,7 +114,9 @@ a server-wide database dump/restore with destructive confirmation.
 GitHub Actions CI (Go 1.27 build/vet/test, frontend check/lint, Python pytest, Compose
 validation) with branch protection and required checks; multi-arch GHCR publishing and
 GitHub Release automation on `v*` tags, plus a rolling `develop` tag published on manual
-dispatch; GitHub Pages website deployment; Dependabot security and version updates.
+dispatch and a weekly retention job pruning old test tags (releases, `latest` and
+`develop` are never deleted); GitHub Pages website deployment; Dependabot security and
+version updates.
 
 ### External data & sync
 
