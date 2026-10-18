@@ -207,7 +207,6 @@ exchange selector.
 - Expense tracking, budget and goals (Phase 4).
 - Test coverage extension (H.2 #33), Yahoo 429 mitigation (H.3 #34), slimmer python-service
   image (#205), portfolios page summary cards (#104) and real per-bar backfill progress (#219).
-- Publication of the user manual on the website (#135).
 
 ## Useful commands
 
