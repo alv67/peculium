@@ -98,7 +98,7 @@ and personal finances.
 - [ ] Automatic database backup
 - [x] Health checks and monitoring
 - [x] Deployment documentation (project website and install guide)
-- [ ] User manual (EN/IT) published on the website — **#135**
+- [x] User manual (EN/IT) published on the website — **#135**
 - [ ] In-app contextual help — **#149**
 - [ ] PWA / offline — **G.6 (#31)**
 
