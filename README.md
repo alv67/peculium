@@ -130,7 +130,8 @@ make publish RC_VERSION=rc-2026-10-03  # also publish a named tag (rc-<date>) fo
 `gh workflow run` uses the repository default branch unless `--ref` is given, so
 `make publish` passes `--ref develop` for you. Without it a manual dispatch would
 build `main`, not `develop`. The `RC_VERSION` value is only an extra image tag,
-never the ref to build.
+never the ref to build; the reserved names (`latest`, `develop`, `v*`) are
+rejected, so a dispatch cannot move a release channel.
 
 Old test builds are pruned at the end of every image publish
 (`prune-images.yml`, also runnable on its own as a dry run): `v*`, `latest` and

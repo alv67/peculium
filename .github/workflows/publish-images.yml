@@ -34,6 +34,10 @@ name: Publish images
 # RETENTION: every successful build calls prune-images.yml, which deletes old
 # test tags per the rules documented there. Nothing prunes on a timer: the
 # cleanup is attached to the activity that creates the tags.
+#
+# RESERVED NAMES: the dispatch `version` input only names a test/RC build. A
+# reserved tag (`latest`, `develop`, `v*`) is rejected before anything is
+# built, so the release channels can only be moved by a `v*` tag on main.
 
 on:
   push:
@@ -41,7 +45,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Extra image tag for a test/RC build (e.g. rc-2026-10-03). Leave empty to publish only :sha-<commit>."
+        description: "Extra image tag for a test/RC build (e.g. rc-2026-10-03). Reserved names (latest, develop, v*) are rejected. Leave empty to publish only :sha-<commit>."
         required: false
         type: string
 
@@ -80,6 +84,22 @@ jobs:
             context: backend
             dockerfile: backend/Dockerfile.secrets
     steps:
+      # First, and before any expensive step: the `version` input names a
+      # test/RC build only, it must not be able to impersonate a release or
+      # branch channel. `case` patterns are globs, so `v*` covers every
+      # release tag name.
+      - name: Reject reserved version names
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in
+            latest|develop|v*)
+              echo "::error::'$VERSION' is a reserved tag name (latest, develop, v*)" >&2
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v7
 
       - uses: docker/setup-qemu-action@v4
@@ -107,14 +127,17 @@ jobs:
 
       - name: Build metadata
         id: buildinfo
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           # The version the running app should report: an explicit dispatch
           # `version` input wins (test/RC), otherwise the ref name (tag v1.0.0
           # or branch develop). The commit is the short SHA, the timestamp is
           # the build time in UTC — both let two builds of the same branch be
           # told apart.
-          ver="${{ inputs.version }}"
-          if [ -z "$ver" ]; then ver="${{ github.ref_name }}"; fi
+          ver="$INPUT_VERSION"
+          if [ -z "$ver" ]; then ver="$REF_NAME"; fi
           {
             echo "version=$ver"
             echo "commit=${GITHUB_SHA::7}"
