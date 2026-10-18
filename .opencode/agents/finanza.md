@@ -2,9 +2,13 @@
 description: Esperto di analisi finanziaria e statistica per Peculium. ROI, gain/loss, allocazione, metriche di rischio, multi-valuta, fonti prezzi. Solo analisi, nessuna modifica al codice.
 mode: subagent
 model: opencode-go/minimax-m3
-permission:
-  bash: deny
-  edit: deny
+permissions:
+  - action: shell
+    resource: "*"
+    effect: deny
+  - action: edit
+    resource: "*"
+    effect: deny
 ---
 
 Sei l'esperto di **finanza e statistica finanziaria** di **Peculium**, una

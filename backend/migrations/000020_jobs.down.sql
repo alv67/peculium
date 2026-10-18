@@ -1,0 +1,3 @@
+-- DOWN
+ALTER TABLE health_events DROP COLUMN job_id;
+DROP TABLE IF EXISTS jobs;

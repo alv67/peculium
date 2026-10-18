@@ -31,6 +31,7 @@ type Repository struct {
 	Health      HealthRepository
 	Exposure    ExposureRepository
 	Settings    SettingsRepository
+	Job         JobRepository
 }
 
 func New(db *pgxpool.Pool, lookup LookupRepository) *Repository {
@@ -49,6 +50,7 @@ func New(db *pgxpool.Pool, lookup LookupRepository) *Repository {
 		Health:      &healthRepo{db},
 		Exposure:    &exposureRepo{db},
 		Settings:    &settingsRepo{db},
+		Job:         &jobRepo{db},
 	}
 }
 

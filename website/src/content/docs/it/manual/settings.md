@@ -32,6 +32,9 @@ Almeno 8 caratteri, e l'app verifica tutto prima di salvare.
 - **Colori utile/perdita** — Verde/Rosso di default; **Blu/Arancione** li
   scambia nei testi e nei grafici, pensata per chi è daltonico. Il segno
   e le frecce ▲▼ restano significativi in ogni caso.
+- **Informazioni sull'app** — la build in esecuzione: versione, commit (con
+  link su GitHub) e ora di build, con un pulsante per copiarli quando segnali
+  un problema.
 
 ![Impostazioni → Preferenze](/screenshots/it/manual/settings-preferences.png)
 

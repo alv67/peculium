@@ -2,7 +2,7 @@
   import { Ban, Check, KeyRound, UserCheck } from 'lucide-svelte'
   import { toast } from '$lib/stores/toast.svelte'
   import { auth } from '$lib/stores/auth.svelte'
-  import { adminApi, type AdminUser } from '$lib/services/api'
+  import { adminApi, errorStatus, type AdminUser } from '$lib/services/api'
   import { t, type MessageKey } from '$lib/i18n/index.svelte'
   import AdminGate from '$lib/components/domain/AdminGate.svelte'
   import Badge from '$lib/components/ui/Badge.svelte'
@@ -43,35 +43,27 @@
   // Role values an admin can assign; `owner` is legacy (never newly set).
   const ASSIGNABLE_ROLES = ['admin', 'editor', 'viewer'] as const
 
-  const ROLE_KEYS: Record<string, MessageKey> = {
-    owner: 'admin.roleOwner',
-    admin: 'admin.roleAdmin',
-    editor: 'admin.roleEditor',
-    viewer: 'admin.roleViewer',
+  type BadgeVariant = 'accent' | 'neutral' | 'positive' | 'warning' | 'negative'
+
+  const ROLES: Record<string, { key: MessageKey; variant: BadgeVariant }> = {
+    owner: { key: 'admin.roleOwner', variant: 'accent' },
+    admin: { key: 'admin.roleAdmin', variant: 'accent' },
+    editor: { key: 'admin.roleEditor', variant: 'neutral' },
+    viewer: { key: 'admin.roleViewer', variant: 'neutral' },
   }
 
-  const STATUS_KEYS: Record<string, MessageKey> = {
-    active: 'admin.statusActive',
-    pending: 'admin.statusPending',
-    disabled: 'admin.statusDisabled',
+  const STATUSES: Record<string, { key: MessageKey; variant: BadgeVariant }> = {
+    active: { key: 'admin.statusActive', variant: 'positive' },
+    pending: { key: 'admin.statusPending', variant: 'warning' },
+    disabled: { key: 'admin.statusDisabled', variant: 'negative' },
   }
 
   function roleLabel(role: string): string {
-    return ROLE_KEYS[role] ? t(ROLE_KEYS[role]) : role
+    return ROLES[role] ? t(ROLES[role].key) : role
   }
 
   function statusLabel(status: string): string {
-    return STATUS_KEYS[status] ? t(STATUS_KEYS[status]) : status
-  }
-
-  function roleVariant(role: string): 'accent' | 'neutral' {
-    return role === 'owner' || role === 'admin' ? 'accent' : 'neutral'
-  }
-
-  function statusVariant(status: string): 'positive' | 'warning' | 'negative' {
-    if (status === 'active') return 'positive'
-    if (status === 'pending') return 'warning'
-    return 'negative'
+    return STATUSES[status] ? t(STATUSES[status].key) : status
   }
 
   let users = $state<AdminUser[]>([])
@@ -113,10 +105,7 @@
 
   /** Map the admin PATCH's failures onto localized messages. */
   function adminError(err: unknown, fallbackKey: MessageKey): string {
-    const status =
-      err instanceof Error && 'status' in err
-        ? (err as Error & { status: number }).status
-        : undefined
+    const status = errorStatus(err)
     if (status === 409) return t('admin.lastAdmin')
     if (status === 404) return t('admin.userNotFound')
     return t(fallbackKey)
@@ -264,9 +253,9 @@
                   <Td class="max-w-52 truncate font-medium text-foreground">{user.email}</Td>
                   <Td class="max-w-40 truncate text-muted-foreground">{user.name || '—'}</Td>
                   <Td>
-                    <Badge variant={roleVariant(user.role)}>{roleLabel(user.role)}</Badge>
+                    <Badge variant={ROLES[user.role]?.variant ?? 'neutral'}>{roleLabel(user.role)}</Badge>
                   </Td>
-                  <Td><Badge variant={statusVariant(user.status)}>{statusLabel(user.status)}</Badge></Td>
+                  <Td><Badge variant={STATUSES[user.status]?.variant ?? 'neutral'}>{statusLabel(user.status)}</Badge></Td>
                   <Td class="whitespace-nowrap text-muted-foreground">{formatDate(user.created_at)}</Td>
                   <Td>
                     <div class="flex items-center gap-1">

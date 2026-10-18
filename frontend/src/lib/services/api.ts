@@ -12,6 +12,12 @@ interface CacheEntry {
 
 const getCache = new Map<string, CacheEntry>()
 
+/** Drop the in-memory GET cache. Needed after a background job (e.g. the
+ * asset sync) changes server data without a request that would clear it. */
+export function clearGetCache(): void {
+  getCache.clear()
+}
+
 // Deep-copy cached data so callers never share mutable references with the
 // cache entry (a caller mutating a response would otherwise poison it).
 // Falls back to JSON round-trip, then to the raw reference: it must never
@@ -74,6 +80,17 @@ export interface Portfolio {
   updated_at: string
 }
 
+/** Data-completeness of an asset's price history (`GET /assets/{id}`).
+ * Absent for non-Yahoo assets (manual/none): no state to show. The job
+ * fields are present only while `state === 'syncing'`. */
+export interface AssetDataStatus {
+  state: string
+  job_id?: string
+  job_status?: string
+  processed?: number
+  total?: number
+}
+
 export interface Asset {
   id: string
   ticker: string
@@ -87,6 +104,12 @@ export interface Asset {
   sector?: string
   industry?: string
   price_source?: string
+  history_backfilled?: boolean
+  data_status?: AssetDataStatus
+  /** Last recorded close (decimal string) and its ISO date, from the price
+   *  history (`GET /assets`, `GET /assets/{id}`). */
+  last_close?: string
+  last_close_date?: string
 }
 
 export interface AssetQuote {
@@ -551,17 +574,92 @@ export interface Dashboard {
   summary?: DashboardSummary
 }
 
-export interface FetchIssue {
-  symbol: string
-  code: string
+/** Body of a job-enqueue endpoint (HTTP 202): poll `job_id` via `jobsApi`. */
+export interface JobEnqueued {
+  job_id: string
+  status: Job['status']
+}
+
+/** Queue job tracked through `GET /jobs/{id}`: long external-site work
+ * (price refresh, history/meta backfills) runs out of band and reports
+ * progress here. `status` is `queued`/`running` while open, `done`/`failed`/
+ * `partial` once terminal. */
+export interface Job {
+  id: string
+  type: string
+  /** `asset` | `portfolio` | `global` (plus the optional uuid `target_id`). */
+  target_type?: string
+  target_id?: string
+  status: 'queued' | 'running' | 'done' | 'failed' | 'partial'
+  total: number
+  processed: number
+  error?: string
+  requested_by?: string
+  created_at: string
+  started_at?: string
+  finished_at?: string
+  /** Wall-clock run time of a terminal job (derived server-side). */
+  duration_ms?: number
+  /** Readable target (asset ticker / portfolio name), derived server-side. */
+  target_label?: string
+  /** Item-level health rollup of a terminal job (derived server-side). */
+  summary?: { ok: number; failed: number }
+}
+
+/** Window-scoped price-health summary returned by `GET /health/prices`: the
+ * four `/admin/health` tiles. The summary is always window-based (period
+ * scoped) and excludes job-lifecycle rows; `has_data` is false when the
+ * window holds no provider outcomes, making every tile show `N/A` together. */
+export interface HealthSummary {
+  successes: number
+  failures: number
+  success_rate: number
+  rate_limited: number
+  has_data: boolean
+  period?: string
+}
+
+/** One row of the unified `/admin/health` feed `GET /health/activity`: a queue
+ * job or a health event not tied to one (a job's own events belong to its
+ * detail panel, never to this list). `kind` decides which fields carry data —
+ * `processed`/`total`/`error` are job-only, `message` is event-only, and
+ * `duration_ms` is the wall-clock run of a job or the provider call time of an
+ * event. Non-applicable fields arrive zero-valued, never absent. */
+export interface ActivityItem {
+  kind: 'job' | 'event'
+  id: string
+  /** Job start (fallback created_at) or the event time. */
+  at: string
+  /** Job type for a job, event type for an event. */
+  type: string
+  /** `asset` | `portfolio` | `global`. */
+  target_type: string
+  /** Readable target (asset ticker / portfolio name), resolved server-side. */
+  target_label: string
+  target_id: string | null
+  status: string
+  processed: number
+  total: number
+  duration_ms: number
+  error: string
   message: string
 }
 
-export interface RefreshReport {
-  refreshed: string[]
-  issues: FetchIssue[]
-  rate_limited: boolean
-  finished_at: string
+/** One row of `GET /health/prices` (the Data & Sync event feed): a single
+ * monitored fetch/save. `job_id` links lifecycle/health rows back to the
+ * queue `Job` that emitted them (issue #195). */
+export interface HealthEvent {
+  id: string
+  asset_id: string
+  event_type: string
+  status: string
+  code: string
+  message: string
+  duration_ms: number
+  error_code: string
+  created_at: string
+  /** Set on lifecycle/health rows emitted by a queue job (issue #195). */
+  job_id?: string
 }
 
 export interface AuthResponse {
@@ -592,6 +690,14 @@ interface RequestOptions {
   method?: string
   body?: unknown
   params?: Record<string, string>
+  /** Multipart body: sent as-is (no JSON encoding, no Content-Type so fetch
+   * derives the boundary). Overrides `body`. */
+  form?: FormData
+  /** Return the raw `Response` instead of parsing JSON (for file downloads). */
+  raw?: boolean
+  /** Skip the GET cache on reads of mutable resources (job status polling
+   * would otherwise replay the same cached answer for the whole TTL). */
+  noCache?: boolean
 }
 
 function buildUrl(path: string, params?: Record<string, string>): string {
@@ -635,6 +741,27 @@ async function tryRefreshToken(headers: Record<string, string>): Promise<boolean
   return false
 }
 
+/** The HTTP status carried by an error built by `errorFrom`, if any (network
+ * errors and other plain `Error`s have none). Shared by every page that maps
+ * specific statuses to localized messages. */
+export function errorStatus(err: unknown): number | undefined {
+  return err instanceof Error && 'status' in err
+    ? (err as Error & { status: number }).status
+    : undefined
+}
+
+/** Trigger a browser download for a blob, falling back to `fallbackName`
+ * when the server did not suggest a filename. Shared by the backup/export
+ * flows. */
+export function saveBlob(blob: Blob, fallbackName: string, filename: string | null): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename || fallbackName
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /** Build the `Error` for a failed response: the backend `{"error": …}` body
  * when present (never the raw body of a non-JSON failure), plus the HTTP
  * status on the error object so pages can map specific codes. */
@@ -662,6 +789,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   // mutation.
   if (method !== 'GET') {
     getCache.clear()
+  } else if (options.noCache) {
+    // Read-through: never served from, nor written into, the cache.
   } else {
     const cached = getCache.get(cacheKey)
     if (cached) {
@@ -672,14 +801,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
   }
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = {}
+  if (!options.form) headers['Content-Type'] = 'application/json'
   const token = localStorage.getItem('access_token')
   if (token) headers.Authorization = `Bearer ${token}`
 
   const init = (): RequestInit => ({
     method,
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.form ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
   })
 
   let res = await fetch(url, init())
@@ -695,22 +825,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw await errorFrom(res)
   }
 
+  if (options.raw) return res as T
+
   if (res.status === 204) return undefined as T
 
   const data: T = await res.json()
-  if (method === 'GET') {
+  if (method === 'GET' && !options.noCache) {
     getCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS })
   }
   return cloneCached<T>(data)
 }
-
-export const api = {
-  get: (url: string, init: RequestInit = {}) => request(url, { ...init, method: 'GET' }),
-  post: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'POST', body }),
-  put: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'PUT', body }),
-  patch: (url: string, body: unknown, init: RequestInit = {}) => request(url, { ...init, method: 'PATCH', body }),
-  delete: (url: string, init: RequestInit = {}) => request(url, { ...init, method: 'DELETE' }),
-};
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -777,7 +901,8 @@ export const assetApi = {
   search: (q: string) => request<Asset[]>(`/assets/search?q=${q}`),
   lookup: (q: string) => request<AssetLookupResult[]>(`/assets/lookup?q=${q}`),
   meta: (ticker: string) => request<AssetMeta>(`/assets/meta?ticker=${ticker}`),
-  get: (id: string) => request<Asset>(`/assets/${id}`),
+  get: (id: string, opts?: { noCache?: boolean }) =>
+    request<Asset>(`/assets/${id}`, { noCache: opts?.noCache }),
   create: (data: Partial<Asset>) => request<Asset>('/assets', { method: 'POST', body: data }),
   update: (id: string, patch: AssetPatch) =>
     request<Asset>(`/assets/${id}`, { method: 'PATCH', body: patch }),
@@ -802,9 +927,11 @@ export const assetApi = {
       body: { countries },
     }),
   backfillHistory: (id: string) =>
-    request<{ status: string }>(`/assets/${id}/backfill-history`, { method: 'POST' }),
+    request<JobEnqueued>(`/assets/${id}/backfill-history`, { method: 'POST' }),
   remove: (id: string) => request<void>(`/assets/${id}`, { method: 'DELETE' }),
-  sync: () => request<{ status: string }>('/assets/sync', { method: 'POST' }),
+  // Queues a global asset sync (splits + history for every Yahoo asset) as a
+  // worker job; poll the returned job id, then invalidate caches.
+  sync: () => request<JobEnqueued>('/assets/sync', { method: 'POST' }),
 }
 
 export const transactionApi = {
@@ -844,11 +971,75 @@ export const transactionApi = {
 
 export const pricesApi = {
   refresh: (portfolioId?: string) =>
-    request<RefreshReport>('/prices/refresh', {
+    request<JobEnqueued>('/prices/refresh', {
       method: 'POST',
       params: portfolioId ? { portfolio_id: portfolioId } : {},
     }),
   byAsset: (assetId: string) => request<Price[]>(`/prices/${assetId}?full=1`),
+}
+
+/** Reads of the `/admin/health` Data & Sync view. Every method bypasses the
+ * shared GET cache: the page polls these while a job is open, and the polled
+ * URLs do not change between ticks. */
+export const healthApi = {
+  /** The window-scoped summary tiles (`GET /health/prices`; the `events` page
+   *  of that endpoint is not consumed — the feed comes from `activity`). */
+  summary: (period: string) =>
+    request<{ summary: HealthSummary }>('/health/prices', {
+      params: { period, limit: '1' },
+      noCache: true,
+    }),
+  /** One page of the unified activity feed, newest first. `period` windows
+   *  the feed exactly like the summary tiles (`all` = no lower bound); `type`
+   *  and `status` are optional raw-value filters (empty means all), applied
+   *  server-side to both the page and `items_total`. */
+  activity: (params: { period: string; limit: number; offset: number; type: string; status: string }) => {
+    const query: Record<string, string> = {
+      period: params.period,
+      limit: String(params.limit),
+      offset: String(params.offset),
+    }
+    if (params.type) query.type = params.type
+    if (params.status) query.status = params.status
+    return request<{ items: ActivityItem[]; items_total: number }>('/health/activity', {
+      params: query,
+      noCache: true,
+    })
+  },
+  /** All events of one job (lifecycle rows plus its item events), newest
+   *  first: the same endpoint scoped server-side by `job_id` for the panel. */
+  jobEvents: (jobId: string) =>
+    request<{ events: HealthEvent[] }>('/health/prices', {
+      params: { job_id: jobId, limit: '200' },
+      noCache: true,
+    }),
+}
+
+const JOB_TERMINAL_STATUSES: Job['status'][] = ['done', 'failed', 'partial']
+
+export const jobsApi = {
+  get: (id: string) => request<Job>(`/jobs/${id}`, { noCache: true }),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const query: Record<string, string> = {}
+    if (params?.limit !== undefined) query.limit = String(params.limit)
+    if (params?.offset !== undefined) query.offset = String(params.offset)
+    return request<Job[]>('/jobs', { params: query, noCache: true })
+  },
+  /** Poll `get` until the job reaches a terminal status (done/failed/partial)
+   * or the timeout lapses. On timeout it RESOLVES with the last observed
+   * (still-open) job instead of throwing: every caller already maps any
+   * non-terminal/non-done status to its localized failure toast, so nothing
+   * would translate a thrown string, and a slow job keeps its progress data
+   * readable by the caller either way. */
+  wait: async (id: string, opts?: { intervalMs?: number; timeoutMs?: number }): Promise<Job> => {
+    const intervalMs = opts?.intervalMs ?? 2000
+    const deadline = Date.now() + (opts?.timeoutMs ?? 5 * 60_000)
+    for (;;) {
+      const job = await jobsApi.get(id)
+      if (JOB_TERMINAL_STATUSES.includes(job.status) || Date.now() >= deadline) return job
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+  },
 }
 
 export const settingsApi = {
@@ -892,25 +1083,14 @@ export interface DBRestoreSummary {
 
 /**
  * Authenticated file download shared by `backupApi.download` and
- * `adminApi.dbBackup`: deliberately a raw fetch instead of `request` (which
- * JSON-parses bodies and would destroy the bytes), but with the same auth
- * header, the same 401 → refresh → retry flow and the same error shape. The
+ * `adminApi.dbBackup`: a raw GET through `request` (auth header, 401 →
+ * refresh → retry and error shape included) whose body is kept as bytes. The
  * suggested name comes from `Content-Disposition` (`attachment;
  * filename="…"`), with the same tolerant quote/charset handling the backends
  * that emit it use.
  */
 async function downloadAttachment(path: string): Promise<BackupDownload> {
-  const url = buildUrl(path)
-  const headers: Record<string, string> = {}
-  const token = localStorage.getItem('access_token')
-  if (token) headers.Authorization = `Bearer ${token}`
-
-  let res = await fetch(url, { method: 'GET', headers })
-  if (res.status === 401 && (await tryRefreshToken(headers))) {
-    res = await fetch(url, { method: 'GET', headers })
-  }
-  if (!res.ok) throw await errorFrom(res)
-
+  const res = await request<Response>(path, { raw: true })
   const disposition = res.headers.get('Content-Disposition') ?? ''
   const match = /filename="?([^";]+)"?/.exec(disposition)
   return { blob: await res.blob(), filename: match?.[1]?.trim() || null }
@@ -954,28 +1134,21 @@ export const adminApi = {
    * database (users included) from a custom-format dump. Multipart POST with
    * the archive in the `dump` file field and the literal `confirm=replace`
    * form field (the handler also accepts it as a query param; the field is
-   * the contract this client keeps). `Content-Type` must stay unset so fetch
-   * derives it from the `FormData` with the multipart boundary. A 400
-   * answers a missing confirmation/file; a 500 carries the sanitized
-   * `pg_restore` error on purpose — the admin must read what failed, so
-   * pages surface `error.message` for that status. The successful session
-   * may itself be invalidated by the replaced users table: the summary's
-   * `message` warns about re-login.
+   * the contract this client keeps). A 400 answers a missing
+   * confirmation/file; a 500 carries the sanitized `pg_restore` error on
+   * purpose — the admin must read what failed, so pages surface
+   * `error.message` for that status. The successful session may itself be
+   * invalidated by the replaced users table: the summary's `message` warns
+   * about re-login.
    */
-  dbRestore: async (file: File): Promise<DBRestoreSummary> => {
-    const url = buildUrl('/admin/db/restore')
+  dbRestore: (file: File): Promise<DBRestoreSummary> => {
     const form = new FormData()
     form.append('confirm', 'replace')
     form.append('dump', file)
-    const headers: Record<string, string> = {}
-    const token = localStorage.getItem('access_token')
-    if (token) headers.Authorization = `Bearer ${token}`
-
-    let res = await fetch(url, { method: 'POST', headers, body: form })
-    if (res.status === 401 && (await tryRefreshToken(headers))) {
-      res = await fetch(url, { method: 'POST', headers, body: form })
-    }
-    if (!res.ok) throw await errorFrom(res)
-    return (await res.json()) as DBRestoreSummary
+    return request<DBRestoreSummary>('/admin/db/restore', { method: 'POST', form })
   },
+  // Wipe the whole health-events table (`DELETE /admin/health/events`,
+  // issue #206): admin-only and destructive, answers with the deleted count.
+  clearHealthEvents: () =>
+    request<{ deleted: number }>('/admin/health/events', { method: 'DELETE' }),
 }

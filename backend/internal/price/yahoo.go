@@ -61,8 +61,11 @@ func WithHealthRecorder(hr HealthRecorder) YahooFetcherOption {
 // recordHealth records a fetch outcome in the health log. It is a no-op when
 // no recorder is configured and never fails the caller: health tracking must
 // not break price fetching. assetID is nil for non per-asset events (FX,
-// batch summaries).
-func (f *YahooFetcher) recordHealth(ctx context.Context, assetID *uuid.UUID, eventType, status, code, message string, durationMs int) {
+// batch summaries). since anchors when the measured operation started; the
+// duration is always computed here, never passed by hand. A context that is
+// already done is handled by the recorder (HealthService writes on a fresh
+// short-lived context), so terminal outcomes of timed-out operations land.
+func (f *YahooFetcher) recordHealth(ctx context.Context, assetID *uuid.UUID, eventType, status, code, message string, since time.Time) {
 	if f.health == nil {
 		return
 	}
@@ -73,7 +76,7 @@ func (f *YahooFetcher) recordHealth(ctx context.Context, assetID *uuid.UUID, eve
 		Status:     status,
 		Code:       code,
 		Message:    message,
-		DurationMs: durationMs,
+		DurationMs: int(time.Since(since).Milliseconds()),
 		CreatedAt:  time.Now().UTC(),
 	}
 	if err := f.health.RecordEvent(ctx, ev); err != nil {
@@ -153,7 +156,7 @@ type yahooChartResult struct {
 		LongName         string `json:"longName"`
 		ShortName        string `json:"shortName"`
 	} `json:"meta"`
-	Timestamp  []int64           `json:"timestamp"`
+	Timestamp  []int64 `json:"timestamp"`
 	Indicators struct {
 		Quote []yahooChartQuote `json:"quote"`
 	} `json:"indicators"`
@@ -246,22 +249,23 @@ func (f *YahooFetcher) RefreshFX(ctx context.Context) ([]FetchIssue, error) {
 			continue
 		}
 
+		start := time.Now()
 		rate, err := f.fetchFX(ctx, quote)
 		if err != nil {
 			msg := fmt.Sprintf("fx %s: %v", quote, err)
 			issues = append(issues, FetchIssue{Symbol: quote, RequestType: "fx", Code: issueCode(err), Message: msg})
 			log.Warn().Err(err).Str("currency", quote).Msg("fx fetch failed")
-			f.recordHealth(ctx, nil, "fx_fetch", "failure", issueCode(err), msg, 0)
+			f.recordHealth(ctx, nil, "fx_fetch", "failure", issueCode(err), msg, start)
 			continue
 		}
 		if err := f.repos.FX.Upsert(ctx, "USD", quote, rate); err != nil {
 			msg := fmt.Sprintf("fx %s: fx save failed: %v", quote, err)
 			issues = append(issues, FetchIssue{Symbol: quote, RequestType: "fx", Code: "error", Message: msg})
 			log.Warn().Err(err).Str("currency", quote).Msg("fx save failed")
-			f.recordHealth(ctx, nil, "fx_fetch", "failure", "error", msg, 0)
+			f.recordHealth(ctx, nil, "fx_fetch", "failure", "error", msg, start)
 			continue
 		}
-		f.recordHealth(ctx, nil, "fx_fetch", "success", "", quote+" rate updated", 0)
+		f.recordHealth(ctx, nil, "fx_fetch", "success", "", quote+" rate updated", start)
 		log.Info().Str("currency", quote).Str("rate", rate.String()).Msg("fx rate updated")
 	}
 	return issues, nil
@@ -396,6 +400,13 @@ func (f *YahooFetcher) fetchChartRange(ctx context.Context, ticker string, from,
 // back to cover every asset Yahoo has data for.
 var fullHistoryStart = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
 
+// ErrSyncIncomplete reports a sync that finished but did not persist
+// everything (bars/splits lost, typically because the operation ran out of
+// time). Callers that map a sync outcome to a job status turn it into
+// "partial" instead of "done", so a truncated download is never reported as a
+// success. It is not a hard failure for the surrounding app load.
+var ErrSyncIncomplete = errors.New("sync incomplete")
+
 // EnsureHistory backfills daily closes from Yahoo for the given assets so the
 // portfolio history series has market values from the first transaction to now.
 func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset) error {
@@ -403,6 +414,7 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 	defer f.mu.Unlock()
 
 	now := time.Now().UTC()
+	incomplete := false
 	for _, a := range assets {
 		earliest, latest, err := f.repos.Price.MinMaxDate(ctx, a.ID)
 		if err != nil {
@@ -411,6 +423,7 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 		}
 
 		var bars []historyBar
+		start := time.Now()
 		switch {
 		case a.Full:
 			// Explicit full backfill from the beginning of Yahoo history,
@@ -429,19 +442,56 @@ func (f *YahooFetcher) EnsureHistory(ctx context.Context, assets []HistoryAsset)
 		}
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", a.Ticker).Msg("history fetch failed")
-			f.recordHealth(ctx, &a.ID, "history_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), 0)
+			f.recordHealth(ctx, &a.ID, "history_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), start)
+			incomplete = true
 			continue
 		}
+		// One multi-row upsert (chunked) instead of one statement per bar: the
+		// per-bar round-trips were what pushed a long backfill past its
+		// deadline. Dedupe by date first — Postgres rejects an ON CONFLICT
+		// affecting the same row twice in a single INSERT.
+		prices := make([]*model.Price, 0, len(bars))
+		byDate := make(map[time.Time]int, len(bars))
 		for _, b := range bars {
-			if _, err := f.repos.Price.Create(ctx, &model.Price{AssetID: a.ID, Date: b.Date, Close: b.Close, Source: "yahoo"}); err != nil {
-				log.Warn().Err(err).Str("symbol", a.Ticker).Str("date", b.Date.Format("2006-01-02")).Msg("history save failed")
+			p := &model.Price{AssetID: a.ID, Date: b.Date, Close: b.Close, Source: "yahoo"}
+			if idx, ok := byDate[b.Date]; ok {
+				prices[idx] = p
+				continue
 			}
+			byDate[b.Date] = len(prices)
+			prices = append(prices, p)
 		}
+		total := len(prices)
+		written, saveErr := f.repos.Price.UpsertBatch(ctx, prices)
+		failed := total - written
+		if failed > 0 {
+			// The duration is the whole per-asset operation, not just the save
+			// phase: the save fails *because* the operation ran out of time, so
+			// a save-only duration (a few hundred ms) would be misleading.
+			f.recordHealth(ctx, &a.ID, "history_save", "failure", "error",
+				fmt.Sprintf("%s: %d of %d bars failed to save: %v", a.Ticker, failed, total, saveErr), start)
+			incomplete = true
+		}
+		markOK := true
 		if a.Full {
 			if err := f.repos.Asset.MarkHistoryBackfilled(ctx, a.ID); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Msg("history backfill mark failed")
+				f.recordHealth(ctx, &a.ID, "history_backfill", "failure", "error",
+					a.Ticker+": mark history backfilled failed: "+err.Error(), start)
+				markOK = false
+				incomplete = true
 			}
 		}
+		// Success event per asset: the health page lists every backfill call,
+		// not just the failures. Assets skipped by cooldown/up-to-date never
+		// reach here, so a row reflects real work.
+		if failed == 0 && markOK {
+			f.recordHealth(ctx, &a.ID, "history_backfill", "success", "",
+				fmt.Sprintf("%s: %d bars saved", a.Ticker, total), start)
+		}
+	}
+	if incomplete {
+		return fmt.Errorf("%w: some history was not persisted", ErrSyncIncomplete)
 	}
 	return nil
 }
@@ -500,21 +550,34 @@ func (f *YahooFetcher) EnsureFXHistory(ctx context.Context) {
 		}
 		f.fxHistoryCooldown[quote] = now
 
+		start := time.Now()
 		bars, err := f.fetchChartRange(ctx, "USD"+quote+"=X", from, now)
 		if err != nil {
 			log.Warn().Err(err).Str("currency", quote).Msg("fx history fetch failed")
-			f.recordHealth(ctx, nil, "fx_history_fetch", "failure", issueCode(err), quote+": "+err.Error(), 0)
+			f.recordHealth(ctx, nil, "fx_history_fetch", "failure", issueCode(err), quote+": "+err.Error(), start)
 			continue
 		}
+		// One aggregate save event per currency, never per bar.
+		saveStart := time.Now()
+		failed, total := 0, len(bars)
+		var firstErr error
 		for _, b := range bars {
 			if b.Date.Before(from) {
 				continue // bars may start earlier than the requested range
 			}
 			if err := f.repos.FX.UpsertHistory(ctx, "USD", quote, b.Date, b.Close, "yahoo"); err != nil {
 				log.Warn().Err(err).Str("currency", quote).Str("date", b.Date.Format("2006-01-02")).Msg("fx history save failed")
+				if firstErr == nil {
+					firstErr = err
+				}
+				failed++
 			}
 		}
-		f.recordHealth(ctx, nil, "fx_history_fetch", "success", "", quote+" history updated", 0)
+		if failed > 0 {
+			f.recordHealth(ctx, nil, "fx_history_save", "failure", "error",
+				fmt.Sprintf("%s: %d of %d rate bars failed to save: %v", quote, failed, total, firstErr), saveStart)
+		}
+		f.recordHealth(ctx, nil, "fx_history_fetch", "success", "", quote+" history updated", start)
 		log.Info().Str("currency", quote).Int("bars", len(bars)).Msg("fx history updated")
 	}
 }
@@ -577,6 +640,7 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 	defer f.mu.Unlock()
 
 	now := time.Now().UTC()
+	incomplete := false
 	for _, a := range assets {
 		if a.PriceSource != "" && a.PriceSource != "yahoo" {
 			continue
@@ -584,19 +648,46 @@ func (f *YahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Asset) 
 		if last, ok := f.splitCooldown[a.ID]; ok && last.Add(f.refreshInterval).After(now) {
 			continue
 		}
+		start := time.Now()
 		splits, err := f.fetchSplits(ctx, a.Ticker)
 		f.splitCooldown[a.ID] = now
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", a.Ticker).Msg("split fetch failed")
-			f.recordHealth(ctx, &a.ID, "split_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), 0)
+			f.recordHealth(ctx, &a.ID, "split_fetch", "failure", issueCode(err), a.Ticker+": "+err.Error(), start)
+			incomplete = true
 			continue
 		}
-		for _, sp := range splits {
+		// Aggregate save failures into one event per asset; stop as soon as
+		// the context is gone (the rest counts as not saved).
+		failed, total := 0, len(splits)
+		var firstErr error
+		for i, sp := range splits {
+			if ctx.Err() != nil {
+				failed += len(splits) - i
+				break
+			}
 			sp.AssetID = a.ID
 			if err := f.repos.Split.Upsert(ctx, &sp); err != nil {
 				log.Warn().Err(err).Str("symbol", a.Ticker).Str("date", sp.Date.Format("2006-01-02")).Msg("split save failed")
+				if firstErr == nil {
+					firstErr = err
+				}
+				failed++
 			}
 		}
+		if failed > 0 {
+			f.recordHealth(ctx, &a.ID, "split_save", "failure", "error",
+				fmt.Sprintf("%s: %d of %d splits failed to save: %v", a.Ticker, failed, total, firstErr), start)
+			incomplete = true
+		} else {
+			// Success event per asset so the health page lists every split
+			// check, not just the failures.
+			f.recordHealth(ctx, &a.ID, "split_fetch", "success", "",
+				fmt.Sprintf("%s: %d splits", a.Ticker, total), start)
+		}
+	}
+	if incomplete {
+		return fmt.Errorf("%w: some splits were not persisted", ErrSyncIncomplete)
 	}
 	return nil
 }
@@ -673,6 +764,7 @@ func (f *YahooFetcher) RefreshStale(ctx context.Context, assets []*model.Asset) 
 		Str("expected_close", expected.Format("2006-01-02")).
 		Msg("refreshing stale prices")
 
+	batchStart := time.Now()
 	report.Refreshed, report.Issues = f.fetchQuotesBatch(ctx, stale)
 	for _, iss := range report.Issues {
 		if iss.Code == "rate_limited" {
@@ -682,12 +774,14 @@ func (f *YahooFetcher) RefreshStale(ctx context.Context, assets []*model.Asset) 
 		}
 	}
 	// Health events: one success summary per batch plus a failure per issue.
+	// The batch duration is shared by all events of the run: individual
+	// per-symbol timings are not tracked to keep the fetch code simple.
 	if len(report.Refreshed) > 0 {
 		f.recordHealth(ctx, nil, "price_refresh", "success", "",
-			fmt.Sprintf("refreshed %d/%d symbols: %s", len(report.Refreshed), len(stale), strings.Join(report.Refreshed, ", ")), 0)
+			fmt.Sprintf("refreshed %d/%d symbols: %s", len(report.Refreshed), len(stale), strings.Join(report.Refreshed, ", ")), batchStart)
 	}
 	for _, iss := range report.Issues {
-		f.recordHealth(ctx, iss.AssetID, "price_refresh", "failure", iss.Code, iss.Message, 0)
+		f.recordHealth(ctx, iss.AssetID, "price_refresh", "failure", iss.Code, iss.Message, batchStart)
 	}
 	if len(report.Refreshed) == 0 {
 		return report, nil
@@ -696,49 +790,8 @@ func (f *YahooFetcher) RefreshStale(ctx context.Context, assets []*model.Asset) 
 	if err := f.repos.Asset.MarkPricesFetched(ctx, assetIDs(stale), now); err != nil {
 		log.Warn().Err(err).Msg("failed to mark prices as fetched")
 	}
+
 	return report, nil
-}
-
-func (f *YahooFetcher) fetchQuote(ctx context.Context, asset *model.Asset) error {
-	chart, err := f.fetchChart(ctx, asset.Ticker)
-	if err != nil {
-		return err
-	}
-	if len(chart.Indicators.Quote) == 0 {
-		return fmt.Errorf("no quote indicators")
-	}
-	quote := chart.Indicators.Quote[0]
-
-	// Find the last complete daily bar (all values present).
-	idx := -1
-	for i := len(chart.Timestamp) - 1; i >= 0; i-- {
-		if i < len(quote.Open) && i < len(quote.High) && i < len(quote.Low) &&
-			i < len(quote.Close) && i < len(quote.Volume) &&
-			quote.Open[i] != nil && quote.High[i] != nil && quote.Low[i] != nil &&
-			quote.Close[i] != nil && quote.Volume[i] != nil {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return fmt.Errorf("no complete daily bar")
-	}
-
-	price := &model.Price{
-		AssetID: asset.ID,
-		Date:    priceDate(chart.Timestamp[idx]),
-		Open:    decimal.NewFromFloat(*quote.Open[idx]),
-		High:    decimal.NewFromFloat(*quote.High[idx]),
-		Low:     decimal.NewFromFloat(*quote.Low[idx]),
-		Close:   decimal.NewFromFloat(*quote.Close[idx]),
-		Volume:  *quote.Volume[idx],
-		Source:  "yahoo",
-	}
-
-	if _, err := f.repos.Price.Create(ctx, price); err != nil {
-		return fmt.Errorf("save price: %w", err)
-	}
-	return nil
 }
 
 // priceDate returns the UTC calendar day the quote refers to.

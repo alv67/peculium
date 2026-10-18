@@ -350,3 +350,55 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 { "version": 99, "portfolios": [], "assets": [] }
+
+### 21. Long external-site work is queued, not run inline: these endpoints
+### answer 202 {"job_id","status":"queued"} and the worker drains the job out
+### of band (its own context, no 30s request timeout). A second identical
+### request returns the still-open job instead of stacking a duplicate (dedup
+### by type+target). Poll GET /jobs/{id} until status is done|failed|partial.
+### In the isolated test stack Yahoo is disabled, so these jobs may end
+### failed/partial — that is expected here; the point is the async contract.
+
+### 21a. Queue a price refresh (all assets).
+# @name refreshPrices
+POST {{baseUrl}}/prices/refresh
+Authorization: Bearer {{token}}
+
+### 21b. Queue a price refresh for a single portfolio.
+POST {{baseUrl}}/prices/refresh?portfolio_id={{portfolioId}}
+Authorization: Bearer {{token}}
+
+### 21c. Queue a full history (+ splits) backfill for one asset.
+# @name backfillHistory
+POST {{baseUrl}}/assets/{{assetId}}/backfill-history
+Authorization: Bearer {{token}}
+
+### 21d. Queue the global stock-metadata backfill.
+POST {{baseUrl}}/assets/backfill-meta
+Authorization: Bearer {{token}}
+
+### 21e. Poll a queued job by id (use the job_id returned above).
+### 404 for an unknown id, 400 for a malformed one.
+# @name jobStatus
+GET {{baseUrl}}/jobs/{{refreshPrices.response.body.job_id}}
+Authorization: Bearer {{token}}
+
+### 21f. List recent jobs, newest first (default 50).
+GET {{baseUrl}}/jobs?limit=20&offset=0
+Authorization: Bearer {{token}}
+
+### 22. Unified activity feed (Data & Sync): every queue job plus the health
+### events NOT tied to a job (job_id IS NULL). Newest first, paginated, with
+### the same optional type/status filters as the health events list.
+# @name activity
+GET {{baseUrl}}/health/activity?limit=50&offset=0
+Authorization: Bearer {{token}}
+
+### 22a. Filter the feed by type and/or status (empty = all).
+GET {{baseUrl}}/health/activity?type=price_refresh&status=running
+Authorization: Bearer {{token}}
+
+### 22b. A job's own events (detail panel): they are NOT in the feed, they are
+### read back through the job_id filter on the health events list.
+GET {{baseUrl}}/health/prices?job_id={{refreshPrices.response.body.job_id}}&limit=200
+Authorization: Bearer {{token}}

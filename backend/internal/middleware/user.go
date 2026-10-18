@@ -70,28 +70,18 @@ func UserFromContext(ctx context.Context) *model.User {
 
 // RequireAdmin allows only users whose role is owner or admin. It reads the
 // role of the user loaded by RequireActiveUser so role changes apply to
-// existing tokens immediately; when no loaded user is present it falls back
-// to the token claim. Chain it after the JWT middleware.
+// existing tokens immediately. Chain it after RequireActiveUser.
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if user := UserFromContext(r.Context()); user != nil {
-			if user.Role.IsAdmin() {
-				next.ServeHTTP(w, r)
-				return
-			}
-			errorJSON(w, http.StatusForbidden, "admin access required")
-			return
-		}
-
-		claims := auth.GetClaims(r.Context())
-		if claims == nil {
+		user := UserFromContext(r.Context())
+		if user == nil {
 			errorJSON(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		if model.Role(claims.Role).IsAdmin() {
-			next.ServeHTTP(w, r)
+		if !user.Role.IsAdmin() {
+			errorJSON(w, http.StatusForbidden, "admin access required")
 			return
 		}
-		errorJSON(w, http.StatusForbidden, "admin access required")
+		next.ServeHTTP(w, r)
 	})
 }

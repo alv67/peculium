@@ -33,13 +33,21 @@
   automatically. The maintainers' planning issues never use `triage`; they carry
   `epic:*`/`priority` labels. Treat `label:triage` as the incoming queue and
   `label:epic:*` as the project plan.
+- **Epics vs extemporaneous work**: only planned epic work carries `epic:*`
+  (and `priority`) labels. Bugs and standalone feature requests are
+  extemporaneous: they stay autonomous issues without any `epic:*` label, even
+  when they touch an epic's area. Epics are driven to completion; ad-hoc items
+  are tracked on their own.
 - **Keep the project docs in sync before closing a PR**: always check the
   project documents first (AGENTS.md, PLAN.md, STATUS.md, `docs/` guides en/it)
   and update them together with the code. A PR must NOT be closed until its
   related documentation (endpoints, behavior, UI, status tables) is updated.
 - **Screenshots for docs/website**: capture every UI screenshot in **both
   locales** (Italian and English), from the isolated test stack, and embed the
-  one that matches the language of the page that uses it.
+  one that matches the language of the page that uses it. Use
+  `scripts/capture-screenshots.mjs` (headless Chrome over the DevTools Protocol
+  — the only way to pin the exact 1280×800 at 2× DPR, light theme) and follow
+  `website/public/screenshots/README.md`.
 - **The guides are a snapshot of the current version**: `docs/FRONTEND-GUIDE`,
   `docs/BACKEND-GUIDE` and `docs/DATABASE-GUIDE` (both `.en.md` and `.it.md`)
   describe **how the app works right now**, as if written against the latest

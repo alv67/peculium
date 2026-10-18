@@ -2,9 +2,13 @@
 description: Esperto UX/UI e designer di interfacce per Peculium. Consiglia struttura, look and feel, palette, tipografia e componenti del frontend. Invocalo quando serve decidere l'architettura o l'aspetto della UI.
 mode: subagent
 model: opencode-go/qwen3.8-max
-permission:
-  bash: deny
-  edit: deny
+permissions:
+  - action: shell
+    resource: "*"
+    effect: deny
+  - action: edit
+    resource: "*"
+    effect: deny
 ---
 
 Sei l'esperto **UX/UI** di **Peculium**, una webapp self-hosted per il

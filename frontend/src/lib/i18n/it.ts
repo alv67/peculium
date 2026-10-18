@@ -29,7 +29,7 @@ export const it = {
     colValue: 'Valore',
     colTotal: 'Totale',
     colActions: 'Azioni',
-    /** Etichetta Code condivisa tra form/tabella valute e tabella eventi health. */
+    /** Etichetta Code del form e della tabella valute. */
     colCode: 'Codice',
     /** Pulsanti del piè di pagina di paginazione della tabella transazioni. */
     previous: 'Precedente',
@@ -110,8 +110,7 @@ export const it = {
     comingSoon: 'In arrivo',
     refreshSuccess: 'Prezzi aggiornati',
     refreshError: 'Aggiornamento dei prezzi non riuscito',
-    refreshRateLimited: 'Yahoo Finance sta limitando le richieste: alcuni prezzi potrebbero non essere aggiornati',
-    refreshIssues: '{count} aggiornamenti prezzi non riusciti (Yahoo)',
+    refreshPartial: 'Alcuni aggiornamenti prezzi non sono riusciti (Yahoo)',
   },
   user: {
     accountMenu: 'Menu account',
@@ -495,8 +494,7 @@ export const it = {
   },
   quality: {
     fxMissing: '{amount} esclusi — cambio mancante ({count} posizioni)',
-    rateLimited: 'Alcuni prezzi non aggiornati (limitazione Yahoo)',
-    refreshIssues: '{count} aggiornamenti prezzi non riusciti',
+    refreshPartial: 'Alcuni prezzi non aggiornati',
     refreshFailed: 'Aggiornamento prezzi non riuscito: i valori potrebbero essere obsoleti',
   },
   freshness: {
@@ -506,32 +504,34 @@ export const it = {
     partialHint: 'Prezzi alle {time}: alcuni aggiornamenti non riusciti o limitati',
   },
   /**
-   * Pagina di stato sincronizzazione prezzi (`/admin/health`, voce di nav
-   * `nav.dataSync`). I valori backend (`event_type`, `code`, `message`) sono
-   * mostrati verbatim; solo il badge di stato è localizzato dalle chiavi
-   * `status*` con fallback al valore grezzo. `N/A` e l'unità `ms` restano.
+   * Pagina admin Dati e sincronizzazione (`/admin/health`, voce di nav
+   * `nav.dataSync`): il flusso attività dei job di sincronizzazione e delle
+   * chiamate API esterne. Il `type` degli eventi e il `message` sono mostrati
+   * verbatim; i tipi job e gli stati passano dalle mappe condivise di
+   * `domain/job-status`, con fallback al valore grezzo. `N/A` e l'unità `ms`
+   * restano.
    */
   health: {
-    title: 'Stato sincronizzazione prezzi',
-    subtitle: "Monitoraggio di connettività e prestazioni dell'API Yahoo Finance",
-    periodToday: 'Oggi',
-    periodLast24h: 'Ultime 24h',
-    periodLast100: 'Ultimi 100',
-    /** Nome accessibile del SegmentedControl + didascalia "Periodo: …". */
+    title: 'Dati e sincronizzazione',
+    subtitle: 'Job di sincronizzazione e attività delle API esterne',
+    period24h: '24h',
+    period7d: '7 giorni',
+    periodAll: 'Tutto',
+    /** Nome accessibile del SegmentedControl del periodo (scopa tile + feed). */
     periodAria: 'Periodo di monitoraggio',
-    periodLabel: 'Periodo: {period}',
     refreshing: 'Aggiornamento…',
     refresh: 'Aggiorna ora',
     noData: 'Nessun dato di monitoraggio disponibile.',
+    noProviderCalls: 'Nessuna chiamata ai provider in questa finestra: le caselle contano solo le chiamate esterne. I job eseguiti sono nell\'elenco qui sotto.',
     /** Card delle metriche. */
     successRate: 'Tasso di successo',
     totalSuccesses: 'Successi totali',
     totalFailures: 'Fallimenti totali',
     rateLimited: 'Richieste limitate',
-    /** Tabella eventi (titolo, aria-label della tabella e intestazioni;
-     *  Tipo/Stato/Code riusano `common.colType`, `positions.colStatus` e
-     *  `common.colCode`). */
-    recentEvents: 'Eventi recenti',
+    /** Tabella attività (titolo e aria-label della tabella; le intestazioni
+     *  Tipo/Destinazione/Stato riusano `common.colType`, `jobs.colTarget` e
+     *  `positions.colStatus`, le altre sono le chiavi `col*` qui sotto). */
+    activity: 'Attività',
     colTimestamp: 'Data e ora',
     colMessage: 'Messaggio',
     colDuration: 'Durata',
@@ -539,7 +539,59 @@ export const it = {
     statusSuccess: 'Successo',
     statusRateLimited: 'Richieste limitate',
     statusFailure: 'Errore',
+    statusRunning: 'In corso',
+    statusPartial: 'Parziale',
     loadFailed: 'Caricamento dei dati di monitoraggio non riuscito',
+    /** Azione distruttiva da admin (#206): etichetta del pulsante, dialogo di
+     *  conferma (`{total}` è il corrente `items_total` del flusso attività) e
+     *  toast di esito. Cancella sia gli eventi di monitoraggio sia i job di
+     *  sincronizzazione. */
+    clearEvents: 'Cancella attività',
+    clearEventsTitle: 'Cancellare tutta l\'attività di sincronizzazione?',
+    clearEventsConfirm: 'Verranno eliminati TUTTI i {total} eventi di monitoraggio e tutti i job di sincronizzazione. Operazione irreversibile.',
+    clearEventsDone: '{count} eventi eliminati',
+    clearEventsFailed: 'Cancellazione dell\'attività non riuscita',
+    /** Opzione "tutti" dei filtri server-side Tipo/Stato dell'attività. */
+    filterAll: 'Tutti',
+  },
+  /**
+   * Vocabolario job condiviso tra la tabella attività di `/admin/health`, i
+   * suoi filtri e il pannello di dettaglio del job (#226). I valori
+   * `type`/`target_type` ignoti mostrano la stringa grezza del backend; il
+   * testo `error` è output tecnico e resta verbatim.
+   */
+  jobs: {
+    /** Pill d'intestazione mostrata solo con l'auto-refresh a 3s attivo. */
+    live: 'Aggiornamento automatico',
+    /** Intestazione Destinazione della tabella attività (Tipo/Stato riusano
+     *  `common.colType` / `positions.colStatus`). */
+    colTarget: 'Destinazione',
+    /** Testo d'avanzamento di un job in corso (la barra `aria-hidden` del
+     *  pannello di dettaglio lo replica). */
+    progressOf: '{processed} di {total}',
+    /** Etichette badge del ciclo di vita della coda. */
+    statusQueued: 'In coda',
+    statusRunning: 'In corso',
+    statusDone: 'Completato',
+    statusFailed: 'Fallito',
+    statusPartial: 'Parziale',
+    /** Etichette dei tipi job noti del backend. */
+    typePriceRefresh: 'Aggiornamento prezzi',
+    typeHistoryBackfill: 'Backfill storico',
+    typeAssetSync: 'Sincronizzazione asset',
+    typeMetaBackfill: 'Backfill metadati',
+    typeSplitsFetch: 'Recupero split',
+    /** Etichette dei tipi di destinazione. */
+    targetAsset: 'Asset',
+    targetPortfolio: 'Portafoglio',
+    targetGlobal: 'Globale',
+    /** Nome accessibile del link del tipo job che apre il pannello di
+     *  dettaglio (#226); il testo visibile è il tipo job localizzato. */
+    viewDetailNamed: 'Apri il dettaglio del job {type}',
+    /** Pannello di dettaglio job: intestazione sopra la lista eventi e titolo
+     *  dello stato vuoto. */
+    detailEvents: '{count} eventi',
+    noEventsYet: 'Ancora nessun evento per questo job',
   },
   /**
    * Area Admin (#57 Fase A): stato di negato accesso condiviso, pagina Utenti
@@ -845,10 +897,14 @@ export const it = {
     back: 'Asset',
     refreshMeta: 'Aggiorna da Yahoo',
     backfillHistory: 'Backfill storico completo',
+    dataSyncing: 'Download dello storico in corso…',
+    dataMissing: 'Nessuno storico prezzi disponibile',
+    dataPartial: 'Storico non scaricato completamente',
     delete: 'Elimina asset',
     deleteConfirm: 'Eliminare {ticker}? Questa azione non può essere annullata.',
     deleted: 'Asset eliminato',
-    priceUpdated: 'Aggiornato il {date}',
+    /** Data dell'ultimo close sotto i chip di quotazione: `{date}` è in formato locale. */
+    dataAsOf: 'Dati al {date}',
     chip1d: '1G',
     chip1w: '1S',
     chip1m: '1M',
@@ -913,6 +969,8 @@ export const it = {
     tickerPlaceholder: 'Ticker (es. AAPL)',
     noResultsFound: 'Nessun risultato trovato',
     colCountry: 'Paese',
+    /** Colonna dell'ultimo close nella lista asset (valore con la data sotto). */
+    colLastClose: 'Ultimo close',
     /** Nome accessibile del pulsante di eliminazione della riga
      *  ({ticker} riportato verbatim). */
     deleteNamed: 'Elimina {ticker}',
@@ -940,6 +998,7 @@ export const it = {
     metaRefreshFailed: 'Aggiornamento non riuscito',
     backfillDone: 'Storico prezzi aggiornato',
     backfillFailed: 'Backfill non riuscito',
+    backfillPartial: 'Storico prezzi aggiornato, split non recuperati',
     countriesPrefilledJustEtf: 'Paesi precompilati da JustETF',
     countriesSectorsPrefilledMorningstar: 'Paesi e settori precompilati da Morningstar',
     regionsPrefilledMorningstar: 'Regioni precompilate da Morningstar',
@@ -955,5 +1014,24 @@ export const it = {
     geoSaved: 'Distribuzione geografica salvata',
     sectorsSaved: 'Distribuzione settoriale salvata',
     countriesSaved: 'Distribuzione paesi salvata',
+  },
+  /** Build/version display (#198): il chip nella sidebar, nel foglio "Altro",
+   *  nella pagina di login e nella card Impostazioni → Preferenze. */
+  about: {
+    /** Nome accessibile del chip visibile ({version} trasporta l'intera
+     *  stringa mostrata, es. "v1.0.0 · 03/10/2026, 14:22"). */
+    chip: "Versione dell'app {version}",
+    title: "Informazioni sull'app",
+    version: 'Versione',
+    commit: 'Commit',
+    build: 'Build',
+    /** Suffisso sr-only del link al commit (il testo visibile resta lo SHA). */
+    openCommit: 'Apri il commit su GitHub',
+    copy: 'Copia informazioni build',
+    copied: 'Informazioni build copiate',
+    copyFailed: 'Impossibile copiare le informazioni build',
+    /** Segnaposto per i campi vuoti delle righe della card. */
+    unavailable: 'Non disponibile',
+    hint: 'Indica questa riga quando segnali un problema.',
   },
 } satisfies Dictionary

@@ -70,6 +70,13 @@ services:
       PECULIUM_LOG_LEVEL: info
       PECULIUM_PYTHON_SERVICE_URL: "http://python-service:8000"
       PECULIUM_YAHOO_FINANCE_ENABLED: "${PECULIUM_YAHOO_FINANCE_ENABLED:-true}"
+      # Version/build metadata reported by GET /api/v1/version. The published
+      # images already bake in their own version, commit and build time, so
+      # they are NOT overridden here (PECULIUM_VERSION stays the image tag
+      # selector above, not the reported version). Override only for unusual
+      # setups.
+      PECULIUM_COMMIT: "${PECULIUM_COMMIT:-}"
+      PECULIUM_BUILT_AT: "${PECULIUM_BUILT_AT:-}"
     volumes:
       - peculium_secrets:/run/peculium:ro
     healthcheck:

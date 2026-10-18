@@ -4,10 +4,12 @@
   import { t } from '$lib/i18n/index.svelte'
   import {
     assetApi,
+    jobsApi,
     portfolioApi,
     type Portfolio,
     type PortfolioExportDocument,
   } from '$lib/services/api'
+  import { markDataSynced } from '$lib/stores/priceRefresh.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Field from '$lib/components/ui/Field.svelte'
@@ -86,9 +88,16 @@
         name: importMode === 'new' ? importName : undefined,
         target_portfolio_id: importMode === 'overwrite' ? importTarget : undefined,
       })
-      // Imported assets have no market data yet: trigger the backfill
-      // (history + splits) right away instead of waiting for next app load.
-      assetApi.sync().catch(() => {})
+      // Imported assets have no market data yet: queue the backfill
+      // (history + splits) and refresh the pages when the worker finishes,
+      // instead of waiting for the next app load.
+      void assetApi
+        .sync()
+        .then((enqueued) => jobsApi.wait(enqueued.job_id))
+        .then((job) => {
+          if (job.status === 'done' || job.status === 'partial') markDataSynced()
+        })
+        .catch(() => {})
       toast.success(t('portfolio.imported'))
       open = false
       onsuccess?.()

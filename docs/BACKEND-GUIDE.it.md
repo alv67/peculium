@@ -158,7 +158,11 @@ La sequenza di avvio del server è:
     (controlla il capitolo sull'autenticazione), e quelli sotto
     `/api/v1/admin/*` richiedono anche il ruolo admin. Fuori da
     `/api/v1`, `GET /healthz` è una sonda di vitalità pubblica: risponde
-   `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
+    `{"status":"ok"}` con HTTP 200 e non tocca né il database né Redis.
+    Anche `GET /api/v1/version` è pubblica: risponde
+    `{"version":"...","commit":"...","built_at":"..."}` con i metadati di
+    build iniettati come variabili d'ambiente (`PECULIUM_VERSION`,
+    `PECULIUM_COMMIT`, `PECULIUM_BUILT_AT`), senza richiesta di login.
 6. **Backfill delle serie** — dopo l'avvio, una goroutine (un "filo" di
    esecuzione che lavora in parallelo al resto del programma, così l'API può
    rispondere alle richieste mentre il calcolo prosegue) ricostruisce le serie
@@ -213,7 +217,7 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 
 ## 6. Il database
 
-Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000019`)
+Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000022`)
 costruiscono lo schema. Le tabelle principali:
 
 | Tabella | Contiene | Spiegazione |
@@ -233,7 +237,8 @@ costruiscono lo schema. Le tabelle principali:
 | `lookup_cache` | la cache del cerca-titolo | risultati già scaricati da Yahoo per la ricerca automatica |
 | `portfolio_series` | serie per portafoglio | valore e costo del portafoglio per ogni giorno |
 | `asset_series` | serie per titolo | valore e costo di ogni titolo per ogni giorno |
-| `health_events` | gli eventi di health dei prezzi | registrazioni di aggiornamenti prezzi vecchi/falliti nella pagina health |
+| `jobs` | la coda di lavoro | una riga per job in background (aggiornamento prezzi, storico completo, sync asset, metadati, split) con stato, avanzamento e checkpoint, prelevata dal worker |
+| `health_events` | gli eventi di health | registrazioni di ogni chiamata esterna (aggiornamenti prezzi, metadati, fetch dei provider) mostrate nella pagina "Dati e sincronizzazione" |
 | `server_settings` | le opzioni del server | una sola riga: auto-approvazione delle registrazioni (capitolo 14) |
 
 Due idee fondamentali del database:
@@ -665,8 +670,11 @@ tra gli asset obsoleti.
 
 Quando bisogna aggiornare, le quotazioni correnti e i tassi di cambio vengono
 presi **in batch** tramite l'endpoint `spark` di Yahoo: una sola chiamata per
-gruppi di 50 titoli. I titoli che mancano dalla risposta vengono richiesti uno
-a uno.
+gruppi di 50 titoli. Il batch `spark` è la **fonte unica** dell'ultimo close —
+l'ultima barra con close non nullo, perché Yahoo lascia nullo il close della
+sessione corrente finché non è definitiva. Un titolo assente dalla risposta
+viene segnalato come issue e ritentato al refresh successivo, mai richiesto
+all'endpoint chart, così ogni install risolve lo stesso ultimo close.
 
 ### Tenere sotto controllo le chiamate
 
@@ -685,21 +693,103 @@ quindi attraverso due "freni":
 Se Redis non è raggiungibile, il contatore viene disattivato e si procede
 comunque (si rischia di più, ma l'app non si blocca).
 
+### Le operazioni lunghe girano come job in coda
+
+Le operazioni che parlano con un sito esterno e possono durare a lungo (un
+aggiornamento prezzi, un backfill completo dello storico, il backfill globale
+dei metadati, il sync degli asset a ogni avvio) **non** girano dentro la
+richiesta HTTP. La richiesta si limita ad **accodare un job** e risponde
+`202 Accepted` con `{"job_id": …, "status": "queued"}`; il worker svuota la
+coda con un contesto proprio, così un provider lento o un database grande non
+possono mai superare il timeout della richiesta.
+
+- `POST /prices/refresh` (con `?portfolio_id=` opzionale) accoda un `price_refresh`.
+- `POST /assets/{id}/backfill-history` accoda un `history_backfill` (storico
+  prezzi completo **più** i metadati split dell'asset).
+- `POST /assets/sync` accoda un `asset_sync`: l'aggiornamento incrementale di
+  split e storico per ogni asset prezzato da Yahoo (una volta per avvio).
+- `POST /assets/backfill-meta` accoda un `meta_backfill`.
+- La creazione di un asset accoda un `history_backfill` per quell'asset.
+- Una seconda richiesta per lo stesso job mentre uno è ancora in coda o in
+  esecuzione restituisce quel job aperto invece di impilarne un duplicato
+  (dedup per tipo + target).
+- Il client segue l'avanzamento interrogando `GET /jobs/{id}` (e `GET /jobs`
+  per la lista recente). Un job è `queued`/`running` mentre è aperto e termina
+  `done`/`failed`/`partial`; `processed`/`total` riportano l'avanzamento per
+  elemento.
+
+Le chiamate verso il provider accodate in questo modo sono le stesse descritte
+sotto; la coda cambia solo *dove* girano, non cosa fanno. Le letture non fanno
+mai fetch: `GET /portfolios/{id}/history` ricalcola la serie memorizzata e la
+serve, mentre i dati di mercato vengono aggiornati dai job qui sopra. Le
+anteprime di sola lettura (`fetch-exposure`, `fetch-etf-exposure`,
+`fetch-morningstar-exposure`) restano sincrone perché il chiamante ha bisogno
+del risultato immediato.
+
 ### Riportare i problemi
 
-Quando l'utente chiede un aggiornamento prezzi (`POST /prices/refresh`), la
-risposta non è solo la lista dei titoli aggiornati: è un **report** con:
+Gli esiti degli aggiornamenti prezzi finiscono nel **log di health**
+(`health_events`): i problemi per-asset portano un codice stabile —
+`rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
+(un errore HTTP specifico) o `error` — ognuno con una durata reale in
+`duration_ms`. Borse diverse chiudono in orari diversi, quindi un asset con
+l'ultimo close più indietro di un altro è normale, non un errore. Gli eventi
+emessi mentre gira un job sono marcati con l'id di quel job, così la pagina
+Admin → Data & Sync può correlare un fallimento con la riga della coda che
+l'ha prodotto.
 
-- `refreshed` — i titoli aggiornati con successo;
-- `issues` — i problemi, ognuno con un codice stabile:
-  `rate_limited` (Yahoo ha rifiutato per troppe chiamate), `http_<status>`
-  (un errore HTTP specifico) o `error`;
-- `rate_limited` — un riepilogo rapido: "c'è stato un blocco da rate limit?";
-- `finished_at` — quando l'aggiornamento è terminato (timestamp UTC; la
-  dashboard lo mostra come "Prices updated: …").
+Un job in coda emette anche le proprie righe di **ciclo di vita** (tipo evento
+`job`): una `job_started` quando il worker lo prende e una terminale
+`job_completed`/`job_partial`/`job_failed` con la durata della run e i conteggi
+processed/total. Queste righe di meta restano fuori dal success rate dei
+provider (`GET /health/prices`) e dal rollup degli item del job stesso. Gli
+eventi terminali vengono scritti su un contesto fresco di breve durata, quindi
+l'esito di un job che ha superato il proprio deadline viene comunque registrato
+(un timeout non viene inghiottito). I salvataggi per-barra e degli split
+falliti sono aggregati in un solo evento per asset e operazione (conteggio +
+primo errore), mai una riga per data. Un backfill storico e un controllo split
+**riusciti** registrano ciascuno una riga di successo per asset (col numero di
+barre/split), così la pagina elenca ogni chiamata di backfill, non solo i
+fallimenti; gli asset saltati per cooldown o già aggiornati non lasciano riga.
 
-Il frontend usa questo report per mostrare un avviso non bloccante se qualche
-aggiornamento è fallito.
+Anche le **chiamate ai metadati** sono coperte: un evento `asset_meta` per ogni
+`GET /assets/meta` e un evento `asset_profile` per l'anteprima dell'esposizione
+settoriale, ciascuno con esito e durata reale, e i backfill dei metadati
+scrivono una riga `meta_backfill` per asset sia in caso di successo sia di
+fallimento. La lista degli eventi (`GET /health/prices`) accetta i filtri
+opzionali `type`, `status` e `job_id`; il totale restituito e la paginazione
+seguono il filtro. La finestra del riepilogo è `period=24h|7d|all` (default
+`all`) e conta ogni evento di health — inclusi gli eventi dentro i job — tranne
+le righe di ciclo di vita `job` (la loro `job_started` ha status `running` e
+verrebbe letta come fallimento).
+
+La pagina admin "Dati e sincronizzazione" legge un **flusso di attività unico**
+(`GET /health/activity`): ogni job in coda più gli eventi di health senza job
+(`job_id IS NULL` — le chiamate del percorso di richiesta: ricerca, metadati e
+profilo dell'asset, esposizione ETF). Gli eventi di un job si mostrano solo nel
+pannello di dettaglio di quel job, che li rilegge con
+`GET /health/prices?job_id=<id>`. Il flusso è ordinato dal più recente
+sull'avvio del job (`COALESCE(started_at, created_at)`) o sull'ora dell'evento,
+è paginato e accetta gli stessi filtri opzionali `type`/`status` più
+`period=24h|7d|all` (default `all`, che limita il flusso alla stessa finestra
+del riepilogo); `target_label` è risolto lato server esattamente come nella
+lista dei job.
+
+`GET /jobs/{id}` (e `GET /jobs`) espongono il `duration_ms` derivato, una
+`target_label` leggibile (ticker dell'asset / nome del portafoglio, risolta con
+una query batch per pagina; vuota per target globali o non risolti) e un
+`summary` con i conteggi item `ok`/`failed` di ogni job.
+
+Un job e i suoi eventi di monitoraggio formano un'unica unità: la chiave
+esterna `health_events.job_id` è in cascata, quindi cancellare un job elimina i
+suoi eventi. La retention usa un'unica finestra,
+`PECULIUM_HEALTH_RETENTION` (default 90 giorni): il worker elimina i job più
+vecchi di quella finestra a prescindere dallo stato (età calcolata con
+`COALESCE(finished_at, created_at)`), portandosi via i loro eventi, più gli
+eventi standalone (senza job) più vecchi della finestra. Gira all'avvio e a
+ogni tick di aggiornamento prezzi. Un admin può anche svuotare tutto su
+richiesta con `DELETE /admin/health/events`, che cancella ogni job ed evento e
+risponde `{"deleted": N}` (il numero di eventi rimossi).
 
 ### Storico e split
 
@@ -716,6 +806,16 @@ aggiornamento è fallito.
   invalida i prezzi in cache.
 - **Split (`EnsureSplits`)**: scarica gli eventi di split da Yahoo e li
   salva (anche qui in modo idempotente su `asset_id, date`).
+- **Completezza (`GET /assets/{id}`)**: la risposta del singolo asset porta
+  `history_backfilled` e un `data_status` derivato (mai salvato): `complete`
+  quando il flag è impostato; `syncing` quando un job aperto copre l'asset (un
+  `history_backfill` che lo targeta o un `asset_sync` globale), con id, stato e
+  progresso del job; `partial` quando non è backfillato ma ha alcuni prezzi
+  salvati; `missing` quando non ha storico né job. Gli asset non-Yahoo non
+  portano `data_status`. `GET /assets` e `GET /assets/{id}` portano anche
+  `last_close` e `last_close_date`, l'ultimo prezzo salvato e la sua data — il
+  riferimento dei valori dell'asset (diverso per borsa, perché i mercati
+  chiudono in orari diversi).
 
 ### Profilo ed esposizione dell'asset
 
@@ -982,11 +1082,10 @@ format** di PostgreSQL (compresso, ripristinabile in modo selettivo) e canalizza
 l'output del tool direttamente nella risposta HTTP, senza mai tenere l'intero
 archivio in memoria. La risposta è un download: `Content-Type:
 application/octet-stream` e `Content-Disposition: attachment` con nome file
-`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Se `pg_dump` fallisce prima che una
-parte dell'archivio raggiunga il client, la risposta è un 500 con un messaggio
-generico "database backup failed": l'output dei tool e le credenziali non sono
-mai esposti; un fallimento avvenuto dopo l'inizio dello streaming può
-manifestarsi solo come download troncato.
+`peculium-db-<YYYY-MM-DD>.dump` (data UTC). Gli header dell'allegato vengono
+inviati prima che il tool parta, quindi un fallimento di `pg_dump` si manifesta
+come download troncato e il dettaglio ripulito finisce nel log del server:
+l'output dei tool e le credenziali non sono mai esposti al client.
 
 `POST /admin/db/restore` accetta l'archivio come **caricamento multipart** nel
 campo file `dump`, insieme alla conferma esplicita `confirm=replace` (come
@@ -1101,7 +1200,10 @@ invariata quella salvata), e i prezzi manuali fanno upsert su
 `(asset, data)`. Le voci delle valute aggiungono alla whitelist globale i
 codici mancanti e non modificano mai quelli esistenti. Tutta la scrittura
 avviene in un'unica transazione e, dopo il commit, le serie di ogni
-portafoglio creato vengono ricalcolate.
+portafoglio creato vengono ricalcolate e viene accodato un job globale
+**`asset_sync`**, così il worker fa il backfill di storico e split degli asset
+ripristinati esattamente come dopo un import (il bundle non contiene dati di
+provider).
 
 La risposta è il riepilogo dell'operazione: la `mode` effettivamente
 applicata e i contatori `portfolios_created`, `transactions_created`,
@@ -1187,7 +1289,7 @@ backend/
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
 │   └── service/            # logica di business (service.go, admin.go, backup.go, dbmaint.go)
-├── migrations/             # SQL versionato (000001..000019)
+├── migrations/             # SQL versionato (000001..000022)
 └── go.mod
 ```
 

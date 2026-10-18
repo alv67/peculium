@@ -22,8 +22,8 @@ Yahoo Finance throttles heavy request traffic, and Peculium shows it honestly
 in the strip under the header ("Some prices not updated (Yahoo rate limit)").
 There is nothing to fix on your side: the limit passes, and you can
 pull fresh quotes on demand with **Refresh prices**. The
-[Data & sync](/manual/data-sync) chapter — and the admin **Data & Sync**
-health page — show what happened and when.
+[Data & sync](/manual/data-sync) chapter — and the **Data & Sync** page
+itself — show what happened and when.
 
 ## An asset shows "no price" and its value is carried at cost
 

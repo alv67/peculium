@@ -34,8 +34,7 @@ export const en = {
     colValue: 'Value',
     colTotal: 'Total',
     colActions: 'Actions',
-    /** Code label shared by the currencies form/table and the health
-     *  events table. */
+    /** Code label of the currencies form and table. */
     colCode: 'Code',
     /** Pagination footer buttons of the transactions table. */
     previous: 'Previous',
@@ -130,8 +129,7 @@ export const en = {
     /** Fab refresh feedback (toasts). */
     refreshSuccess: 'Prices updated',
     refreshError: 'Price refresh failed',
-    refreshRateLimited: 'Yahoo Finance is rate-limiting requests: some prices may be stale',
-    refreshIssues: '{count} price updates failed (Yahoo)',
+    refreshPartial: 'Some price updates failed (Yahoo)',
   },
   user: {
     /** Compact icon-only trigger (rail / mobile header). */
@@ -528,8 +526,7 @@ export const en = {
    */
   quality: {
     fxMissing: '{amount} excluded — missing FX ({count} holdings)',
-    rateLimited: 'Some prices not updated (Yahoo rate limit)',
-    refreshIssues: '{count} price updates failed',
+    refreshPartial: 'Some prices not updated',
     refreshFailed: 'Price refresh failed — values may be stale',
   },
   /** Freshness stamp near the hero (spec §8.5), from the session refresh. */
@@ -541,32 +538,34 @@ export const en = {
     partialHint: 'Prices as of {time} — some updates failed or were rate-limited',
   },
   /**
-   * Admin price-sync health page (`/admin/health`, nav entry `nav.dataSync`).
-   * Table values fetched from the backend (`event_type`, `code`, `message`)
-   * are rendered verbatim; only the status badge is localised through the
-   * `status*` keys below, falling back to the raw value for unknown
-   * statuses. `N/A` and the `ms` duration unit are kept as technical terms.
+   * Admin Data & Sync page (`/admin/health`, nav entry `nav.dataSync`): the
+   * activity feed of sync jobs and external API calls. The event `type` and the
+   * `message` are rendered verbatim; job types and statuses go through the
+   * shared maps of `domain/job-status`, falling back to the raw value for
+   * unknown entries. `N/A` and the `ms` duration unit are kept as technical
+   * terms.
    */
   health: {
-    title: 'Price Sync Health',
-    subtitle: 'Monitoring Yahoo Finance API connectivity and performance',
-    periodToday: 'Today',
-    periodLast24h: 'Last 24h',
-    periodLast100: 'Last 100',
-    /** SegmentedControl accessible name + "Period: …" caption below. */
+    title: 'Data & Sync',
+    subtitle: 'Sync jobs and external API activity',
+    period24h: '24h',
+    period7d: '7 days',
+    periodAll: 'All',
+    /** Accessible name of the period SegmentedControl (scopes tiles + feed). */
     periodAria: 'Health period',
-    periodLabel: 'Period: {period}',
     refreshing: 'Refreshing…',
     refresh: 'Refresh Now',
     noData: 'No health data available.',
+    noProviderCalls: 'No provider calls in this window: the tiles count external calls only. Jobs that ran are listed below.',
     /** Metric cards. */
     successRate: 'Success Rate',
     totalSuccesses: 'Total Successes',
     totalFailures: 'Total Failures',
     rateLimited: 'Rate Limited',
-    /** Events table (heading, table aria-label and headers; Type/Status/Code
-     *  reuse `common.colType`, `positions.colStatus` and `common.colCode`). */
-    recentEvents: 'Recent Events',
+    /** Activity table (heading and table aria-label; the Type/Target/Status
+     *  headers reuse `common.colType`, `jobs.colTarget` and
+     *  `positions.colStatus`, the rest are the `col*` keys below). */
+    activity: 'Activity',
     colTimestamp: 'Timestamp',
     colMessage: 'Message',
     colDuration: 'Duration',
@@ -574,7 +573,57 @@ export const en = {
     statusSuccess: 'Success',
     statusRateLimited: 'Rate limited',
     statusFailure: 'Failure',
+    statusRunning: 'Running',
+    statusPartial: 'Partial',
     loadFailed: 'Failed to fetch health data',
+    /** Destructive admin action (issue #206): header button label, confirm
+     *  dialog (`{total}` is the current activity `items_total`) and result
+     *  toasts. Clears both health events and sync jobs. */
+    clearEvents: 'Clear activity',
+    clearEventsTitle: 'Clear all sync activity?',
+    clearEventsConfirm: 'This deletes ALL {total} health events and every sync job. This cannot be undone.',
+    clearEventsDone: '{count} events deleted',
+    clearEventsFailed: 'Failed to clear activity',
+    /** "All" option of the server-side Type/Status activity filters. */
+    filterAll: 'All',
+  },
+  /**
+   * Job vocabulary shared by the `/admin/health` activity table, its filters
+   * and the job detail panel (issue #226). Unknown `type`/`target_type` values
+   * fall back to the raw backend string; the `error` text is technical output
+   * shown verbatim.
+   */
+  jobs: {
+    /** Header pill shown only while the 3s auto-refresh is live. */
+    live: 'Auto-refresh',
+    /** Activity-table Target header (Type/Status reuse `common.colType` /
+     *  `positions.colStatus`). */
+    colTarget: 'Target',
+    /** Progress text of a running job (the detail panel's `aria-hidden` bar
+     *  mirrors it for sighted users). */
+    progressOf: '{processed} of {total}',
+    /** Badge labels for the queue lifecycle. */
+    statusQueued: 'Queued',
+    statusRunning: 'Running',
+    statusDone: 'Done',
+    statusFailed: 'Failed',
+    statusPartial: 'Partial',
+    /** Job-type labels for the known backend values. */
+    typePriceRefresh: 'Price refresh',
+    typeHistoryBackfill: 'History backfill',
+    typeAssetSync: 'Asset sync',
+    typeMetaBackfill: 'Metadata backfill',
+    typeSplitsFetch: 'Splits fetch',
+    /** Target-type labels. */
+    targetAsset: 'Asset',
+    targetPortfolio: 'Portfolio',
+    targetGlobal: 'Global',
+    /** Accessible name of the job-type link that opens the detail panel
+     *  (#226); the visible text is the localized job type itself. */
+    viewDetailNamed: 'Open the {type} job details',
+    /** Job detail panel: heading above the event list and empty-state title. */
+    detailEvents: '{count} events',
+    noEventsYet: 'No events for this job yet',
   },
   /**
    * Admin area (issue #57 Phase A): the shared gate state, the Users page
@@ -927,11 +976,15 @@ export const en = {
     back: 'Assets',
     refreshMeta: 'Update from Yahoo',
     backfillHistory: 'Backfill full history',
+    /** Price-history data-completeness states (#193). */
+    dataSyncing: 'Downloading price history…',
+    dataMissing: 'No price history yet',
+    dataPartial: 'History not fully downloaded',
     delete: 'Delete asset',
     deleteConfirm: 'Delete {ticker}? This cannot be undone.',
     deleted: 'Asset deleted',
-    /** Muted date under the quote chips: `{date}` is locale-formatted. */
-    priceUpdated: 'Updated {date}',
+    /** Muted last-close date under the quote chips: `{date}` is locale-formatted. */
+    dataAsOf: 'Data as of {date}',
     /** Compact quote-delta chips (1D/1W/1M/1Y/YTD). */
     chip1d: '1D',
     chip1w: '1W',
@@ -998,6 +1051,8 @@ export const en = {
     tickerPlaceholder: 'Ticker (e.g. AAPL)',
     noResultsFound: 'No results found',
     colCountry: 'Country',
+    /** Last-close column of the assets list (value with its date beneath). */
+    colLastClose: 'Last close',
     /** Accessible name of the row trash button ({ticker} verbatim). */
     deleteNamed: 'Delete {ticker}',
     /** Short list-page delete-dialog question (the detail shell carries the
@@ -1023,6 +1078,7 @@ export const en = {
     metaRefreshFailed: 'Update failed',
     backfillDone: 'Price history updated',
     backfillFailed: 'Backfill failed',
+    backfillPartial: 'Price history updated, but stock splits could not be fetched',
     countriesPrefilledJustEtf: 'Countries prefilled from JustETF',
     countriesSectorsPrefilledMorningstar: 'Countries and sectors prefilled from Morningstar',
     regionsPrefilledMorningstar: 'Regions prefilled from Morningstar',
@@ -1038,6 +1094,25 @@ export const en = {
     geoSaved: 'Geographic distribution saved',
     sectorsSaved: 'Sector distribution saved',
     countriesSaved: 'Country distribution saved',
+  },
+  /** Build/version display (#198): the sidebar chip, the More sheet, the
+   *  login page and the Settings → Preferences card. */
+  about: {
+    /** Accessible name of the visual chip ({version} carries the whole
+     *  displayed string, e.g. "v1.0.0 · 03/10/2026, 14:22"). */
+    chip: 'App version {version}',
+    title: 'About this app',
+    version: 'Version',
+    commit: 'Commit',
+    build: 'Build',
+    /** sr-only suffix of the commit link (visible text stays the SHA). */
+    openCommit: 'Open commit on GitHub',
+    copy: 'Copy build info',
+    copied: 'Build info copied',
+    copyFailed: 'Could not copy build info',
+    /** Empty-field placeholder in the card rows. */
+    unavailable: 'Not available',
+    hint: 'Include this line when reporting an issue.',
   },
 }
 

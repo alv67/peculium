@@ -22,17 +22,15 @@
     currency = 'USD',
     fxMissingCount = 0,
     fxMissingValue = '0',
-    /** The session refresh completed but was partial (rate-limited/issues). */
-    rateLimited = false,
-    issueCount = 0,
+    /** The session refresh job completed `partial` (some quotes failed). */
+    partial = false,
     /** The session refresh request itself failed (prices may be stale). */
     refreshFailed = false,
   }: {
     currency?: string
     fxMissingCount?: number
     fxMissingValue?: string | number
-    rateLimited?: boolean
-    issueCount?: number
+    partial?: boolean
     refreshFailed?: boolean
   } = $props()
 
@@ -54,14 +52,8 @@
         href: resolve('/settings/currencies'),
       })
     }
-    if (rateLimited) {
-      out.push({ id: 'rate', label: t('quality.rateLimited'), href: resolve('/admin/health') })
-    } else if (issueCount > 0) {
-      out.push({
-        id: 'issues',
-        label: t('quality.refreshIssues', { count: issueCount }),
-        href: resolve('/admin/health'),
-      })
+    if (partial) {
+      out.push({ id: 'partial', label: t('quality.refreshPartial'), href: resolve('/admin/health') })
     }
     if (refreshFailed) {
       out.push({ id: 'stale', label: t('quality.refreshFailed'), href: resolve('/admin/health') })

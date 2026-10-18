@@ -461,6 +461,17 @@ func (r *backupPriceRepo) Create(ctx context.Context, price *model.Price) (*mode
 	r.prices = append(r.prices, &stored)
 	return &stored, nil
 }
+
+func (r *backupPriceRepo) UpsertBatch(ctx context.Context, prices []*model.Price) (int, error) {
+	written := 0
+	for _, p := range prices {
+		if _, err := r.Create(ctx, p); err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
+}
 func (r *backupPriceRepo) FindByAsset(ctx context.Context, assetID uuid.UUID) ([]*model.Price, error) {
 	var out []*model.Price
 	for _, p := range r.prices {

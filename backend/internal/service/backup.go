@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -119,11 +121,7 @@ func buildUserBackup(ctx context.Context, rx *repository.Repository, userID uuid
 			currencySet[a.Currency] = true
 		}
 	}
-	codes := make([]string, 0, len(currencySet))
-	for c := range currencySet {
-		codes = append(codes, c)
-	}
-	sort.Strings(codes)
+	codes := slices.Sorted(maps.Keys(currencySet))
 	for _, code := range codes {
 		entry := model.ExportCurrency{Code: code}
 		if cur, err := rx.Currency.Get(ctx, code); err != nil {
@@ -299,6 +297,15 @@ func (s *Service) RestoreUserBackup(ctx context.Context, userID uuid.UUID, doc *
 		}
 	}
 	s.bumpRev(ctx)
+	// Restored assets arrive without market data: queue the global asset sync
+	// so the worker backfills their history and splits, exactly like an import.
+	if _, err := s.Jobs.Enqueue(ctx, &model.Job{
+		Type:        model.JobTypeAssetSync,
+		TargetType:  model.JobTargetGlobal,
+		RequestedBy: &userID,
+	}); err != nil {
+		log.Warn().Err(err).Msg("post-restore asset sync enqueue failed")
+	}
 	return summary, nil
 }
 
@@ -420,14 +427,10 @@ func applyUserBackup(ctx context.Context, rx *repository.Repository, userID uuid
 	createdIDs := make([]uuid.UUID, 0, len(doc.Portfolios))
 	for i := range doc.Portfolios {
 		pf := &doc.Portfolios[i]
-		meta := map[string]*model.ExportAsset{}
-		for key, ea := range bundleMeta {
-			meta[key] = ea
-		}
 		for j := range pf.Assets {
 			key := strings.ToLower(strings.TrimSpace(pf.Assets[j].Ticker))
-			if _, ok := meta[key]; !ok {
-				meta[key] = &pf.Assets[j]
+			if _, ok := bundleMeta[key]; !ok {
+				bundleMeta[key] = &pf.Assets[j]
 			}
 		}
 		p, err := rx.Portfolio.Create(ctx, &model.Portfolio{
@@ -450,7 +453,7 @@ func applyUserBackup(ctx context.Context, rx *repository.Repository, userID uuid
 			if !model.ValidTransactionType(string(et.Type)) {
 				return nil, fmt.Errorf("%w: invalid transaction type %q", ErrInvalidInput, et.Type)
 			}
-			a, err := resolve(ticker, meta)
+			a, err := resolve(ticker, bundleMeta)
 			if err != nil {
 				return nil, err
 			}

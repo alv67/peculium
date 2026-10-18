@@ -59,7 +59,7 @@ esterne sono le etichette che dicono "questa scatola appartiene a quest'altra".
 
 ## 2. Il quadro d'insieme
 
-Ci sono diciassette tabelle, raggruppabili per argomento:
+Ci sono diciannove tabelle, raggruppabili per argomento:
 
 | Ambito | Tabelle | Cosa rappresentano |
 |---|---|---|
@@ -70,6 +70,7 @@ Ci sono diciassette tabelle, raggruppabili per argomento:
 | **Dati di mercato** | `prices`, `splits`, `fx_rates` | prezzi, split azionari e tassi di cambio |
 | **Esposizione** | `asset_country_weights`, `asset_region_weights`, `asset_sector_weights`, `asset_exposure_provenance` | la distribuzione per-paese, geografica e settoriale di un titolo e la provenienza di ciascuna dimensione |
 | **Configurazione e cache** | `supported_currencies`, `lookup_cache`, `server_settings` | le valute consentite, la cache della ricerca e le opzioni di intero server |
+| **Sincronizzazione e attività** | `jobs`, `health_events` | la coda di lavoro in background e il registro delle chiamate esterne che produce |
 
 ---
 
@@ -121,6 +122,14 @@ erDiagram
     }
 ```
 
+### Sincronizzazione e attività (i job e il loro registro)
+
+```mermaid
+erDiagram
+    users ||--o{ jobs : "richiede (requested_by)"
+    jobs ||--o{ health_events : "produce (job_id)"
+```
+
 ### Le relazioni, elencate
 
 | Figlia | Colonna | Padre | Cardinalità | Se il padre viene cancellato |
@@ -139,6 +148,8 @@ erDiagram
 | `asset_region_weights` | `asset_id` | `assets` | 1 titolo → N regioni | CASCADE |
 | `asset_sector_weights` | `asset_id` | `assets` | 1 titolo → N settori | CASCADE |
 | `asset_exposure_provenance` | `asset_id` | `assets` | 1 titolo → fino a 3 provenienze | CASCADE |
+| `jobs` | `requested_by` | `users` | 1 utente → N job | SET NULL (il job prosegue, senza richiedente) |
+| `health_events` | `job_id` | `jobs` | 1 job → N voci di registro | CASCADE (un job e i suoi eventi sono un unico insieme) |
 
 ---
 
@@ -431,6 +442,58 @@ La registrazione legge la riga con `SELECT ... FOR UPDATE`, che serializza
 anche le iscrizioni simultanee: solo una di esse può essere trattata come la
 prima e promossa a `admin`.
 
+### `jobs` — la coda di lavoro in background
+
+Le operazioni lunghe verso il mondo esterno (aggiornamento prezzi, download
+dello storico completo, sincronizzazione asset, controllo metadati e split)
+vengono messe in coda qui invece di essere eseguite mentre l'utente aspetta:
+l'API scrive una riga, il worker la preleva e la esegue in background.
+`total`/`processed` tracciano l'avanzamento per singola voce (per esempio un
+aggiornamento prezzi copre tutti gli asset del vault) e `checkpoint` permette
+a un job interrotto di riprendere da dove si era fermato.
+
+| Colonna | Tipo | Spiegazione |
+|---|---|---|
+| `id` | UUID (PK) | l'identificatore del job |
+| `type` | TEXT | `price_refresh`, `history_backfill`, `asset_sync`, `meta_backfill`, `splits_fetch` |
+| `target_type` | TEXT | `asset`, `portfolio` o `global` (`NULL` significa l'intero server) |
+| `target_id` | UUID | l'id della destinazione: un riferimento polimorfico **senza chiave esterna** (la tabella puntata dipende da `target_type`) |
+| `status` | TEXT (CHECK) | `queued`, `running`, `done`, `failed` o `partial` |
+| `total` | INT | quante voci copre il job |
+| `processed` | INT | quante voci sono completate |
+| `checkpoint` | JSONB | da dove riprendere (`NULL` finché il job non si ferma prima) |
+| `error` | TEXT | il motivo del fallimento (`''` negli altri casi) |
+| `requested_by` | UUID (FK → `users`) | chi ha messo in coda il job |
+| `created_at` | TIMESTAMPTZ | quando è stato messo in coda |
+| `started_at` / `finished_at` | TIMESTAMPTZ | quando il worker lo ha iniziato e concluso (la loro differenza è la durata mostrata nella pagina Dati e sincronizzazione) |
+
+Un indice unico parziale mantiene al più un job aperto (`queued`/`running`) per
+tipo e destinazione: due richieste simultanee della stessa operazione si
+fondono sull'unico job già in coda. I job più vecchi della retention (default
+90 giorni) vengono rimossi automaticamente, insieme ai loro eventi;
+la cancellazione admin rimuove tutto.
+
+### `health_events` — il registro di ogni chiamata esterna
+
+Ogni chiamata a una fonte esterna — prezzi, tassi di cambio, split, ricerche
+di ticker, metadati degli asset, letture di esposizione ETF/Morningstar —
+lascia una riga qui, che riesca o fallisca. La pagina Dati e sincronizzazione
+unisce queste righe ai job della coda in un unico elenco di attività; una
+chiamata prodotta da un job ne porta l'`job_id`, quindi aprendo un job si
+vedono esattamente le chiamate che ha generato.
+
+| Colonna | Tipo | Spiegazione |
+|---|---|---|
+| `id` | UUID (PK) | l'identificatore dell'evento |
+| `asset_id` | UUID | l'asset cui la chiamata si riferisce, quando esiste (colonna semplice, senza chiave esterna) |
+| `job_id` | UUID (FK → `jobs`) | il job che ha prodotto la chiamata (`NULL` per le chiamate autonome) |
+| `event_type` | TEXT | cosa è stato chiamato: `price_refresh`, `fx_fetch`, `history_fetch`, `split_fetch`, `asset_meta`, `etf_exposure`, ... |
+| `status` | TEXT | `success` o `failure` |
+| `code` / `error_code` | TEXT | marcatore dell'esito (`job_completed`, `rate_limited`, ...) e classe dell'errore |
+| `message` | TEXT | testo leggibile, con il ticker o l'ISIN dell'asset coinvolto |
+| `duration_ms` | INT | quanto è durata la chiamata |
+| `created_at` | TIMESTAMPTZ | quando è avvenuta |
+
 ---
 
 ## 5. Vincoli e indici in sintesi
@@ -450,6 +513,7 @@ prima e promossa a `admin`.
 - `assets.price_source` — solo `yahoo`, `manual`, `none`
 - `transactions.type` — solo `buy`, `sell`, `dividend`, `split`, `fee`
 - `portfolio_shares.role` — solo `admin`, `editor`, `viewer`
+- `jobs.status` — solo `queued`, `running`, `done`, `failed`, `partial`
 
 **Indici** (per velocizzare le ricerche):
 
@@ -461,6 +525,8 @@ prima e promossa a `admin`.
 - su `asset_country_weights`: il titolo
 - su `asset_region_weights`: il titolo
 - su `asset_sector_weights`: il titolo
+- su `jobs`: stato + data di creazione, e tipo; un indice unico parziale mantiene al più un job aperto per tipo e destinazione
+- su `health_events`: data di creazione, asset e il job che ha prodotto la chiamata
 
 ---
 
@@ -484,6 +550,13 @@ prima e promossa a `admin`.
 
 In sintesi, chi scrive e chi legge:
 
+- **Il lavoro verso l'esterno passa dalla coda**: un aggiornamento prezzi, un
+  download dello storico completo, una sincronizzazione asset o un controllo
+  metadati/split viene registrato come riga in `jobs` ed eseguito in background
+  dal worker, che registra ogni chiamata fatta in `health_events`. La pagina
+  Dati e sincronizzazione legge entrambe le tabelle e le mostra in un unico
+  elenco di attività; una pulizia periodica rimuove job ed eventi più vecchi
+  della retention (default 90 giorni).
 - **Prezzi, split e tassi di cambio** li scarica il worker da Yahoo e li salva
   in `prices`, `splits`, `fx_rates` (guidato dal capitolo 12 e 13 della guida).
   Il primo sync scarica lo **storico completo** per i titoli il cui flag

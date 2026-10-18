@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -10,6 +10,8 @@
   import type { MessageKey } from '$lib/i18n/index.svelte'
   import {
     assetApi,
+    clearGetCache,
+    jobsApi,
     portfolioApi,
     pricesApi,
     type Asset,
@@ -117,6 +119,11 @@
   let derivingRegions = $state(false)
   let refreshingMeta = $state(false)
   let backfillingHistory = $state(false)
+  // #193: true while an open sync/backfill job updates this asset's data
+  // (`data_status.state === 'syncing'`); the Overview tab swaps the empty
+  // chart for a spinner while it holds.
+  let dataSyncing = $state(false)
+  let syncTimer: ReturnType<typeof setInterval> | undefined
   let geoModalOpen = $state(false)
   let sectorModalOpen = $state(false)
 
@@ -222,9 +229,68 @@
   }
 
   onMount(load)
+  onDestroy(stopSyncPolling)
+
+  // #193: while the asset reports `syncing` (per-asset backfill or the
+  // global app-load asset sync), poll it every ~4s; once the job is gone,
+  // refetch everything the job wrote (quote, prices AND splits) and stop.
+  // The poll bypasses the 60s client GET cache, otherwise it would keep
+  // reading the stale "syncing" payload for up to a minute. Plain interval
+  // id, re-armed by `load()`.
+  function startSyncPolling(): void {
+    stopSyncPolling()
+    if (!id) return
+    syncTimer = setInterval(async () => {
+      if (!id) return
+      try {
+        const a = await assetApi.get(id, { noCache: true })
+        asset = a
+        dataSyncing = a.data_status?.state === 'syncing'
+        if (!dataSyncing) {
+          stopSyncPolling()
+          void refetchAssetData()
+        }
+      } catch {
+        // Keep the previous data; the next tick retries.
+      }
+    }, 4000)
+  }
+
+  function stopSyncPolling(): void {
+    if (syncTimer !== undefined) {
+      clearInterval(syncTimer)
+      syncTimer = undefined
+    }
+  }
+
+  /** Refetch the price-derived data a backfill/sync writes — the asset (for
+   * its fresh `data_status`), quote, prices and splits — clearing the client
+   * GET cache first so none of them comes back stale (the poll bypasses the
+   * cache, so the old payloads would otherwise be served for up to a
+   * minute). Used when a job ends. */
+  async function refetchAssetData(): Promise<void> {
+    if (!id) return
+    clearGetCache()
+    try {
+      const [freshAsset, freshQuote, freshPrices, freshSplits] = await Promise.all([
+        assetApi.get(id, { noCache: true }),
+        assetApi.quote(id),
+        pricesApi.byAsset(id),
+        assetApi.splits(id),
+      ])
+      asset = freshAsset
+      dataSyncing = freshAsset.data_status?.state === 'syncing'
+      quote = freshQuote
+      prices = freshPrices
+      splits = freshSplits
+    } catch {
+      // Keep current data.
+    }
+  }
 
   async function load(): Promise<void> {
     if (!id) return
+    stopSyncPolling()
     try {
       const [a, q, ps, ex, sp] = await Promise.all([
         assetApi.get(id),
@@ -234,6 +300,8 @@
         assetApi.splits(id),
       ])
       asset = a
+      dataSyncing = a.data_status?.state === 'syncing'
+      if (dataSyncing) startSyncPolling()
       quote = q
       prices = ps
       exposure = ex
@@ -387,16 +455,27 @@
     }
   }
 
-  // Backfill sincrono: il POST può impiegare alcuni secondi, ma al 200 la cache
-  // GET del client è già stata invalidata (ogni non-GET svuota la cache), quindi
-  // il refetch di byAsset ritorna lo storico completo e aggiornato.
+  // Backfill asincrono: il POST accoda un job (202) e `backfillingHistory`
+  // copre l'attesa del polling. Al termine `refetchAssetData` ricarica quote,
+  // prezzi e split (non solo i prezzi): il job scrive anche gli split, e
+  // senza il refetch del cache client resterebbero quelli vecchi. `partial`
+  // significa storico ok ma split non recuperati.
   async function backfillHistory(): Promise<void> {
     if (!id) return
     backfillingHistory = true
     try {
-      await assetApi.backfillHistory(id)
-      prices = await pricesApi.byAsset(id)
-      toast.success(t('asset.backfillDone'))
+      const { job_id } = await assetApi.backfillHistory(id)
+      const job = await jobsApi.wait(job_id)
+      if (job.status === 'done' || job.status === 'partial') {
+        await refetchAssetData()
+      }
+      if (job.status === 'done') {
+        toast.success(t('asset.backfillDone'))
+      } else if (job.status === 'partial') {
+        toast.warning(t('asset.backfillPartial'))
+      } else {
+        throw new Error(job.error || t('asset.backfillFailed'))
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('asset.backfillFailed')
       toast.error(message)
@@ -781,6 +860,9 @@
       return backfillingHistory
     },
     backfillHistory,
+    get dataSyncing() {
+      return dataSyncing
+    },
     requestDelete,
     get form() {
       return form
@@ -852,7 +934,7 @@
           </span>
         {/each}
         <span class="text-xs text-muted-foreground">
-          {t('asset.priceUpdated', { date: new Date(quote.last_date).toLocaleDateString() })}
+          {t('asset.dataAsOf', { date: new Date(quote.last_date).toLocaleDateString() })}
         </span>
       </div>
     {:else if quote}

@@ -13,16 +13,41 @@ name: Publish images
 # package visibility, so anonymous `podman/docker pull` fails until that is
 # done.
 #
-# WEBSITE DEPLOY: the website workflow (issue #102) does not exist yet; it
-# will trigger on the same `push: tags: v*` event, so no workflow_dispatch
-# call is wired here. When #102 lands, tag pushes deploy the site alongside
-# this workflow automatically.
+# WEBSITE DEPLOY: deploy-site.yml publishes the website on every push to main
+# and on the same `push: tags: v*` event, so a release deploys the site
+# alongside this workflow automatically; no workflow_dispatch call is wired
+# here.
+#
+# TRIGGERS: images are built on a `v*` tag (the release) and on manual
+# dispatch (test/RC builds). Plain pushes/merges on `main` do NOT build:
+# `latest` therefore always tracks the most recent release tag, never a
+# branch head. `workflow_dispatch` is kept as the escape hatch to re-publish
+# a failed release and to publish a test tag; pass `version` to name the test
+# image (e.g. `rc-2026-10-03`). A named dispatch never moves `latest`.
+#
+# TAG CHANNELS:
+#   :vX / :latest  -> the release (from a `v*` tag on main)
+#   :develop       -> the latest build dispatched from the `develop` branch
+#   :rc-<date>     -> a named test/RC build (workflow_dispatch `version` input)
+#   :sha-<commit>  -> the exact commit of any build (always published)
+#
+# RETENTION: every successful build calls prune-images.yml, which deletes old
+# test tags per the rules documented there. Nothing prunes on a timer: the
+# cleanup is attached to the activity that creates the tags.
+#
+# RESERVED NAMES: the dispatch `version` input only names a test/RC build. A
+# reserved tag (`latest`, `develop`, `v*`) is rejected before anything is
+# built, so the release channels can only be moved by a `v*` tag on main.
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Extra image tag for a test/RC build (e.g. rc-2026-10-03). Reserved names (latest, develop, v*) are rejected. Leave empty to publish only :sha-<commit>."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -59,14 +84,30 @@ jobs:
             context: backend
             dockerfile: backend/Dockerfile.secrets
     steps:
-      - uses: actions/checkout@v4
+      # First, and before any expensive step: the `version` input names a
+      # test/RC build only, it must not be able to impersonate a release or
+      # branch channel. `case` patterns are globs, so `v*` covers every
+      # release tag name.
+      - name: Reject reserved version names
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in
+            latest|develop|v*)
+              echo "::error::'$VERSION' is a reserved tag name (latest, develop, v*)" >&2
+              exit 1
+              ;;
+          esac
 
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -74,16 +115,37 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/peculium-${{ matrix.name }}
           tags: |
             type=ref,event=tag
             type=sha,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+
+      - name: Build metadata
+        id: buildinfo
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          # The version the running app should report: an explicit dispatch
+          # `version` input wins (test/RC), otherwise the ref name (tag v1.0.0
+          # or branch develop). The commit is the short SHA, the timestamp is
+          # the build time in UTC — both let two builds of the same branch be
+          # told apart.
+          ver="$INPUT_VERSION"
+          if [ -z "$ver" ]; then ver="$REF_NAME"; fi
+          {
+            echo "version=$ver"
+            echo "commit=${GITHUB_SHA::7}"
+            echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -91,6 +153,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PECULIUM_VERSION=${{ steps.buildinfo.outputs.version }}
+            PECULIUM_COMMIT=${{ steps.buildinfo.outputs.commit }}
+            PECULIUM_BUILT_AT=${{ steps.buildinfo.outputs.built_at }}
           # Per-image cache scope: the backend/ context is shared by three
           # Dockerfiles, so isolated scopes avoid cross-matrix cache churn.
           cache-from: type=gha,scope=${{ matrix.name }}
@@ -107,7 +173,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Extract release notes for ${{ github.ref_name }}
         env:
@@ -139,3 +205,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --title "Peculium $TAG" --notes-file release-notes.md
+
+  prune:
+    name: Prune old image versions
+    needs: build
+    # The retention policy lives in prune-images.yml; here we only grant it the
+    # token and ask for a real prune.
+    permissions:
+      packages: write
+    uses: ./.github/workflows/prune-images.yml
+    with:
+      dry-run: false

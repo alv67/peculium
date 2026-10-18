@@ -142,7 +142,10 @@ type Service struct {
 	seriesMaxPoints  int
 	stalePriceDays   int
 	Health           *HealthService
-	db               DBMaintainer
+	// Jobs backs the async job-queue routes; built from the same repos so
+	// handlers and the worker share one queue facade.
+	Jobs *JobService
+	db   DBMaintainer
 }
 
 func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetcher, etfFetcher price.ETFFetcher, lookupCacheTTL time.Duration, exposureCacheTTL time.Duration, c *cache.Cache, seriesMaxPoints int, stalePriceDays int, health *HealthService, db DBMaintainer) *Service {
@@ -152,7 +155,7 @@ func New(repos *repository.Repository, jwtAuth *auth.JWTAuth, fetcher yahooFetch
 	if stalePriceDays <= 0 {
 		stalePriceDays = 7
 	}
-	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health, db: db}
+	return &Service{repos: repos, jwtAuth: jwtAuth, fetcher: fetcher, etfFetcher: etfFetcher, lookupCacheTTL: lookupCacheTTL, exposureCacheTTL: exposureCacheTTL, cache: c, seriesMaxPoints: seriesMaxPoints, stalePriceDays: stalePriceDays, Health: health, Jobs: NewJobService(repos), db: db}
 }
 
 // cached implements the read-through cache pattern: it reads the current data
@@ -428,7 +431,69 @@ func (s *Service) CreateAsset(ctx context.Context, asset *model.Asset) (*model.A
 }
 
 func (s *Service) GetAsset(ctx context.Context, id uuid.UUID) (*model.Asset, error) {
-	return s.repos.Asset.FindByID(ctx, id)
+	asset, err := s.repos.Asset.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	asset.DataStatus = s.assetDataStatus(ctx, asset)
+	s.decorateLatestPrices(ctx, []*model.Asset{asset})
+	return asset, nil
+}
+
+// decorateLatestPrices sets LastClose/LastCloseDate on each asset from one
+// batched FindLatestForAssets query. Best-effort nil-safe, like assetDataStatus.
+func (s *Service) decorateLatestPrices(ctx context.Context, assets []*model.Asset) {
+	if s.repos.Price == nil || len(assets) == 0 {
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(assets))
+	for _, a := range assets {
+		ids = append(ids, a.ID)
+	}
+	latest, err := s.repos.Price.FindLatestForAssets(ctx, ids)
+	if err != nil {
+		return
+	}
+	for _, a := range assets {
+		if lp, ok := latest[a.ID]; ok {
+			c, d := lp.Close, lp.Date
+			a.LastClose, a.LastCloseDate = &c, &d
+		}
+	}
+}
+
+// assetDataStatus derives how complete an asset's market data is: an open
+// job covering the asset means it is still syncing, otherwise the backfill
+// flag and the stored price range decide between complete, partial and
+// missing. Non-Yahoo assets have no downloadable data and get nil. The job
+// and price lookups are best-effort nil-safe, like labelTargets.
+func (s *Service) assetDataStatus(ctx context.Context, asset *model.Asset) *model.AssetDataStatus {
+	if !isYahooPriced(asset) {
+		return nil
+	}
+	st := &model.AssetDataStatus{}
+	if s.repos.Job != nil {
+		if job, err := s.repos.Job.FindOpenForAsset(ctx, asset.ID); err == nil && job != nil {
+			st.State = model.AssetDataSyncing
+			st.JobID = &job.ID
+			st.JobStatus = job.Status
+			st.Processed = job.Processed
+			st.Total = job.Total
+			return st
+		}
+	}
+	if asset.HistoryBackfilled {
+		st.State = model.AssetDataComplete
+		return st
+	}
+	if s.repos.Price != nil {
+		if _, latest, err := s.repos.Price.MinMaxDate(ctx, asset.ID); err == nil && latest != nil {
+			st.State = model.AssetDataPartial
+			return st
+		}
+	}
+	st.State = model.AssetDataMissing
+	return st
 }
 
 // AssetSplits returns the stock split events for a single asset, sorted by date
@@ -807,10 +872,13 @@ func (s *Service) FetchAssetExposure(ctx context.Context, id uuid.UUID) (*model.
 		return nil, err
 	}
 
+	start := time.Now()
 	sector, _, _, weightings, err := s.fetcher.FetchAssetProfileExtended(ctx, asset.Ticker)
 	if err != nil {
+		s.recordHealth(ctx, &id, "asset_profile", "failure", "error", asset.Ticker+": profile fetch failed: "+err.Error(), start)
 		return nil, err
 	}
+	s.recordHealth(ctx, &id, "asset_profile", "success", "", asset.Ticker+": profile fetched", start)
 
 	sectors := make([]model.ExposureRow, 0, len(weightings))
 	for _, w := range weightings {
@@ -875,7 +943,7 @@ func (s *Service) FetchETFExposure(ctx context.Context, id uuid.UUID, refresh bo
 		raw, _ = s.getCachedExposure(ctx, "justetf", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchExposure(ctx, asset.ISIN)
+		raw, err = s.etfFetcher.FetchExposure(ctx, id, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}
@@ -1112,7 +1180,7 @@ func (s *Service) FetchMorningstarExposure(ctx context.Context, id uuid.UUID, re
 		raw, _ = s.getCachedExposure(ctx, "morningstar", asset.ISIN)
 	}
 	if raw == nil {
-		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, asset.ISIN)
+		raw, err = s.etfFetcher.FetchMorningstarExposure(ctx, id, asset.ISIN, asset.Ticker)
 		if err != nil {
 			return nil, err
 		}
@@ -1160,10 +1228,13 @@ func (s *Service) GetAssetMeta(ctx context.Context, ticker string) (*price.Asset
 		}
 	}
 
+	start := time.Now()
 	meta, err := s.fetcher.FetchMeta(ctx, ticker)
 	if err != nil {
+		s.recordHealth(ctx, nil, "asset_meta", "failure", "error", ticker+": meta fetch failed: "+err.Error(), start)
 		return nil, err
 	}
+	s.recordHealth(ctx, nil, "asset_meta", "success", "", ticker+": meta fetched", start)
 
 	if data, err := json.Marshal(meta); err == nil {
 		if err := s.repos.Lookup.Set(ctx, key, data, s.lookupCacheTTL); err != nil {
@@ -1316,7 +1387,12 @@ func (s *Service) RefreshPrices(ctx context.Context, portfolioID *uuid.UUID) (pr
 }
 
 func (s *Service) ListAssets(ctx context.Context) ([]*model.Asset, error) {
-	return s.repos.Asset.List(ctx)
+	assets, err := s.repos.Asset.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.decorateLatestPrices(ctx, assets)
+	return assets, nil
 }
 
 // ListCurrencies returns the enabled whitelisted currencies, ordered.
@@ -2285,42 +2361,9 @@ func (s *Service) GetPortfolioHistory(ctx context.Context, portfolioID uuid.UUID
 		for _, tx := range txs {
 			txByAsset[tx.AssetID] = append(txByAsset[tx.AssetID], tx)
 		}
-		// Only Yahoo-priced assets may be sent to the fetcher: manual/none
-		// assets would fail the history/split backfill and flood the Health
-		// page with errors. The rest of the computation still covers every
-		// asset from its stored data.
-		txAssetIDs := make([]uuid.UUID, 0, len(txByAsset))
-		for aid := range txByAsset {
-			txAssetIDs = append(txAssetIDs, aid)
-		}
-		txAssets, err := s.repos.Asset.FindByIDs(ctx, txAssetIDs)
-		if err != nil {
-			return nil, err
-		}
-		yahooByID := make(map[uuid.UUID]*model.Asset, len(txAssets))
-		for _, a := range filterYahooAssets(txAssets) {
-			yahooByID[a.ID] = a
-		}
-		historyAssets := make([]price.HistoryAsset, 0, len(yahooByID))
-		assetPtrs := make([]*model.Asset, 0, len(yahooByID))
-		for aid, assetTxs := range txByAsset {
-			a, ok := yahooByID[aid]
-			if !ok {
-				continue
-			}
-			historyAssets = append(historyAssets, price.HistoryAsset{
-				ID:     aid,
-				Ticker: a.Ticker,
-				From:   series.DayOf(assetTxs[0].Date),
-			})
-			assetPtrs = append(assetPtrs, a)
-		}
-		if err := s.fetcher.EnsureHistory(ctx, historyAssets); err != nil {
-			log.Warn().Err(err).Msg("history ensure failed")
-		}
-		if err := s.fetcher.EnsureSplits(ctx, assetPtrs); err != nil {
-			log.Warn().Err(err).Msg("splits ensure failed")
-		}
+		// Market data is refreshed by the asset_sync / history_backfill jobs;
+		// this read only recomputes the stored series and serves it, so it
+		// never talks to a provider and cannot time out.
 		if err := series.Recompute(ctx, s.repos, portfolioID); err != nil {
 			log.Warn().Err(err).Str("portfolio_id", portfolioID.String()).Msg("series recompute failed")
 		}
@@ -2582,7 +2625,11 @@ func (s *Service) SyncAssetData(ctx context.Context) error {
 		ids = append(ids, a.ID)
 	}
 	if err := s.syncAssets(ctx, ids); err != nil {
-		return err
+		// A partial sync (some bars/splits not persisted) is recorded in the
+		// health log and is not a hard failure of the whole app load.
+		if !errors.Is(err, price.ErrSyncIncomplete) {
+			return err
+		}
 	}
 	// Newly fetched prices change every series; recompute so charts and the
 	// dashboard reflect the fresh data immediately instead of waiting for the
@@ -2622,10 +2669,14 @@ func (s *Service) syncAssets(ctx context.Context, ids []uuid.UUID) error {
 		}
 		historyAssets = append(historyAssets, price.HistoryAsset{ID: a.ID, Ticker: a.Ticker, From: from, Full: !a.HistoryBackfilled})
 	}
-	if err := s.fetcher.EnsureSplits(ctx, assets); err != nil {
-		return err
+	// Run both even if one reports incomplete (partial saves): a failed split
+	// fetch must never skip the history backfill.
+	histErr := s.fetcher.EnsureHistory(ctx, historyAssets)
+	splitErr := s.fetcher.EnsureSplits(ctx, assets)
+	if histErr != nil {
+		return histErr
 	}
-	return s.fetcher.EnsureHistory(ctx, historyAssets)
+	return splitErr
 }
 
 // BackfillAssetHistory forces a full price-history backfill for a single
@@ -2644,6 +2695,10 @@ func (s *Service) BackfillAssetHistory(ctx context.Context, id uuid.UUID) error 
 		return nil
 	}
 	if err := s.fetcher.EnsureHistory(ctx, []price.HistoryAsset{{ID: asset.ID, Ticker: asset.Ticker, Full: true}}); err != nil {
+		// Partial data may have landed even when the sync reports incomplete,
+		// so invalidate the cached series either way; the error (including
+		// price.ErrSyncIncomplete) is propagated for the caller to classify.
+		s.bumpRev(ctx)
 		return err
 	}
 	s.bumpRev(ctx)
@@ -2658,7 +2713,9 @@ func (s *Service) BackfillAssetHistory(ctx context.Context, id uuid.UUID) error 
 // possible via PATCH, but a subsequent backfill restores the issuer domicile.
 // Sector is normalized to its canonical GICS form, so legacy non-canonical
 // values are corrected too. Failures are reported per asset without aborting.
-func (s *Service) BackfillAssetMeta(ctx context.Context) (*model.MetaBackfillReport, error) {
+// progress, when non-nil (the job executor passes one), is called after every
+// asset with the running processed/total counts.
+func (s *Service) BackfillAssetMeta(ctx context.Context, progress func(processed, total int)) (*model.MetaBackfillReport, error) {
 	assets, err := s.repos.Asset.AllStocks(ctx)
 	if err != nil {
 		return nil, err
@@ -2668,13 +2725,22 @@ func (s *Service) BackfillAssetMeta(ctx context.Context) (*model.MetaBackfillRep
 		Processed: len(assets),
 		Errors:    []string{},
 	}
-	for _, a := range assets {
+	for i, a := range assets {
+		if progress != nil {
+			progress(i+1, len(assets))
+		}
+		// Per-asset outcomes are the only health signal for meta backfills
+		// (the profile fetcher logs nothing itself): the job id rides on the
+		// context, so every asset gets one row, success or failure.
+		start := time.Now()
 		sector, industry, country, err := s.fetcher.FetchAssetProfile(ctx, a.Ticker)
 		if err != nil {
 			report.Failed++
 			report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", a.Ticker, err))
+			s.recordHealth(ctx, &a.ID, "meta_backfill", "failure", "error", fmt.Sprintf("%s: profile fetch failed: %v", a.Ticker, err), start)
 			continue
 		}
+		s.recordHealth(ctx, &a.ID, "meta_backfill", "success", "", a.Ticker+": profile fetched", start)
 
 		changed := false
 
@@ -2711,22 +2777,24 @@ func (s *Service) BackfillAssetMeta(ctx context.Context) (*model.MetaBackfillRep
 		if _, err := s.repos.Asset.Update(ctx, a); err != nil {
 			report.Failed++
 			report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", a.Ticker, err))
+			s.recordHealth(ctx, &a.ID, "meta_backfill", "failure", "error", fmt.Sprintf("%s: asset update failed: %v", a.Ticker, err), start)
 		}
 	}
 	s.bumpRev(ctx)
 	return report, nil
 }
 
+// syncAssetBackground queues the full-history backfill for a freshly created
+// asset instead of fetching inline: the worker runs it off the request, so a
+// slow provider never blocks asset creation.
 func (s *Service) syncAssetBackground(assetID uuid.UUID) {
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		if err := s.syncAssets(ctx, []uuid.UUID{assetID}); err != nil {
-			log.Warn().Err(err).Str("asset_id", assetID.String()).Msg("asset background sync failed")
-			return
-		}
-		s.bumpRev(ctx)
-	}()
+	if _, err := s.Jobs.Enqueue(context.Background(), &model.Job{
+		Type:       model.JobTypeHistoryBackfill,
+		TargetType: model.JobTargetAsset,
+		TargetID:   &assetID,
+	}); err != nil {
+		log.Warn().Err(err).Str("asset_id", assetID.String()).Msg("asset backfill enqueue failed")
+	}
 }
 
 // roundAmount strips the rounding residues accumulated by AVCO division

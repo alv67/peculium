@@ -18,7 +18,7 @@ portfolios, records transactions, adds securities and looks at charts
 
 A few facts about the current state:
 
-- **Technology**: SvelteKit 5 (Svelte 5 "runes"), TypeScript, Tailwind CSS and
+- **Technology**: SvelteKit (Svelte 5 "runes"), TypeScript, Tailwind CSS and
   **ECharts** for the charts.
 - **Runtime model**: a **client-side SPA** ("single page application"): the
   server sends a static shell and all rendering happens in the browser, which
@@ -277,16 +277,17 @@ against the backend routes (`backend/cmd/server/main.go`).
 | | backfillHistory, sync | `POST /assets/{id}/backfill-history`, `POST /assets/sync` |
 | `transactionApi` | list, create | `GET /portfolios/{id}/transactions?limit=&offset=&type=&asset_id=&from=&to=` (returns the `TransactionPage` envelope — `transactions`, `total`, applied `limit`/`offset`; default limit 20, max 100, order date desc; the optional combinable filters `type` (buy/sell/dividend/split/fee), `asset_id` (uuid) and the inclusive `from`/`to` `YYYY-MM-DD` bounds narrow the rows **and** the returned `total`), `POST /portfolios/{id}/transactions` |
 | | update, remove | `PATCH/DELETE /transactions/{id}` |
-| `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns the `RefreshReport`) |
+| `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns a 202 `JobEnqueued`; poll `jobsApi.wait`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
+| `jobsApi` | get, list, wait | `GET /jobs/{id}`, `GET /jobs?limit=&offset=`, and `wait` (poll until the job is `done`/`failed`/`partial`; used by the price refresh and the asset backfills) |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (JSON bundle served as an attachment), `POST /backup/restore?mode=add\|replace` (bundle in the body, counts summary back) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (streamed `.dump` attachment), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (all admin-only: 403 for non-admin roles) |
-| `api` (generic) | get/post/put/patch/delete | the raw client, used by the health page for `GET /health/prices` |
+| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (window-scoped summary tiles), `GET /health/activity?period=&limit=&offset=&type=&status=` (unified feed: jobs + non-job events), `GET /health/prices?job_id=&limit=200` (one job's events for the detail panel); all reads bypass the GET cache because the health page polls them |
 
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
-`DashboardSummary`, `ActiveBreakdown`, `ClosedBreakdown`, `RefreshReport`,
+`DashboardSummary`, `ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`,
 `AssetQuote`,
 `AssetExposure`, `PortfolioHistory`, `AssetPositionSeries`,
 `PortfolioExportDocument`, ...) mirror the backend models. Monetary values
@@ -382,9 +383,23 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   (`RANGES`: `1M` 30 days, `3M` 90 days, `1Y` 365 days, `YTD`, `MAX` unlimited)
   to an in-place zoom; the quote fields `change_1d/1w/1m/1y/ytd` render as
   header delta chips (labels `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD`
-  through `t()`); `sumRegions` / `sumSectors` / `sumCountries` and their
+  through `t()`), with the last close and its date under them as
+  `Data as of {date}` (the reference date of the values, which differs per
+  exchange); `sumRegions` / `sumSectors` / `sumCountries` and their
   validity guards (`regionsValid` / `sectorsValid` / `countriesValid`) live
-  in the asset shell (`+layout.svelte`) beside the data they validate.
+  in the asset shell (`+layout.svelte`) beside the data they validate. The
+  Overview price-history card mirrors the asset's data completeness
+  (`data_status` on `GET /assets/{id}`): while an open backfill/sync job covers
+  the asset (`syncing`) with no prices yet it shows a progress bar instead of
+  an empty chart — determinate when the job reports `processed`/`total`,
+  indeterminate otherwise — and the shell polls the asset every ~4 seconds and
+  refetches the quote, prices and splits when the job ends (clearing the
+  client GET cache first, and bypassing it in the poll itself); with data
+  already plotted
+  it keeps the chart and adds the same progress bar (no action, since a
+  backfill is already running). `missing` (no history and no job) shows an
+  empty state with a "Backfill full history" action, and `partial` (some prices
+  but incomplete history) adds a note with the same action.
 
 ---
 
@@ -574,7 +589,7 @@ The UI is built on a small internal design system.
 
 Colors are not hardcoded in the pages. `tailwind.config.js` defines a set
 of **semantic** color tokens — `background`, `foreground`, the **surface
-ladder** `surface-0..3` (+ the legacy aliases `surface` = `surface-1` and
+ladder** `surface-0..3` (+ the aliases `surface` = `surface-1` and
 `surface-raised` = `surface-2`), `muted`, `muted-foreground`, `border`,
 `input`, `ring`, `accent` (+ `accent-hover`/`accent-foreground`/`accent-text`),
 `positive`, `negative`, `warning`, `info` (+ `info-foreground`, used for
@@ -676,8 +691,8 @@ with arrow-key navigation, meant to sit on the chart), `Drawer` (right-side
 inspection drawer, focus-trap + Esc/backdrop + restore; used at ≥ `lg`), `Sheet`
 (bottom sheet with drag-handle affordance, same API; used at < `lg`) and `Tabs`
 (route-linked `<a>`-based ARIA tablist with roving focus, for the entity
-detail sub-pages). The overlay trap and the motion-token transitions they share are
-extracted as `ui/focus-trap.ts` and `ui/transitions.ts` (`Modal` and
+detail sub-pages). The overlay trap and the motion-token transitions they share
+live in `ui/focus-trap.ts` and `ui/transitions.ts` (`Modal` and
 `MobileDrawer` use their own inline recipes).
 
 ### The app shell
@@ -691,24 +706,33 @@ JS state and CSS never disagree.
 - **Desktop (≥ `lg`)** — `AppShell` (root, `h-dvh` + skip-link)
   renders the expandable `Sidebar` (240px ⇄ 64px icon rail, state persisted in
   `localStorage['peculium-sidebar']`), the sticky `AppHeader` with the collapse
-  toggle and the global price-freshness control, and the `UserMenu` in the
-  sidebar footer.
+  toggle and the global price-freshness control, and the `UserMenu` plus the
+  build `VersionChip` in the sidebar footer.
 - **Tablet (`sm`–`lg`)** — the same sidebar forced to the **64px icon rail**
   (`AppShell` passes `collapsed={true}` there; the persisted expand preference
   applies at `lg`+ only). No hamburger and no bottom bar: navigation (main,
-  Data & Sync, Settings) and the rail-footer user menu stay reachable through
-  the rail; the header keeps the price-freshness control, the command-palette
-  trigger and the theme toggle.
+  Data & Sync, Settings) and the rail-footer user menu + version chip stay
+  reachable through the rail; the header keeps the price-freshness control, the
+  command-palette trigger and the theme toggle.
 - **Phone (< `sm`)** — no sidebar: a fixed `BottomNav` (Overview · Portfolios ·
   Assets · More) plus a `Fab` anchored above it that opens the
   `QuickActionSheet` (Add transaction → the single portfolio when unambiguous
   else `/portfolios`; Add asset → `/assets`; Refresh prices →
-  `POST /prices/refresh` with toast feedback; a disabled *Enter price* item
-  showing "Coming soon"). The "More" item opens the
+  `POST /prices/refresh` with toast feedback; a disabled *Enter price* item).
+  The "More" item opens the
   `MobileDrawer` (focus trap + Esc/backdrop + close-on-navigation),
   which renders the `Sidebar` navigation; the price-freshness control, theme
   and account stay in the header. `<main>` carries an extra bottom clearance and the bar
   respects `env(safe-area-inset-bottom)`; every tap target is ≥ 44px.
+- The **build version** is shown by `layout/VersionChip.svelte` in two
+  weights, both fed by the module-scoped `appVersion` store (a single public
+  `GET /api/v1/version` fetched once by the shell): a static, non-focusable
+  mono chip (`version · local build time`) in the sidebar footer — the 64px
+  rail shows the version alone — also printed on the login page, and a
+  detailed "About this app" card at the bottom of Settings → Preferences with
+  the commit (linked to GitHub), the UTC build time and a copy-for-issue
+  button. When the backend exposes no metadata the chip is simply not
+  rendered.
 - **Condensing header** (all sizes): the shell measures scroll on the main
   scroll container and flips `condensed` past a 16px threshold; it then
   publishes the live bar height as the `--app-header-h` custom property on its
@@ -875,9 +899,11 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
 - for authenticated users it renders the responsive app shell
   (`lib/components/layout/AppShell.svelte`, chapter 8) around the page content;
 - it mounts `<Toaster />`;
-- once per page load (`synced` flag) it calls `assetApi.sync()`
-  (`POST /assets/sync`) — the backend background task that backfills history
-  and splits for assets that lack them. Failures are swallowed: individual
+- once per page load (`synced` flag) it queues the global asset sync:
+  `assetApi.sync()` (`POST /assets/sync`, a 202 job) and then
+  `jobsApi.wait(job_id)`; when the worker finishes it calls `markDataSynced()`,
+  which clears the frontend GET cache and bumps the price-refresh `revision` so
+  price-derived pages refetch on their own. Failures are swallowed: individual
   pages backfill what they need.
 
 ### Token storage and refresh
@@ -895,26 +921,34 @@ mount — on any landing page, including deep links — it calls `refreshPrices(
 from the shared `$lib/stores/priceRefresh.svelte` store. That store is the
 **single refresh path** for the whole app (the shell's automatic trigger, the
 header control, the Fab and the command palette all go through it), so
-concurrent triggers de-duplicate into one POST and a shared `revision` counter
-lets price-derived pages refetch on completion. The returned `RefreshReport`
+concurrent triggers de-duplicate into one enqueue and a shared `revision`
+counter lets price-derived pages refetch on completion.
+
+The refresh is asynchronous: `refreshPrices()` POSTs to `/prices/refresh`,
+gets back a 202 `{job_id, status}` and then `jobsApi.wait(job_id)` polls
+`GET /jobs/{id}` until the job reaches a terminal status. The job's outcome
 drives the store and the toast warnings:
 
-- `rate_limited` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
-  aggiornati";
-- otherwise `issues.length > 0` → "N aggiornamenti prezzi non riusciti
-  (Yahoo)";
-- the plain success toast fires only on manual triggers, and a failed POST
-  tints the header control and surfaces in the quality strip instead of a
-  toast on the automatic run.
+- `done` → success (the plain toast fires only on manual triggers);
+- `partial` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
+  aggiornati" (some quotes failed upstream);
+- `failed` (or the poll timing out) → a failed outcome that tints the header
+  control and surfaces in the quality strip instead of a toast on the
+  automatic run.
 
 The outcome is reactive and module-scoped, so it survives SPA navigation:
-`finished_at` drives the always-visible **`PriceRefreshButton`** in the app
-header ("Prices as of HH:MM", clickable to refresh quotes on demand), while
-the rate-limit / issues / failure outcome and the dashboard's `fx_missing_*`
+the job's `finished_at` drives the always-visible **`PriceRefreshButton`** in
+the app header ("Prices as of HH:MM", clickable to refresh quotes on demand),
+while the partial / failure outcome and the dashboard's `fx_missing_*`
 counters (mirrored in the `dashboardStatus` store, seeded by the shell so they are
 available on non-dashboard pages too) feed the **`DataQualityStrip`**,
 rendered globally as a thin sticky band under the header and shown only when
 something is actionable.
+
+The same enqueue-then-poll pattern backs the asset's **full-history backfill**
+(`backfillHistory`): after the job is `done`/`partial` the page refetches the
+prices, and a split-fetch failure inside an otherwise-successful backfill
+surfaces as a `partial` warning.
 
 ---
 
@@ -1084,8 +1118,9 @@ Called endpoints: `portfolioApi.list()`, `settingsApi.listCurrencies()`.
 - **Import**: hidden file input → parses a JSON export document (requires
   `version === 1`), previews its name/currency/transaction count/date range,
   and imports it in mode **"new"** (with a chosen name) or **"overwrite"**
-  (over an existing portfolio); after a successful import it calls
-  `assetApi.sync()` so the imported assets get their history backfilled.
+  (over an existing portfolio); after a successful import it queues
+  `assetApi.sync()` and, when the job finishes, calls `markDataSynced()` so the
+  imported assets' history appears without waiting for the next app load.
 - **Export** lives on the detail page (in its `⋯` header menu, below).
 
 ### `/portfolios/[id]` — Portfolio detail (nested tab routes)
@@ -1234,7 +1269,7 @@ slice — sorted by contribution, exactly like the dashboard card's drill.
 Called endpoints: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Table of securities (ticker → detail link, name, type, currency, country,
-  delete).
+  last close value with its date beneath, delete).
 - **Add Asset**: ticker field with **autocomplete** — as you type (from 2
   characters, debounced 350 ms) it calls `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) and shows a suggestion dropdown; selecting one
@@ -1329,9 +1364,8 @@ prezzo** `price_source` selector), same dirty-save (`hasChanges` enables
 `form.isin` prefill sync all live in the layout, so unsaved edits survive
 tab switches); the **danger zone** with the asset's three shell-owned
 actions (update from Yahoo / backfill / delete); and
-two muted placeholder items — manual price
-entry and fixed-income attributes — shown as "Coming soon"
-(`quickActions.comingSoon`) disabled buttons.
+two muted, disabled placeholder items — manual price
+entry and fixed-income attributes.
 
 TAB **Exposure** — the geo/sector distribution widgets:
 
@@ -1532,35 +1566,88 @@ are translated through the i18n layer (chapter 8).
   (409 = in use or protected). Symbols rendered with `currencySymbol()`.
 - **Backup & restore** (`routes/settings/backup/+page.svelte`): per-user data
   export/import as a single versioned JSON bundle. **Download** calls
-  `backupApi.download()` — deliberately a raw authenticated fetch instead of
-  `request`, because the bundle must arrive as a `Blob` and the suggested name
-  comes from the response's `Content-Disposition` — and saves it through the
-  same `URL.createObjectURL` anchor dance as the portfolio export. **Restore**
+  `backupApi.download()` — a raw GET through the shared `request` client (the
+  attachment must arrive as a `Blob`, so `request` is asked for the raw
+  `Response`) — and saves it through the shared `saveBlob` helper, which takes
+  the suggested name from the response's `Content-Disposition`. **Restore**
   first reads the chosen file client-side (unparseable JSON → invalid-file
-  message; object shape or `version !== 1` → invalid-bundle message, neither
-  touching the API), then picks the strategy: **add** ("Add to current data",
-  the non-destructive default, selected for every freshly chosen file) or
-  **replace** ("Replace current data" — destructive: it wipes the account's
-  portfolios before importing, the Restore button takes the `danger` variant
-  while it is selected and the request only goes out after an explicit
+  message, without touching the API), then picks the strategy: **add** ("Add to
+  current data", the non-destructive default, selected for every freshly chosen
+  file) or **replace** ("Replace current data" — destructive: it wipes the
+  account's portfolios before importing, the Restore button takes the `danger`
+  variant while it is selected and the request only goes out after an explicit
   `ConfirmDialog`). `POST /backup/restore?mode=…` answers the counts summary
   (`portfolios_created`, `transactions_created`, `assets_created`,
   `assets_reused`): success toasts and the counts stay visible as an inline
-  `<dl>` grid (2 columns on phones, 4 from `sm`); a server 400 (unsupported
-  format/version) maps to the localized invalid-bundle message, everything
-  else to the generic restore-failure one. Assets are global and never
-  deleted by any mode: existing tickers are reused, missing ones recreated.
+  `<dl>` grid (2 columns on phones, 4 from `sm`); the server owns format and
+  version validation, so a 400 (unsupported format/version) maps to the
+  localized invalid-bundle message, everything else to the generic
+  restore-failure one. Assets are global and never deleted by any mode:
+  existing tickers are reused, missing ones recreated.
 
-### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
+### `/admin/health` — Data & Sync (`routes/admin/health/+page.svelte`)
 
-The only page that uses the **generic client**: `api.get('/health/prices?period=today|24h|100')`
-(same-origin `/api/v1/health/prices`). A period selector (Today / Last 24h /
-Last 100) scopes the summary, which the backend computes from the
-`health_events` table over the selected window (it does not reset on
-restart). It shows 4 summary cards (Success Rate, Total Successes, Total
-Failures, Rate Limited) and a paginated table of the recent events (timestamp,
-type, status badge, code, message, duration; page size 50 with Previous/Next
-and a range label), with a "Refresh Now" button.
+A summary strip and ONE unified activity table.
+
+**Summary tiles**: the `24h|7d|all` period `SegmentedControl` sits in the
+card header and scopes the 4 tiles AND the activity feed, so the numbers
+always match the listed rows (`all` = no lower bound; changing the period
+also returns the feed to page one). Success Rate, Total Successes, Total
+Failures and Rate Limited (each a `ui/StatCard`) come from
+`healthApi.summary(period)` (`GET /health/prices`, `limit=1`): the summary is
+window-based and excludes the job-lifecycle rows, and while the window has no
+provider outcomes every tile shows `N/A` together, with a one-line note below
+them explaining it — when the window still holds jobs the note points the
+reader to the activity list below, otherwise it is the generic no-data
+message.
+
+**Activity feed** (`healthApi.activity` →
+`GET /health/activity?period=&limit=&offset=&type=&status=`): every
+queue job plus the health events that are not tied to one — a job's own events
+appear only in its detail panel, never duplicated in the feed — newest first,
+50 per page with Previous/Next and the filtered total quoted. Columns:
+timestamp; type (a job row carries an outline "job" badge followed by the
+localized job type, an event row the raw event type); target (the localized
+target type plus the readable `target_label` — asset ticker or portfolio name —
+resolved server-side; a global target shows just "Global", nothing shows an
+em-dash); a status badge (one shared status→badge map, also used by the filters
+and the detail panel, so `running` reads as accent instead of red); message (a
+job shows its error or the `processed`/`total` progress, an event its message —
+truncated with a `title` tooltip, no expansion); duration via
+`formatDuration`. Below `sm` the summary tiles sit in a 2×2 grid and the table
+collapses to a three-column grid of two-line rows: line one carries the job
+badge, the type, a `- ` separator and the destination; line two places date
+over time, duration over the status badge and the truncated message side by
+side, in a smaller font with much tighter card padding and the header row
+hidden. A job row's type is a real
+`ui/Button variant="link"` (never
+a click-only row) that opens the **job detail panel**
+(`domain/JobDetailPanel.svelte`): the
+right-side `ui/Drawer` (40rem) at ≥ `lg`, the bottom `ui/Sheet` below — the
+same drill-down idiom as the allocation drill. The panel takes the activity
+row's job fields and shows the status badge, target, duration and start-or-
+creation timestamp, the `processed`/`total` progress with a bar, the full
+error wrapping across the panel width, and the job's events — lifecycle rows
+plus per-item events — fetched by `healthApi.jobEvents`
+(`GET /health/prices?job_id=<id>&limit=200`, scoped server-side, no client
+filter), each one a status badge + type with its duration on the right, the
+full message and
+the timestamp · code line, through the usual `ui/AsyncCard` states with a
+dashed empty state while the job has emitted nothing yet. The page holds a
+snapshot of the open job by value and merges each poll's fresh copy by id, so
+the feed never blanks the panel.
+
+**Live and filters**: while any feed row is a `queued`/`running` job (or an
+app-wide price refresh is in flight) the card header shows a "Live" pill and a
+3-second poll refreshes the summary tiles together with the feed and, on the
+same tick, the open panel's events; it dies on its own when nothing is open
+(silent: no skeleton, no toast). Two `ui/Select` controls filter the feed
+server-side by **type** (the deduplicated union of the job and event types) and
+**status** (the union of the job and event statuses) — empty means all — and
+changing either returns to the first page. The "Refresh Now" button reloads the
+summary and the feed. A "Clear activity" button opens a danger confirm (quoting
+the current feed total), closes any open job panel, and wipes every job and
+health event (`DELETE /admin/health/events`), then reloads both.
 
 ### Admin area (`routes/admin/…`)
 
@@ -1590,7 +1677,7 @@ flight:
   disabled accounts) PATCH `status: active` directly; **Disable** (`Ban`)
   PATCHes `status: disabled` behind a danger `ConfirmDialog`;
 - a per-row role `Select` — assignable values are `admin`/`editor`/`viewer`;
-  the legacy `owner` appears on the row still carrying it (so a change away
+  the `owner` value appears on rows that carry it (so changing away
   is possible without silently renaming it) and a footnote under the table
   states it cannot be assigned to new accounts; the selection is optimistic
   and rolls back on failure;
@@ -1630,14 +1717,14 @@ rewritten, users included, sessions possibly invalidated) whose confirm
 button only enables once the admin types the exact confirmation phrase
 (`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per locale). The upload is
 `POST /admin/db/restore` as `multipart/form-data` with the archive in the
-`dump` file field and the literal `confirm=replace` as a form field
-(`Content-Type` deliberately left unset so the browser derives it with the
-boundary). Success answers `{status, mode, dump_bytes, message}`: a toast
-plus an inline panel with the restored archive size and a persistent
-re-login notice, since the users table is part of the archive and the
-current session may no longer match the restored data. Failures surface the
-backend message on purpose (400 for a missing confirmation/file, 500 with
-the sanitized `pg_restore` stderr — a partially applied restore must be
-readable in the UI); only status-less network errors fall back to the
-localized generic. Both operations bound to the server's 30-minute window:
-the buttons spin and the page shows a "keep this page open" hint.
+`dump` file field and the literal `confirm=replace` as a form field (`request`
+sends the `FormData` as-is, leaving `Content-Type` for the browser to derive
+with the boundary). Success answers `{status, mode, dump_bytes, message}`: a toast plus an inline
+panel with the restored archive size and a persistent re-login notice, since
+the users table is part of the archive and the current session may no longer
+match the restored data. Failures surface the backend message on purpose (400
+for a missing confirmation/file, 500 with the sanitized `pg_restore` stderr — a
+partially applied restore must be readable in the UI); only status-less network
+errors fall back to the localized generic. Both operations bound to the
+server's 30-minute window: the buttons spin and the page shows a "keep this
+page open" hint.

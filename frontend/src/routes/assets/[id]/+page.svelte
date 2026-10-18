@@ -9,6 +9,8 @@
   } from '$lib/format'
   import PriceChart from '$lib/components/PriceChart.svelte'
   import PnlValue from '$lib/components/ui/PnlValue.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import EmptyState from '$lib/components/ui/EmptyState.svelte'
   import Table from '$lib/components/ui/Table.svelte'
   import THead from '$lib/components/ui/THead.svelte'
   import TBody from '$lib/components/ui/TBody.svelte'
@@ -73,6 +75,19 @@
     }
   }
 
+  // Data-completeness of the price history (#193): `null` for non-Yahoo
+  // assets (payload carries no `data_status`) → the chart renders as before.
+  const status = $derived(ctx.asset?.data_status?.state ?? null)
+  // Progress of the running job (its processed/total), when it reports one:
+  // the per-asset history backfill counts 2 work items (history + splits),
+  // the global asset sync reports none → indeterminate bar.
+  const syncTotal = $derived(ctx.asset?.data_status?.total ?? 0)
+  const syncPercent = $derived(
+    syncTotal > 0
+      ? Math.min(100, Math.round(((ctx.asset?.data_status?.processed ?? 0) / syncTotal) * 100))
+      : 0,
+  )
+
   // Read-only identity summary of the loaded asset: the values the edit form
   // (Data tab) carries, as label/value pairs. ISINs and codes use the mono
   // font (D5); a missing value falls back to an em dash.
@@ -98,6 +113,27 @@
   })
 </script>
 
+{#snippet syncIndicator()}
+  <!-- #193: while a backfill/sync job updates this asset. A determinate bar
+       when the job reports processed/total, an indeterminate one otherwise. -->
+  <div class="flex w-full max-w-64 flex-col items-center gap-2 text-sm text-muted-foreground">
+    <span>{t('asset.dataSyncing')}</span>
+    <div
+      class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      role="progressbar"
+      aria-label={t('asset.dataSyncing')}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={syncTotal > 0 ? syncPercent : undefined}
+    >
+      <div
+        class="h-full rounded-full bg-accent {syncTotal > 0 ? '' : 'w-full animate-pulse'}"
+        style={syncTotal > 0 ? `width: ${syncPercent}%` : undefined}
+      ></div>
+    </div>
+  </div>
+{/snippet}
+
 {#if ctx.asset}
   <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -115,13 +151,46 @@
         {/each}
       </div>
     </div>
-    <PriceChart
-      series={chartSeries}
-      currency={ctx.currency}
-      {zoomStart}
-      splits={ctx.splits}
-      onDataZoom={handleChartZoom}
-    />
+    {#if (ctx.backfillingHistory || ctx.dataSyncing) && ctx.prices.length === 0}
+      <!-- Syncing with nothing to plot yet (#193): a progress bar instead of a
+           silently empty chart. -->
+      <div class="flex h-[340px] items-center justify-center">
+        {@render syncIndicator()}
+      </div>
+    {:else if ctx.prices.length === 0 && status === 'missing'}
+      {#snippet backfillAction()}
+        <Button variant="secondary" disabled={ctx.backfillingHistory} onclick={ctx.backfillHistory}>
+          {t('asset.backfillHistory')}
+        </Button>
+      {/snippet}
+      <EmptyState
+        dashed
+        title={t('asset.dataMissing')}
+        action={backfillAction}
+      />
+    {:else}
+      <PriceChart
+        series={chartSeries}
+        currency={ctx.currency}
+        {zoomStart}
+        splits={ctx.splits}
+        onDataZoom={handleChartZoom}
+      />
+      {#if ctx.dataSyncing}
+        <!-- Still updating with data already plotted: progress bar, no action
+             (a backfill is already running). -->
+        <div class="mt-3 flex justify-center">
+          {@render syncIndicator()}
+        </div>
+      {:else if status === 'partial'}
+        <div class="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+          {t('asset.dataPartial')}
+          <Button variant="secondary" size="sm" disabled={ctx.backfillingHistory} onclick={ctx.backfillHistory}>
+            {t('asset.backfillHistory')}
+          </Button>
+        </div>
+      {/if}
+    {/if}
   </div>
 
   <!-- "Where held" (spec §4.2 decision 5, NEW in K.4b): which of the user's

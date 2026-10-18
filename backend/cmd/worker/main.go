@@ -16,8 +16,8 @@ import (
 	"github.com/alv67/peculium/internal/config"
 	"github.com/alv67/peculium/internal/price"
 	"github.com/alv67/peculium/internal/repository"
-	"github.com/alv67/peculium/internal/service"
 	"github.com/alv67/peculium/internal/series"
+	"github.com/alv67/peculium/internal/service"
 )
 
 func main() {
@@ -52,6 +52,7 @@ func main() {
 	repos := repository.New(dbPool, repository.NewLookupCache(cacheClient))
 	c := cache.New(cacheClient)
 	healthSvc := service.NewHealthService(repos)
+	jobSvc := service.NewJobService(repos)
 
 	fetcher := price.NewYahooFetcher(repos, cfg.PriceFetchInterval,
 		price.WithMinInterval(cfg.YahooMinInterval),
@@ -60,6 +61,39 @@ func main() {
 	)
 
 	log.Info().Dur("interval", cfg.PriceFetchInterval).Msg("price worker started")
+
+	// The full Service backs the job executors: claimed jobs then run the
+	// exact code paths the HTTP handlers used to run inline, so no fetch/
+	// persist logic is duplicated here. jwtAuth and the DB maintainer are
+	// nil because no job type authenticates tokens or touches maintenance.
+	svc := service.New(repos, nil, fetcher, price.NewJustETFFetcher(cfg.PythonServiceURL, price.WithETFHealthRecorder(healthSvc)),
+		cfg.LookupCacheTTL, cfg.ExposureCacheTTL, c, cfg.SeriesMaxPoints, cfg.StalePriceDays, healthSvc, nil)
+
+	// Job queue consumer. Each claimed job runs on its own detached context
+	// (see service.JobRunner), so the loop is only bound to the worker's
+	// lifetime ctx for claiming and polling.
+	jobRunner := service.NewJobRunner(repos.Job, service.DefaultJobTimeout)
+	jobRunner.WithHealth(healthSvc)
+	svc.RegisterJobExecutors(jobRunner)
+	// splits_fetch intentionally has no executor yet: a queued job of that
+	// type fails fast with "no executor for type" until it gets producers.
+	go jobRunner.Loop(ctx, service.DefaultJobPollInterval)
+
+	pruneActivity := func() {
+		cutoff := time.Now().Add(-cfg.HealthRetention)
+		jobs, err := jobSvc.DeleteBefore(ctx, cutoff)
+		if err != nil {
+			log.Warn().Err(err).Msg("job retention sweep failed")
+		}
+		events, err := healthSvc.PruneStandaloneEvents(ctx, cutoff)
+		if err != nil {
+			log.Warn().Err(err).Msg("health retention sweep failed")
+		}
+		if jobs+events > 0 {
+			log.Info().Int64("jobs", jobs).Int64("events", events).Msg("pruned activity")
+		}
+	}
+	pruneActivity()
 
 	ticker := time.NewTicker(cfg.PriceFetchInterval)
 	defer ticker.Stop()
@@ -85,6 +119,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			log.Info().Msg("fetching prices...")
+			pruneActivity()
 			if err := fetcher.FetchAll(ctx); err != nil {
 				log.Warn().Err(err).Msg("price fetch failed")
 			} else if err := series.RecomputeAll(ctx, repos); err != nil {

@@ -159,9 +159,11 @@ func (f *fakeFXRepo) History(ctx context.Context, base, quote string) ([]model.F
 type fakeAssetRepo struct {
 	asset *model.Asset
 	err   error
-	// assets backs FindByIDs so the history/sync paths can be tested with a
-	// mix of price sources.
+	// assets backs FindByIDs and List so the history/sync paths can be tested
+	// with a mix of price sources.
 	assets []*model.Asset
+	// stocks backs AllStocks for the meta-backfill paths.
+	stocks []*model.Asset
 	// updateCalls and lastUpdate record asset writes so tests can assert the
 	// exposure fetches persist nothing but the auto-resolved ISIN.
 	updateCalls int
@@ -195,13 +197,13 @@ func (f *fakeAssetRepo) Search(ctx context.Context, query string) ([]*model.Asse
 	return nil, nil
 }
 func (f *fakeAssetRepo) List(ctx context.Context) ([]*model.Asset, error) {
-	return nil, nil
+	return f.assets, nil
 }
 func (f *fakeAssetRepo) ListYahoo(ctx context.Context) ([]*model.Asset, error) {
 	return nil, nil
 }
 func (f *fakeAssetRepo) AllStocks(ctx context.Context) ([]*model.Asset, error) {
-	return nil, nil
+	return f.stocks, nil
 }
 func (f *fakeAssetRepo) MarkPricesFetched(ctx context.Context, ids []uuid.UUID, at time.Time) error {
 	return nil
@@ -275,6 +277,13 @@ type fakeYahooFetcher struct {
 	sector   string
 	industry string
 	country  string
+	// meta/metaErr drive the FetchMeta seam and profileExtendedErr drives the
+	// FetchAssetProfileExtended one, so the health-coverage tests can force a
+	// provider success or failure. All nil defaults keep the previous inert
+	// behaviour.
+	meta               *price.AssetMeta
+	metaErr            error
+	profileExtendedErr error
 	// weightings is what the provider reports as sectorWeightings; gotISIN
 	// style counters record the calls so tests can assert the fetch ran.
 	weightings           []model.ExposureRow
@@ -293,10 +302,10 @@ func (f *fakeYahooFetcher) FetchAssetProfile(ctx context.Context, ticker string)
 }
 func (f *fakeYahooFetcher) FetchAssetProfileExtended(ctx context.Context, ticker string) (string, string, string, []model.ExposureRow, error) {
 	f.profileExtendedCalls++
-	return f.sector, f.industry, f.country, f.weightings, nil
+	return f.sector, f.industry, f.country, f.weightings, f.profileExtendedErr
 }
 func (f *fakeYahooFetcher) FetchMeta(ctx context.Context, ticker string) (*price.AssetMeta, error) {
-	return nil, nil
+	return f.meta, f.metaErr
 }
 func (f *fakeYahooFetcher) FetchFXRate(ctx context.Context, quote string) (decimal.Decimal, error) {
 	return decimal.Zero, nil
@@ -330,23 +339,33 @@ func (f *fakeYahooFetcher) EnsureSplits(ctx context.Context, assets []*model.Ass
 // *Calls counters record how often the provider was actually reached, which
 // lets the cache tests verify that a hit skips the fetch entirely.
 type fakeETFFetcher struct {
-	exposure        *model.AssetExposure
-	morningstar     *model.AssetExposure
-	search          []price.EtfSearchResult
-	exposureISIN    string
-	morningstarISIN string
-	searchTicker    string
-	exposureCalls   int
-	morningstarCall int
+	exposure          *model.AssetExposure
+	morningstar       *model.AssetExposure
+	search            []price.EtfSearchResult
+	exposureISIN      string
+	morningstarISIN   string
+	exposureTicker    string
+	morningstarTicker string
+	searchTicker      string
+	exposureCalls     int
+	morningstarCall   int
+	// exposureAssetID/morningstarAssetID record the asset id threaded into the
+	// exposure calls, so tests can assert it reaches the health event.
+	exposureAssetID    uuid.UUID
+	morningstarAssetID uuid.UUID
 }
 
-func (f *fakeETFFetcher) FetchExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	f.exposureISIN = isin
+	f.exposureTicker = ticker
+	f.exposureAssetID = assetID
 	f.exposureCalls++
 	return f.exposure, nil
 }
-func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, isin string) (*model.AssetExposure, error) {
+func (f *fakeETFFetcher) FetchMorningstarExposure(ctx context.Context, assetID uuid.UUID, isin, ticker string) (*model.AssetExposure, error) {
 	f.morningstarISIN = isin
+	f.morningstarTicker = ticker
+	f.morningstarAssetID = assetID
 	f.morningstarCall++
 	return f.morningstar, nil
 }
@@ -2361,6 +2380,9 @@ func TestFetchETFExposure_PreviewDoesNotPersist(t *testing.T) {
 	if etf.exposureISIN != "IE00B4L5Y983" {
 		t.Fatalf("provider called with ISIN %q, want IE00B4L5Y983", etf.exposureISIN)
 	}
+	if etf.exposureAssetID != assetID {
+		t.Fatalf("provider called with asset id %v, want %v (the health event needs it)", etf.exposureAssetID, assetID)
+	}
 	if got.ISIN != "IE00B4L5Y983" {
 		t.Fatalf("response ISIN = %q, want IE00B4L5Y983", got.ISIN)
 	}
@@ -2442,6 +2464,9 @@ func TestFetchMorningstarExposure_PreviewDoesNotPersist(t *testing.T) {
 	}
 	if etf.morningstarISIN != "IE00B4L5Y983" {
 		t.Fatalf("provider called with ISIN %q, want IE00B4L5Y983", etf.morningstarISIN)
+	}
+	if etf.morningstarAssetID != assetID {
+		t.Fatalf("provider called with asset id %v, want %v (the health event needs it)", etf.morningstarAssetID, assetID)
 	}
 	countries := exposureRowsByName(got.Countries)
 	if !countries["US"].Equal(decimal.NewFromInt(60)) || !countries["DE"].Equal(decimal.NewFromInt(40)) {
@@ -2769,6 +2794,120 @@ func TestFilterYahooAssets(t *testing.T) {
 	}
 	if out := filterYahooAssets(nil); len(out) != 0 {
 		t.Fatalf("filter(nil) = %+v, want empty", out)
+	}
+}
+
+// dataStatusPriceRepo stubs repository.PriceRepository with a canned
+// MinMaxDate latest bound and a canned FindLatestForAssets price, for the
+// derived data-status and last-close states.
+type dataStatusPriceRepo struct {
+	repository.PriceRepository
+	latest *time.Time
+	price  *model.Price
+}
+
+func (r *dataStatusPriceRepo) MinMaxDate(ctx context.Context, assetID uuid.UUID) (*time.Time, *time.Time, error) {
+	return r.latest, r.latest, nil
+}
+
+func (r *dataStatusPriceRepo) FindLatestForAssets(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Price, error) {
+	if r.price == nil {
+		return nil, nil
+	}
+	out := make(map[uuid.UUID]*model.Price, len(ids))
+	for _, id := range ids {
+		out[id] = r.price
+	}
+	return out, nil
+}
+
+func TestGetAssetDataStatus(t *testing.T) {
+	ctx := context.Background()
+	id := uuid.New()
+	last := time.Now().UTC()
+	closePx := decimal.NewFromInt(42)
+	running := &model.Job{ID: uuid.New(), Status: model.JobStatusRunning, Processed: 3, Total: 10}
+
+	newSvc := func(a *model.Asset, job *model.Job, latest *time.Time) *Service {
+		var price *model.Price
+		if latest != nil {
+			price = &model.Price{AssetID: a.ID, Date: *latest, Close: closePx}
+		}
+		repos := &repository.Repository{
+			Asset: &fakeAssetRepo{asset: a},
+			Job:   &fakeJobRepo{openForAsset: job},
+			Price: &dataStatusPriceRepo{latest: latest, price: price},
+		}
+		return New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
+	}
+
+	cases := []struct {
+		name   string
+		asset  *model.Asset
+		job    *model.Job
+		latest *time.Time
+		want   string // "" means no data_status at all
+	}{
+		{"syncing", &model.Asset{ID: id, Ticker: "AAPL"}, running, nil, model.AssetDataSyncing},
+		{"complete", &model.Asset{ID: id, Ticker: "AAPL", HistoryBackfilled: true}, nil, &last, model.AssetDataComplete},
+		{"partial", &model.Asset{ID: id, Ticker: "AAPL"}, nil, &last, model.AssetDataPartial},
+		{"missing", &model.Asset{ID: id, Ticker: "AAPL"}, nil, nil, model.AssetDataMissing},
+		{"non-yahoo", &model.Asset{ID: id, Ticker: "CASH", PriceSource: "none"}, nil, nil, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := newSvc(tc.asset, tc.job, tc.latest).GetAsset(ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := got.DataStatus
+			if tc.want == "" {
+				if st != nil {
+					t.Fatalf("data_status = %+v, want nil for a non-Yahoo asset", st)
+				}
+				return
+			}
+			if st == nil || st.State != tc.want {
+				t.Fatalf("data_status = %+v, want state %q", st, tc.want)
+			}
+			if tc.want == model.AssetDataSyncing {
+				if st.JobID == nil || *st.JobID != running.ID || st.JobStatus != model.JobStatusRunning ||
+					st.Processed != 3 || st.Total != 10 {
+					t.Fatalf("syncing status = %+v, want job %s running 3/10", st, running.ID)
+				}
+			} else if st.JobID != nil || st.JobStatus != "" {
+				t.Fatalf("status = %+v, want no job fields outside syncing", st)
+			}
+			if tc.latest == nil {
+				if got.LastClose != nil || got.LastCloseDate != nil {
+					t.Fatalf("last_close = %v/%v, want none without a stored price", got.LastClose, got.LastCloseDate)
+				}
+			} else if got.LastClose == nil || !got.LastClose.Equal(closePx) ||
+				got.LastCloseDate == nil || !got.LastCloseDate.Equal(*tc.latest) {
+				t.Fatalf("last_close = %v/%v, want %s at %v", got.LastClose, got.LastCloseDate, closePx, *tc.latest)
+			}
+		})
+	}
+}
+
+func TestListAssetsDecoratesLastClose(t *testing.T) {
+	id1, id2 := uuid.New(), uuid.New()
+	last := time.Now().UTC().Truncate(24 * time.Hour)
+	closePx := decimal.NewFromInt(7)
+	repos := &repository.Repository{
+		Asset: &fakeAssetRepo{assets: []*model.Asset{{ID: id1, Ticker: "A"}, {ID: id2, Ticker: "B"}}},
+		Price: &dataStatusPriceRepo{price: &model.Price{Date: last, Close: closePx}},
+	}
+	svc := New(repos, nil, nil, nil, time.Minute, time.Hour, cache.New(nil), 0, 0, nil, nil)
+
+	got, err := svc.ListAssets(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range got {
+		if a.LastClose == nil || !a.LastClose.Equal(closePx) || a.LastCloseDate == nil || !a.LastCloseDate.Equal(last) {
+			t.Fatalf("asset %s last_close = %v/%v, want %s at %v", a.Ticker, a.LastClose, a.LastCloseDate, closePx, last)
+		}
 	}
 }
 

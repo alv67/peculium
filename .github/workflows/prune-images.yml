@@ -1,0 +1,67 @@
+name: Prune images
+
+# Retention policy for the images published by publish-images.yml. Container
+# image storage is free for public packages, so this is housekeeping: the tag
+# list stays short and the package pages stay readable.
+#
+# TRIGGERS: called at the end of publish-images.yml, so a prune only ever runs
+# after images were actually built and never fires while nothing is published;
+# `workflow_dispatch` is the on-demand entry point, in dry run by default.
+#
+# RULES (applied per image):
+#   - versions carrying a release tag (`v*`), `latest` or `develop` are never
+#     deleted: `exclude-tags` takes priority over every other rule;
+#   - at most 3 of the remaining tagged versions (the `sha-*` / `rc-*` churn)
+#     are kept, newest first;
+#   - untagged leftovers are deleted;
+#   - every rule only applies to versions older than 30 days, so a test build
+#     dispatched recently is never touched, whatever its tag.
+#
+# CAUTION: this needs a GHCR-aware action. `actions/delete-package-versions` is
+# not usable for these images: for container packages the version "name" is the
+# digest, so `ignore-versions` cannot protect a release tag, and deleting the
+# untagged versions removes the per-architecture child manifests, breaking the
+# multi-arch images (`manifest unknown` on pull).
+#
+# The five packages must grant this repository the Admin role under
+# Package Settings -> Manage Actions access. They are published by this repo,
+# so the grant is normally already in place; a 403 in the log means it is not.
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: "Log the versions that would be deleted, delete nothing"
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Log the versions that would be deleted, delete nothing"
+        type: boolean
+        default: true
+
+jobs:
+  prune:
+    name: Prune old image versions
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    # Serialise prunes across callers; a manual dispatch of this workflow uses
+    # the same group. Never cancels a prune midway.
+    concurrency:
+      group: prune-images
+      cancel-in-progress: false
+    steps:
+      # Pinned to an exact version rather than a moving major tag: this action
+      # is handed `packages: write` and can delete every version, so updates
+      # come through Dependabot PRs. See the CAUTION note above.
+      - uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+        with:
+          package: peculium-backend,peculium-worker,peculium-python-service,peculium-frontend,peculium-secrets-init
+          exclude-tags: "v*,latest,develop"
+          keep-n-tagged: 3
+          delete-untagged: true
+          older-than: 30 days
+          validate: true
+          dry-run: ${{ inputs.dry-run }}

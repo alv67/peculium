@@ -89,6 +89,8 @@ export interface AssetPageContext {
   refreshFromYahoo(): void
   readonly backfillingHistory: boolean
   backfillHistory(): void
+  /** True while an open sync/backfill job is updating this asset's data. */
+  readonly dataSyncing: boolean
   /** Opens the layout-mounted delete confirmation. */
   requestDelete(): void
 

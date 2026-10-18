@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "agent": {
+  "agents": {
     "explore": {
       "model": "opencode-go/qwen3.8-flash"
     },

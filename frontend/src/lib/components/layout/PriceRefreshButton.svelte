@@ -15,8 +15,8 @@
    * Desktop (`lg`+) shows the "Prices as of HH:MM" label next to the glyph;
    * below `lg` it is icon-only, so the `aria-label` carries the same text
    * plus the partial/failure context. A completed-but-degraded outcome
-   * (rate-limited, ≥1 failed fetch or a failed POST) tints the control with
-   * the `--info` token — never colour alone, the strip below spells out the
+   * (a `partial` job or a failed refresh) tints the control with the
+   * `--info` token — never colour alone, the strip below spells out the
    * chips — and the glyph spins while a refresh is in flight.
    */
   const time = $derived.by(() => {
@@ -28,7 +28,7 @@
   })
 
   /** Same partial semantics the stamp had; `failed` only widens the tint. */
-  const partial = $derived(priceRefresh.rateLimited || priceRefresh.issueCount > 0)
+  const partial = $derived(priceRefresh.partial)
   const degraded = $derived(partial || priceRefresh.failed)
 
   const label = $derived(

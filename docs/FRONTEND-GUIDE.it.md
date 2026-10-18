@@ -19,7 +19,7 @@ allocazione, prezzi).
 
 Alcuni fatti sullo stato attuale:
 
-- **Tecnologia**: SvelteKit 5 (Svelte 5 "rune"), TypeScript, Tailwind CSS e
+- **Tecnologia**: SvelteKit (Svelte 5 "rune"), TypeScript, Tailwind CSS e
   **ECharts** per i grafici.
 - **Modello di esecuzione**: una **SPA lato client** ("single page
   application"): il server invia un guscio statico e tutto il rendering avviene
@@ -290,17 +290,18 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | | backfillHistory, sync | `POST /assets/{id}/backfill-history`, `POST /assets/sync` |
 | `transactionApi` | list, create | `GET /portfolios/{id}/transactions?limit=&offset=&type=&asset_id=&from=&to=` (restituisce l'involucro `TransactionPage` — `transactions`, `total`, `limit`/`offset` applicati; limite di default 20, max 100, ordine per data decrescente; i filtri opzionali e combinabili `type` (buy/sell/dividend/split/fee), `asset_id` (uuid) e i limiti `from`/`to` `YYYY-MM-DD` inclusivi restringono le righe **e** il `total` restituito), `POST /portfolios/{id}/transactions` |
 | | update, remove | `PATCH/DELETE /transactions/{id}` |
-| `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce il `RefreshReport`) |
+| `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce un 202 `JobEnqueued`; poi `jobsApi.wait`) |
 | | byAsset | `GET /prices/{assetId}?full=1` |
+| `jobsApi` | get, list, wait | `GET /jobs/{id}`, `GET /jobs?limit=&offset=`, e `wait` (polling fino allo stato `done`/`failed`/`partial`; usato dal refresh prezzi e dai backfill degli asset) |
 | `settingsApi` | listCurrencies, addCurrency, deleteCurrency | `GET/POST /settings/currencies`, `DELETE /settings/currencies/{code}` |
 | `backupApi` | download, restore | `GET /backup` (bundle JSON servito come allegato), `POST /backup/restore?mode=add\|replace` (bundle nel body, riepilogo dei conteggi in risposta) |
 | `adminApi` | listUsers, updateUser, resetPassword, getSettings, updateSettings, dbBackup, dbRestore | `GET /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/reset-password`, `GET/PATCH /admin/settings`, `GET /admin/db/backup` (allegato `.dump` in streaming), `POST /admin/db/restore` (multipart `dump` + `confirm=replace`) (tutti riservati agli amministratori: 403 per gli altri ruoli) |
-| `api` (generico) | get/post/put/patch/delete | il client grezzo, usato dalla pagina health per `GET /health/prices` |
+| `healthApi` | summary, activity, jobEvents | `GET /health/prices?period=&limit=1` (tile di riepilogo con finestra a periodo), `GET /health/activity?period=&limit=&offset=&type=&status=` (flusso unificato: job + eventi non legati a un job), `GET /health/prices?job_id=&limit=200` (eventi di un job per il pannello di dettaglio); tutte le letture bypassano la cache GET perché la pagina health le interpella a ciclo |
 
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
 `DashboardSummary`,
-`ActiveBreakdown`, `ClosedBreakdown`, `RefreshReport`, `AssetQuote`,
+`ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`, `AssetQuote`,
 `AssetExposure`, `PortfolioHistory`, `AssetPositionSeries`,
 `PortfolioExportDocument`, ...) rispecchiano i modelli del backend. I
 valori monetari arrivano come **stringhe** (es. `"1234.56"`) per evitare errori
@@ -400,9 +401,23 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   `YTD`, `MAX` illimitato) su uno zoom in-place; i campi quote
   `change_1d/1w/1m/1y/ytd` sono renderizzati come chip delta nell'header
   della shell (etichette `1G/1S/1M/1Y/YTD` ↔ `1D/1W/1M/1Y/YTD` via
-  `t()`); `sumRegions` / `sumSectors` / `sumCountries` e i rispettivi guard
+  `t()`), con sotto l'ultimo close e la sua data come
+  `Dati al {data}` (la data di riferimento dei valori, diversa per borsa);
+  `sumRegions` / `sumSectors` / `sumCountries` e i rispettivi guard
   di validità (`regionsValid` / `sectorsValid` / `countriesValid`) vivono
-  nella shell dell'asset (`+layout.svelte`) accanto ai dati che validano.
+  nella shell dell'asset (`+layout.svelte`) accanto ai dati che validano. La
+  card "Storico prezzi" dell'Overview rispecchia la completezza dei dati
+  dell'asset (`data_status` su `GET /assets/{id}`): mentre un job di
+  backfill/sync copre l'asset (`syncing`) senza prezzi mostra una barra di
+  avanzamento al posto di un grafico vuoto — determinata quando il job riporta
+  `processed`/`total`, indeterminata altrimenti — e la shell polla l'asset ogni
+  ~4 secondi e rifetcha quote, prezzi e split quando il job finisce
+  (svuotando prima la cache GET del client, e bypassandola nel poll stesso);
+  con dati già
+  tracciati tiene il grafico e aggiunge la stessa barra (nessuna azione, perché
+  un backfill è già in corso). `missing` (nessuno storico e nessun job) mostra
+  un empty state con l'azione "Backfill storico completo", e `partial` (alcuni
+  prezzi ma storico incompleto) aggiunge una nota con la stessa azione.
 
 ---
 
@@ -603,7 +618,7 @@ La UI si basa su un piccolo design system interno.
 
 I colori non sono scritti direttamente nelle pagine. `tailwind.config.js`
 definisce un insieme di token di colore **semantici** — `background`,
-`foreground`, la **scala di elevazione** `surface-0..3` (+ gli alias legacy
+`foreground`, la **scala di elevazione** `surface-0..3` (+ gli alias
 `surface` = `surface-1` e `surface-raised` = `surface-2`), `muted`,
 `muted-foreground`, `border`, `input`, `ring`, `accent` (+
 `accent-hover`/`accent-foreground`/`accent-text`), `positive`, `negative`,
@@ -717,7 +732,7 @@ radiogroup e navigazione con i tasti freccia, da posizionare sul grafico),
 ripristino; usato a ≥ `lg`), `Sheet` (bottom sheet con handle di trascinamento,
 stessa API; usato a < `lg`) e `Tabs` (tablist ARIA di `<a>` reali con focus
 roving, per le sottopagine-entità). Il focus-trap condiviso delle
-overlay e le transizioni sui token di motion sono estratti in
+overlay e le transizioni sui token di motion vivono in
 `ui/focus-trap.ts` e `ui/transitions.ts` (`Modal`/`MobileDrawer`
 mantengono le loro ricette inline).
 
@@ -733,12 +748,13 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   rende la `Sidebar` espandibile (240px ⇄ rail di icone da 64px, stato
   persistito in `localStorage['peculium-sidebar']`), l'`AppHeader` sticky con il
   toggle di collassamento e il controllo di aggiornamento dei prezzi, e lo
-  `UserMenu` nel footer della sidebar.
+  `UserMenu` più il `VersionChip` di build nel footer della sidebar.
 - **Tablet (`sm`–`lg`)** — la stessa sidebar forzata a **rail di icone da
   64px** (`AppShell` passa `collapsed={true}`; la preferenza di espansione
   persistita vale solo da `lg` in su). Nessun hamburger e nessuna barra
   inferiore: la navigazione (main, Dati e sincronizzazione, Impostazioni) e il
-  menu utente nel footer del rail restano raggiungibili attraverso il rail;
+  menu utente + chip versione nel footer del rail restano raggiungibili
+  attraverso il rail;
   l'header conserva il controllo di aggiornamento dei prezzi, il trigger del
   pannello comandi e il selettore tema.
 - **Telefono (< `sm`)** — nessuna sidebar: una `BottomNav` fissa (Panoramica ·
@@ -746,12 +762,21 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   che apre la `QuickActionSheet` (Aggiungi transazione → al portafoglio unico
   quando è univoco, altrimenti a `/portfolios`; Aggiungi asset → `/assets`;
   Aggiorna prezzi → `POST /prices/refresh` con toast di esito; *Inserisci
-  prezzo* è una voce disabilitata con "In arrivo"). La
+  prezzo* è una voce disabilitata). La
   voce "Altro" apre il `MobileDrawer` (focus trap + Esc/backdrop +
   chiusura alla navigazione), che rende la navigazione
   `Sidebar`; il controllo di aggiornamento dei prezzi, tema e account restano
   nell'header. A `<main>` viene riservato uno
   spazio extra in basso e la barra rispetta `env(safe-area-inset-bottom)`;
+- La **versione di build** è mostrata da `layout/VersionChip.svelte` in due
+  pesi, entrambi alimentati dallo store a livello di modulo `appVersion` (una
+  sola `GET /api/v1/version` pubblica, fatta una volta dallo shell): un chip
+  mono statico e non focalizzabile (`versione · ora di build locale`) nel footer
+  della sidebar — il rail da 64px mostra la sola versione — stampato anche nella
+  pagina di login, e una card di dettaglio "Informazioni sull'app" in fondo a
+  Impostazioni → Preferenze con il commit (link a GitHub), l'ora di build UTC e
+  un pulsante per copiare le informazioni. Quando il backend non espone i
+  metadati il chip semplicemente non viene renderizzato.
   ogni target di tocco è ≥ 44px.
 - **Header condensante** (tutte le misure): la shell misura lo scroll del
   contenitore scrollabile principale e commuta `condensed` oltre una soglia di
@@ -929,11 +954,12 @@ Uno store a rune che contiene `auth.user` e `auth.isLoading`:
   (`lib/components/layout/AppShell.svelte`, capitolo 8) attorno al contenuto
   della pagina;
 - monta `<Toaster />`;
-- una volta per caricamento di pagina (flag `synced`) chiama
-  `assetApi.sync()` (`POST /assets/sync`) — la task in background del backend
-  che fa il backfill di storico e split per gli asset che ne sono privi. Gli
-  errori vengono ignorati: le singole pagine fanno il backfill di ciò che
-  serve.
+- una volta per caricamento di pagina (flag `synced`) accoda il sync globale
+  degli asset: `assetApi.sync()` (`POST /assets/sync`, un job 202) e poi
+  `jobsApi.wait(job_id)`; quando il worker termina chiama `markDataSynced()`,
+  che svuota la cache GET del frontend e incrementa la `revision` del refresh
+  prezzi così le pagine che mostrano prezzi si aggiornano da sole. Gli errori
+  vengono ignorati: le singole pagine fanno il backfill di ciò che serve.
 
 ### Archiviazione dei token e refresh
 
@@ -950,26 +976,35 @@ al mount — su qualunque pagina d'ingresso, deep-link inclusi — chiama
 `refreshPrices()` dallo store condiviso `$lib/stores/priceRefresh.svelte`. Quello
 store è il **percorso di refresh unico** dell'app (il trigger automatico dello
 shell, il controllo nell'header, il Fab e la palette comandi passano tutti di
-qui), quindi trigger concorrenti si de-duplicano in una sola POST e un contatore
-`revision` condiviso permette alle pagine che mostrano prezzi di rifare il fetch
-al termine. Il `RefreshReport` restituito guida lo store e i toast di avviso:
+qui), quindi trigger concorrenti si de-duplicano in un solo accodamento e un
+contatore `revision` condiviso permette alle pagine che mostrano prezzi di rifare
+il fetch al termine.
 
-- `rate_limited` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
-  aggiornati";
-- altrimenti, se `issues.length > 0` → "N aggiornamenti prezzi non riusciti
-  (Yahoo)";
-- il toast di successo semplice scatta solo sui trigger manuali, mentre una
-  POST fallita tinge il controllo nell'header e compare nella strip qualità
-  invece di un toast sul run automatico.
+Il refresh è asincrono: `refreshPrices()` fa POST a `/prices/refresh`, riceve un
+202 `{job_id, status}` e poi `jobsApi.wait(job_id)` interroga `GET /jobs/{id}`
+finché il job non raggiunge uno stato terminale. L'esito del job guida lo store
+e i toast di avviso:
+
+- `done` → successo (il toast semplice scatta solo sui trigger manuali);
+- `partial` → "Yahoo Finance ha limitato le richieste: alcuni prezzi non
+  aggiornati" (alcune quotazioni sono fallite a monte);
+- `failed` (o polling in timeout) → esito fallito che tinge il controllo
+  nell'header e compare nella strip qualità invece di un toast sul run
+  automatico.
 
 L'esito è reattivo e a livello di modulo, quindi sopravvive alla navigazione
-SPA: `finished_at` guida il **`PriceRefreshButton`** sempre visibile nell'header
-("Prezzi alle HH:MM", cliccabile per aggiornare le quotazioni su richiesta),
-mentre l'esito rate-limit / issues / fallimento e i contatori `fx_missing_*`
+SPA: il `finished_at` del job guida il **`PriceRefreshButton`** sempre visibile
+nell'header ("Prezzi alle HH:MM", cliccabile per aggiornare le quotazioni su
+richiesta), mentre l'esito parziale / fallito e i contatori `fx_missing_*`
 della dashboard (rispecchiati nello store `dashboardStatus`, seminato dallo shell
 così da essere disponibili anche fuori dalla dashboard) alimentano la
 **`DataQualityStrip`**, resa globalmente come sottile banda sticky sotto
 l'header e mostrata solo quando c'è qualcosa da segnalare.
+
+Lo stesso schema accoda-poi-interroga sostiene il **backfill dello storico
+completo** dell'asset (`backfillHistory`): quando il job è `done`/`partial` la
+pagina rifà il fetch dei prezzi, e un fallimento nel recupero degli split
+dentro un backfill altrimenti riuscito emerge come avviso `partial`.
 
 ---
 
@@ -1140,8 +1175,9 @@ Endpoint chiamati: `portfolioApi.list()`, `settingsApi.listCurrencies()`.
   (richiede `version === 1`), mostra un'anteprima (nome/valuta/numero di
   transazioni/range date) e importa in modalità **"new"** (con un nome scelto)
   o **"overwrite"** (su un portafoglio esistente); dopo un import riuscito
-  chiama `assetApi.sync()` così gli asset importati ricevono il backfill dello
-  storico.
+  accoda `assetApi.sync()` e, quando il job termina, chiama `markDataSynced()`
+  così lo storico degli asset importati compare senza attendere il prossimo
+  avvio.
 - L'**Export** vive nella pagina di dettaglio (nel menu `⋯` dell'header, sotto).
 
 ### `/portfolios/[id]` — Dettaglio portafoglio (sotto-route a tab)
@@ -1299,7 +1335,7 @@ ordinati per contributo, esattamente come il drill della card dashboard.
 Endpoint chiamati: `assetApi.list()`, `settingsApi.listCurrencies()`.
 
 - Tabella dei titoli (ticker → link al dettaglio, nome, tipo, valuta, paese,
-  elimina).
+  valore dell'ultimo close con la data sotto, elimina).
 - **Add Asset**: campo ticker con **autocomplete** — mentre digiti (da 2
   caratteri, debounce 350 ms) chiama `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) e mostra un menu di suggerimenti; selezionandone
@@ -1402,8 +1438,7 @@ stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, selettore
 sopravvivono ai cambi di tab); la **zona pericolosa** con le tre azioni
 della shell (aggiorna da Yahoo / backfill / elimina); e
 due segnaposto muti e disabilitati — inserimento prezzo manuale e
-attributi obbligazionari — mostrati come "In arrivo"
-(`quickActions.comingSoon`).
+attributi obbligazionari.
 
 TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 
@@ -1610,37 +1645,94 @@ sono tradotte tramite il layer i18n (capitolo 8).
   con `currencySymbol()`.
 - **Backup e ripristino** (`routes/settings/backup/+page.svelte`): export/import
   dei dati del singolo utente come un unico bundle JSON versionato. Il
-  **Download** chiama `backupApi.download()` — deliberatamente una fetch
-  autenticata grezza invece di `request`, perché il bundle deve arrivare come
-  `Blob` e il nome suggerito arriva dall'`Content-Disposition` della risposta —
-  e lo salva con la stessa danza `URL.createObjectURL` + ancora usata
-  dall'export del portafoglio. Il **Ripristino** prima legge il file scelto
-  lato client (JSON non parsabile → messaggio file non valido; forma o
-  `version !== 1` non supportati → messaggio bundle non valido, senza toccare
-  l'API), poi sceglie la strategia: **add** ("Aggiungi ai dati attuali",
-  default non distruttivo, selezionato per ogni nuovo file scelto) o
-  **replace** ("Sostituisci i dati attuali" — distruttivo: cancella i
-  portafogli dell'account prima di importare; con questa opzione attiva il
-  pulsante Ripristina prende la variante `danger` e la richiesta parte solo
-  dopo un `ConfirmDialog` esplicito). `POST /backup/restore?mode=…` risponde
-  il riepilogo dei conteggi (`portfolios_created`, `transactions_created`,
-  `assets_created`, `assets_reused`): toast di successo e conteggi lasciati
-  visibili in una griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`);
-  un 400 del backend (formato/versione non supportati) mappa sul messaggio
-  localizzato bundle non valido, tutto il resto sul fallback di ripristino
-  fallito. Gli asset sono globali e nessuna modalità li elimina: i ticker
-  esistenti vengono riusati, i mancanti ricreati.
+  **Download** chiama `backupApi.download()` — una GET grezza attraverso il
+  client condiviso `request` (l'allegato deve arrivare come `Blob`, quindi a
+  `request` viene chiesta la `Response` grezza) — e lo salva con l'helper
+  condiviso `saveBlob`, che prende il nome suggerito dall'`Content-Disposition`
+  della risposta. Il **Ripristino** prima legge il file scelto lato client (JSON
+  non parsabile → messaggio file non valido, senza toccare l'API), poi sceglie
+  la strategia: **add** ("Aggiungi ai dati attuali", default non distruttivo,
+  selezionato per ogni nuovo file scelto) o **replace** ("Sostituisci i dati
+  attuali" — distruttivo: cancella i portafogli dell'account prima di importare;
+  con questa opzione attiva il pulsante Ripristina prende la variante `danger` e
+  la richiesta parte solo dopo un `ConfirmDialog` esplicito). `POST
+  /backup/restore?mode=…` risponde il riepilogo dei conteggi
+  (`portfolios_created`, `transactions_created`, `assets_created`,
+  `assets_reused`): toast di successo e conteggi lasciati visibili in una
+  griglia `<dl>` inline (2 colonne sul telefono, 4 da `sm`); la validazione di
+  formato e versione è compito del server, quindi un 400 (formato/versione non
+  supportati) mappa sul messaggio localizzato bundle non valido, tutto il resto
+  sul fallback di ripristino fallito. Gli asset sono globali e nessuna modalità
+  li elimina: i ticker esistenti vengono riusati, i mancanti ricreati.
 
-### `/admin/health` — Price Sync Health (`routes/admin/health/+page.svelte`)
+### `/admin/health` — Dati e sincronizzazione (`routes/admin/health/+page.svelte`)
 
-L'unica pagina che usa il **client generico**: `api.get('/health/prices?period=today|24h|100')`
-(stessa origine `/api/v1/health/prices`). Un selettore di periodo (Today / Last
-24h / Last 100) limita il riepilogo, che il backend calcola dalla tabella
-`health_events` sulla finestra scelta (non si azzera al riavvio). Mostra 4
-card di riepilogo (Success Rate, Total Successes, Total Failures, Rate Limited)
-e una tabella paginata degli eventi recenti (timestamp, tipo, badge dello stato,
-codice, messaggio, durata; 50 per pagina con Previous/Next e indicazione
-dell'intervallo), con un pulsante "Refresh Now".
+Una fascia di riepilogo e UNA tabella attività unificata.
+
+**Tile di riepilogo**: il `SegmentedControl` dei periodi `24h|7d|all` siede
+nell'intestazione della card e limita le 4 tile E il flusso attività, così i
+numeri corrispondono sempre alle righe elencate (`all` = nessun limite
+inferiore; cambiando periodo il flusso torna anche alla prima pagina). Tasso
+di successo,
+Successi totali, Fallimenti totali e Richieste limitate (ciascuna una
+`ui/StatCard`) arrivano da `healthApi.summary(period)`
+(`GET /health/prices`, `limit=1`): il riepilogo è basato sulla finestra ed
+esclude le righe di ciclo di vita dei job; finché la finestra non ha esiti di
+chiamate ai provider tutte le tile mostrano `N/A` insieme, con una nota di una
+riga sotto di esse che lo spiega — se la finestra contiene ancora job la nota
+rimanda all'elenco attività qui sotto, altrimenti è il messaggio generico di
+assenza dati.
+
+**Flusso attività** (`healthApi.activity` →
+`GET /health/activity?period=&limit=&offset=&type=&status=`): ogni job della coda più
+gli eventi di monitoraggio non legati a un job — gli eventi di un job compaiono
+solo nel suo pannello di dettaglio, mai duplicati nel flusso — dal più recente,
+50 per pagina con Precedente/Successivo e il totale filtrato citato. Colonne:
+data e ora; tipo (una riga job porta un badge outline "job" seguito dal tipo
+job localizzato, una riga evento il tipo evento grezzo); destinazione (il tipo
+di destinazione localizzato più la `target_label` leggibile — ticker
+dell'asset o nome del portafoglio — risolta lato server; una destinazione
+globale mostra solo "Globale", in assenza un trattino); badge di stato (una
+mappa stato→badge unica, usata anche dai filtri e dal pannello di dettaglio,
+quindi `running` esce in accent e non rosso); messaggio (un job mostra il suo
+errore o l'avanzamento `processed`/`total`, un evento il suo messaggio —
+troncato con tooltip `title`, senza espansione); durata via `formatDuration`.
+Sotto `sm` le tile di riepilogo si dispongono in una griglia 2×2 e ogni riga
+della tabella si collassa in una griglia a tre colonne su due livelli: il
+primo porta il badge job, il tipo, un separatore `- ` e la destinazione; il
+secondo affianca data sopra l'ora, durata sopra il badge di stato e il
+messaggio troncato, con carattere più piccolo, padding della card molto più
+stretto e riga di intestazione nascosta.
+Il tipo di una riga job è un vero `ui/Button variant="link"` (mai righe solo
+cliccabili) che apre il **pannello di dettaglio del job**
+(`domain/JobDetailPanel.svelte`): il `ui/Drawer` laterale (40rem) a ≥ `lg`, la
+`ui/Sheet` inferiore sotto — lo stesso schema di drill-down del pannello di
+allocazione. Il pannello riceve i campi job della riga attività e mostra il
+badge di stato, la destinazione, la durata e il timestamp d'avvio (o di
+creazione), l'avanzamento `processed`/`total` con barra, l'errore completo che
+va a capo per tutta la larghezza del pannello e gli eventi del job — righe di
+ciclo di vita più eventi per singolo elemento — recuperati da
+`healthApi.jobEvents` (`GET /health/prices?job_id=<id>&limit=200`, filtro lato
+server, nessun filtro client), ognuno un badge di stato + tipo con la durata a
+destra, il messaggio completo e la riga data e ora · codice, attraverso i
+consueti stati di `ui/AsyncCard` con uno stato vuoto tratteggiato finché il job
+non ha emesso nulla. La pagina conserva uno snapshot del job aperto per valore
+e fonde a ogni poll la copia fresca per id, così il flusso non svuota mai il
+pannello.
+
+**Live e filtri**: finché una riga del flusso è un job `queued`/`running` (o è
+in corso un aggiornamento prezzi dell'app) l'intestazione della card mostra una
+pill "Live" e un poll da 3 secondi ricarica le tile di riepilogo insieme al
+flusso e, sullo stesso tick, gli eventi del pannello aperto; si spegne da
+solo quando nulla è aperto (silenzioso: niente skeleton, niente toast). Due
+`ui/Select` filtrano il flusso
+lato server per **tipo** (l'unione deduplicata dei tipi job ed evento) e
+**stato** (l'unione degli stati job ed evento) — vuoto significa tutti — e
+cambiando l'uno o l'altro si torna alla prima pagina. Il pulsante "Aggiorna
+ora" ricarica riepilogo e flusso. Un pulsante "Cancella attività" apre una
+conferma di pericolo (che cita il totale corrente del flusso), chiude ogni
+pannello job aperto e svuota ogni job ed evento di monitoraggio
+(`DELETE /admin/health/events`), poi ricarica entrambi.
 
 ### Area Admin (`routes/admin/…`)
 
@@ -1673,8 +1765,8 @@ corso:
   account disabled) fanno PATCH `status: active` diretto; **Disattiva**
   (`Ban`) fa PATCH `status: disabled` dietro `ConfirmDialog` danger;
 - un `Select` di ruolo per riga — i valori assegnabili sono
-  `admin`/`editor`/`viewer`; il legacy `owner` compare solo sulla riga che
-  ancora lo porta (così un cambio è possibile senza rinominarlo in silenzio)
+  `admin`/`editor`/`viewer`; il valore `owner` compare sulle righe che
+  ancora lo portano (così un cambio è possibile senza rinominarlo in silenzio)
   e una nota sotto la tabella spiega che non è assegnabile a nuovi account;
   la selezione è ottimistica e viene ritratta in caso di errore;
 - **Reimposta password** (`KeyRound`) apre una `Modal` che chiede una nuova
@@ -1717,13 +1809,13 @@ l'amministratore digita esattamente la frase di conferma
 (`admin.dbConfirmPhrase`, `REPLACE`/`SOSTITUISCI` per lingua). Il caricamento
 è `POST /admin/db/restore` in `multipart/form-data` con
 l'archivio nel campo file `dump` e il letterale `confirm=replace` come campo
-del form (`Content-Type` volutamente non impostato, così il browser lo deriva
-con il boundary). Il successo risponde `{status, mode, dump_bytes, message}`:
-toast più pannello inline con la dimensione dell'archivio ripristinato e un
-avviso persistente di nuovo login, poiché la tabella utenti fa parte
-dell'archivio e la sessione corrente potrebbe non corrispondere più ai dati
-ripristinati. Gli errori riportano deliberatamente il messaggio del backend
-(400 per conferma/file mancanti, 500 con lo stderr sanificato di
+del form (`request` invia il `FormData` così com'è, lasciando al browser la
+derivazione del `Content-Type` con il boundary). Il successo risponde
+`{status, mode, dump_bytes, message}`: toast più pannello inline con la dimensione dell'archivio
+ripristinato e un avviso persistente di nuovo login, poiché la tabella utenti fa
+parte dell'archivio e la sessione corrente potrebbe non corrispondere più ai
+dati ripristinati. Gli errori riportano deliberatamente il messaggio del
+backend (400 per conferma/file mancanti, 500 con lo stderr sanificato di
 `pg_restore` — un ripristino parzialmente applicato deve essere leggibile
 nella UI); solo gli errori di rete senza status ripiegano sul generico
 localizzato. Entrambe le operazioni hanno 30 minuti di margine lato server: i
