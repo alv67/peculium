@@ -151,10 +151,10 @@ and build time) is visible in the sidebar, on the login page and in Settings →
 ### Website
 
 Astro static site on GitHub Pages (homepage, features, install guide, release notes), deployed
-on every push to `main` and on `v*` tags. It carries the **user manual** in English and Italian
-(quickstart, concepts, daily use, dashboard, data & sync, settings, backup, administration, FAQ)
-under `/manual` and `/it/manual`, linked from the site menu (#135); the manual ships with
-v1.1.0 and publishes on the first site deployment from `main` after the release.
+on every `v*` tag together with the GHCR images and the GitHub Release. It carries the **user
+manual** in English and Italian (quickstart, concepts, daily use, dashboard, data & sync,
+settings, backup, administration, FAQ) under `/manual` and `/it/manual`, linked from the site
+menu (#135), and ships with v1.1.0.
 
 ## Open problems
 
