@@ -15,8 +15,8 @@
  *     including any trailing note such as "(first official release)");
  *   - `### <heading>` opens a section inside the entry (e.g. `Features`,
  *     `Fixes`, `Nuove funzionalità`, `Correzioni`);
- *   - `- <text>` lines are section bullets, rendered as PLAIN TEXT — Astro
- *     HTML-escapes interpolated strings, and no inline markdown is parsed;
+ *   - `- <text>` lines are section bullets; the component renders `**bold**`
+ *     spans as strong text and everything else as plain HTML-escaped text;
  *   - anything before the first version heading and any `## ` section that is
  *     not a version (notably `## Unreleased`) is SKIPPED: the website shows
  *     released versions only, and an unreleased section would announce
@@ -59,7 +59,7 @@ export function releaseTagUrl(tag: string): string {
 export interface ReleaseSection {
   /** Section heading exactly as written in the notes (already localized). */
   heading: string;
-  /** Bullet items as plain text. */
+  /** Bullet items as raw text (inline `**bold**` markers included). */
   items: string[];
 }
 
