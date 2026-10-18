@@ -1077,11 +1077,11 @@ confirmation, as is a request with no dump file. The upload is written to a
 temporary file (removed afterwards) and fed to
 `pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, which drops and
 recreates the objects it finds in the archive. Success answers a JSON summary
-(`dump_bytes`); failure answers 500 carrying the `pg_restore` error output with
-the database password masked, so the admin can read what went wrong. Because
-the archive contains the `users` table too, a restore rewrites the accounts:
-existing sessions and tokens may reference rows that are gone, and the admin is
-told to **log in again**.
+(`status`, `mode`, `dump_bytes`, `message`); failure answers 500 carrying the
+`pg_restore` error output with the database password masked, so the admin can
+read what went wrong. Because the archive contains the `users` table too, a
+restore rewrites the accounts: existing sessions and tokens may reference rows
+that are gone, and the summary message tells the admin to **log in again**.
 
 ---
 

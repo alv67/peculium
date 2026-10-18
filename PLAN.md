@@ -263,6 +263,7 @@ release under the Peculium name, adding the admin area (user governance and
 server settings), per-user and server-wide backup & restore, clear login
 messages for accounts pending approval or disabled, and — from that release on
 — pull-only installation from public GHCR images (linux/amd64 and linux/arm64).
+It also brings the Dependabot security updates and moved the backend to Go 1.25.
 
 Phase 0, Phase 1 (including EPIC A) and EPIC B are complete and released. The
 dashboard/portfolio v2 (EPIC I) shipped in v0.5.0 and the UX/UI redesign

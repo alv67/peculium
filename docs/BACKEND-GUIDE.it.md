@@ -1095,12 +1095,12 @@ conferma, così come una richiesta senza dump file. Il caricamento viene scritto
 in un file temporaneo (rimosso dopo l'uso) e passato a
 `pg_restore --clean --if-exists --no-owner --no-acl -d <db>`, che elimina e
 ricrea gli oggetti presenti nell'archivio. In caso di successo la risposta è un
-riepilogo JSON (`dump_bytes`); in caso di fallimento un 500 che riporta l'output
-errore di `pg_restore` con la password del database mascherata, così che l'admin
-capisca cosa non funziona. Poiché l'archivio contiene anche la tabella `users`,
-un ripristino riscrive gli account: sessioni e token già emessi possono
-riferire righe non più esistenti, e l'admin viene avvisato di **effettuare di
-nuovo il login**.
+riepilogo JSON (`status`, `mode`, `dump_bytes`, `message`); in caso di fallimento
+un 500 che riporta l'output errore di `pg_restore` con la password del database
+mascherata, così che l'admin capisca cosa non funziona. Poiché l'archivio
+contiene anche la tabella `users`, un ripristino riscrive gli account: sessioni
+e token già emessi possono riferire righe non più esistenti, e il messaggio del
+riepilogo avvisa l'admin di **effettuare di nuovo il login**.
 
 ---
 
