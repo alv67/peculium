@@ -9,6 +9,7 @@
     type HealthSummary,
   } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
+  import { isAdmin } from '$lib/stores/auth.svelte'
   import { formatDuration } from '$lib/format'
   import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
   import { ChevronRight } from 'lucide-svelte'
@@ -263,9 +264,11 @@
       <Button variant="secondary" onclick={refreshAll} disabled={loading}>
         {loading ? t('health.refreshing') : t('health.refresh')}
       </Button>
-      <Button variant="secondary" onclick={() => (clearOpen = true)} disabled={loading}>
-        {t('health.clearEvents')}
-      </Button>
+      {#if isAdmin()}
+        <Button variant="secondary" onclick={() => (clearOpen = true)} disabled={loading}>
+          {t('health.clearEvents')}
+        </Button>
+      {/if}
     </div>
   </div>
 
@@ -481,13 +484,15 @@
   onRetry={() => void fetchJobEvents()}
 />
 
-<!-- Destructive wipe of the whole health events table (#206): the dialog
-     shows the current total and the busy lock while the DELETE runs. -->
-<ConfirmDialog
-  bind:open={clearOpen}
-  title={t('health.clearEventsTitle')}
-  message={t('health.clearEventsConfirm', { total: activityTotal })}
-  confirmLabel={t('health.clearEvents')}
-  variant="danger"
-  onconfirm={confirmClearEvents}
-/>
+{#if isAdmin()}
+  <!-- Destructive wipe of the whole health events table (#206): the dialog
+       shows the current total and the busy lock while the DELETE runs. -->
+  <ConfirmDialog
+    bind:open={clearOpen}
+    title={t('health.clearEventsTitle')}
+    message={t('health.clearEventsConfirm', { total: activityTotal })}
+    confirmLabel={t('health.clearEvents')}
+    variant="danger"
+    onconfirm={confirmClearEvents}
+  />
+{/if}
