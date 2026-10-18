@@ -3,26 +3,14 @@
 ## v1.1.0 — 18 ott 2026
 
 ### Nuove funzionalità
-- La pagina "Dati e sincronizzazione" raccoglie in un unico elenco tutte le operazioni che l'app fa in background, dalla più recente
-- Ogni voce mostra lo stato — in coda, in corso, completato, parzialmente fallito o fallito — con il suo avanzamento
-- L'elenco riporta la durata e il messaggio di errore di ogni attività, e si aggiorna da solo quando qualcosa è in corso
-- Aprendo una voce, i suoi dettagli compaiono in un pannello laterale proprio accanto all'elenco
-- Scegli la finestra temporale — 24 ore, 7 giorni o tutto — e filtra l'elenco per tipo ed esito, per esempio per vedere solo i fallimenti
-- La finestra vale insieme per i numeri di riepilogo e per l'elenco, così corrispondono sempre
-- Nell'elenco trovi ogni aggiornamento legato a un singolo asset — download dello storico prezzi, ricerche di metadati, correzioni automatiche dei prezzi — e vedi quale asset è cambiato e quando
-- Le voci sulle esposizioni dei fondi mostrano il codice breve dell'asset accanto al codice completo del fondo, così riconosci subito a quale asset si riferiscono
-- Un amministratore può svuotare tutto l'elenco con un'unica azione confermata, e le voci più vecchie di 90 giorni vengono rimosse automaticamente
-- I dati di mercato ora si scaricano in background: aggiornare i prezzi, riscaricare uno storico o aprire l'app risponde subito, e le pagine si completano da sole quando i dati arrivano
-- La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre scarica vedi una schermata di caricamento, non un grafico vuoto
-- Se lo storico manca o è solo in parte, un pulsante nella pagina permette di avviarne o completarne il download
-- La lista degli asset ora mostra l'ultimo prezzo di chiusura di ciascun asset con la sua data, e la pagina dell'asset la etichetta come "Dati al"
-- È normale che asset diversi abbiano date diverse: i mercati nel mondo chiudono in orari diversi
-- L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da uno parziale, e segnala quando lo storico è stato aggiornato ma le correzioni dei prezzi no
-- La versione dell'app e la sua data compaiono discrete in fondo alla barra laterale e nella pagina di accesso
-- La card "Informazioni sull'app" in Impostazioni → Preferenze mostra versione e commit con il link su GitHub, più un pulsante per copiare i dati nelle segnalazioni
+- **Dati e sincronizzazione**: un unico elenco raccoglie tutto ciò che l'app fa in background, dalla più recente, e ogni voce mostra stato, avanzamento, durata ed eventuale messaggio di errore. L'elenco si aggiorna da solo mentre qualcosa è in corso, aprendo una voce i dettagli compaiono in un pannello laterale, e l'avviso sull'aggiornamento prezzi distingue un successo pieno da uno parziale.
+- **Filtri e periodo**: scegli la finestra — 24 ore, 7 giorni o tutto — valida insieme per i numeri di riepilogo e per l'elenco, così corrispondono sempre, e filtra l'elenco per tipo ed esito, per esempio per vedere solo i fallimenti. Un amministratore può svuotare tutto l'elenco con un'unica azione confermata, e le voci più vecchie di 90 giorni vengono rimosse automaticamente.
+- **Storico prezzi**: una schermata di caricamento sostituisce il grafico vuoto mentre lo storico prezzi di un asset si scarica, e un pulsante avvia o completa i download mancanti o solo in parte. La lista degli asset mostra l'ultimo prezzo di chiusura di ciascun asset con la sua data, etichettata "Dati al" — è normale che le date siano diverse: i mercati nel mondo chiudono in orari diversi.
+- **Aggiornamenti in background**: aggiornare i prezzi, riscaricare uno storico o aprire l'app risponde subito, e le pagine si aggiornano da sole quando i dati arrivano. Nell'elenco trovi ogni aggiornamento legato a un singolo asset — download dello storico prezzi, ricerche di metadati e verifiche sui frazionamenti — e le voci sulle esposizioni dei fondi mostrano il ticker dell'asset accanto all'ISIN.
+- **Versione dell'app**: la versione dell'app e la sua data compaiono discrete in fondo alla barra laterale e nella pagina di accesso. La card "Informazioni sull'app" in Impostazioni → Preferenze mostra versione e commit con il link su GitHub, più un pulsante per copiare i dati nelle segnalazioni.
 
 ### Correzioni
-- L'ultimo prezzo e i rendimenti per periodo ora coincidono su tutte le installazioni che aggiornano nello stesso momento
+- L'ultimo prezzo e i rendimenti per periodo ora coincidono su tutte le installazioni aggiornate nello stesso momento
 - Il ripristino di un backup scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i grafici vuoti fino alla prossima apertura dell'app
 
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)
