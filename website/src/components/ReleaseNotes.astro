@@ -1,7 +1,8 @@
 ---
 /**
- * Renders parsed `docs/RELEASE-NOTES.<locale>.md` entries. All interpolated
- * strings are HTML-escaped by Astro; note text is emitted as plain text.
+ * Renders parsed `docs/RELEASE-NOTES.<locale>.md` entries. `**bold**` in an
+ * item is rendered as strong text and everything else is plain text. All
+ * interpolated strings stay HTML-escaped by Astro (no `set:html`).
  */
 import type { ReleaseEntry } from '../lib/releases';
 
@@ -23,7 +24,11 @@ const { entries } = Astro.props;
         <section class="mt-4">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{section.heading}</h3>
           <ul class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            {section.items.map((item) => <li>{item}</li>)}
+            {section.items.map((item) => (
+              <li>
+                {item.split(/\*\*(.+?)\*\*/g).map((part, j) => (j % 2 === 1 ? <strong>{part}</strong> : part))}
+              </li>
+            ))}
           </ul>
         </section>
       ))}
