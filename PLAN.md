@@ -111,6 +111,8 @@ and personal finances.
 - [ ] Slim the python-service image (Chromium headless-shell) — **#205**
 - [ ] Audit log for shared data, admin-only view — **#207**
 - [ ] Real per-bar/per-asset backfill progress — **#219**
+- [ ] Sector mapping: JustETF labels that do not reach the app sectors (their weight falls outside the classified share) — **#236**
+- [ ] ETF exposure partial coverage: accept and flag weights that do not sum to 100 (unmapped JustETF labels, #236) instead of rejecting the whole save (`weights must sum to 100`, WARN in `tests/test-epic-b.sh`)
 
 ---
 
@@ -242,32 +244,35 @@ peculium/
 
 ---
 
-## Current status (14 Oct 2026)
+## Current status (18 Oct 2026)
 
-**Release v1.0.0** is published on `main`: the first official release under the
-Peculium name, adding the admin area (user governance and server settings),
-per-user and server-wide backup & restore, clear login messages for accounts
-pending approval or disabled, and — from this release on — pull-only
-installation from public GHCR images (linux/amd64 and linux/arm64). It also
-brings the Dependabot security updates.
+**Release v1.1.0** is the current release: **external data & sync**. Price,
+history, splits and metadata work runs through the PostgreSQL-backed job queue,
+so the pages return immediately and update as the data arrives; the Data & Sync
+page presents those jobs and the provider calls they generate as one activity
+list with progress, real durations, filters by type and outcome, a 24h/7d/all
+window, a per-job detail panel, an admin clear action and 90-day retention. The
+asset page reports the completeness of its price history and the date of its
+latest close, the running build (version, commit, build time) is shown in the
+interface, and a user backup restore queues the asset sync on commit. It also
+carries the user manual (EN/IT) on the website, which publishes with the
+release deployment from `main`.
+
+On `main`, **v1.0.0** remains the last published release: the first official
+release under the Peculium name, adding the admin area (user governance and
+server settings), per-user and server-wide backup & restore, clear login
+messages for accounts pending approval or disabled, and — from that release on
+— pull-only installation from public GHCR images (linux/amd64 and linux/arm64).
 
 Phase 0, Phase 1 (including EPIC A) and EPIC B are complete and released. The
 dashboard/portfolio v2 (EPIC I) shipped in v0.5.0 and the UX/UI redesign
 (EPIC K) in v0.6.0.
 
-Active development proceeds on `develop`, which currently carries an unreleased
-batch centred on external data: price, history, splits and metadata work runs
-through the PostgreSQL-backed job queue, and the Data & Sync page presents those
-jobs and the provider calls they generate as one list with progress, duration
-and error, covering every external call with 90 days of retention. The asset
-page reports the completeness of its price history and the date of its latest
-close, and the app exposes the build version it is running.
-
-The next planned work is **EPIC J — new asset classes** (#113): manual price
-entry (J.1 #105), fixed-income metadata (J.2 #106) and the `cash`/`certificate`
-types (J.3 #107) as the recommended first PR, then fixed-income exposure
-(J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit
-allocation (J.7 #111) and pension wrappers (J.8 #112). The other candidates are
-**EPIC C — risk metrics** (#39), **EPIC G — new features** (#41) and the residual
-**EPIC H — infrastructure & quality** (#42), whose items are listed in the phases
-above. See STATUS.md for the detailed state.
+The next planned work, in order: **J.1 — manual price entry** (#105, the
+recommended first PR of **EPIC J — new asset classes** (#113)), **E.10 —
+portfolios page full-width cards with summary info** (#104) and **C.1 — risk
+metrics endpoint** (#22, the entry point of **EPIC C** (#39)). The rest of
+EPIC J (fixed-income metadata (J.2 #106) through pension wrappers (J.8 #112)),
+**EPIC G — new features** (#41) and the residual **EPIC H — infrastructure &
+quality** (#42) follow as listed in the phases above. See STATUS.md for the
+detailed state.

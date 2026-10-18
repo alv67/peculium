@@ -57,7 +57,7 @@ keys are the labels saying "this box belongs to that one".
 
 ## 2. The big picture
 
-There are seventeen tables, which can be grouped by topic:
+There are nineteen tables, which can be grouped by topic:
 
 | Area | Tables | What they represent |
 |---|---|---|
@@ -68,6 +68,7 @@ There are seventeen tables, which can be grouped by topic:
 | **Market data** | `prices`, `splits`, `fx_rates` | prices, stock splits and exchange rates |
 | **Exposure** | `asset_country_weights`, `asset_region_weights`, `asset_sector_weights`, `asset_exposure_provenance` | the country, geographic and sector distribution of a security, and where each dimension came from |
 | **Configuration and cache** | `supported_currencies`, `lookup_cache`, `server_settings` | the allowed currencies, the search cache and the server-wide options |
+| **Sync and activity** | `jobs`, `health_events` | the background work queue and the log of the external calls it produces |
 
 ---
 
@@ -119,6 +120,14 @@ erDiagram
     }
 ```
 
+### Sync and activity (jobs and their log)
+
+```mermaid
+erDiagram
+    users ||--o{ jobs : "requests (requested_by)"
+    jobs ||--o{ health_events : "produces (job_id)"
+```
+
 ### The relationships, listed
 
 | Child | Column | Parent | Cardinality | If the parent is deleted |
@@ -137,6 +146,8 @@ erDiagram
 | `asset_region_weights` | `asset_id` | `assets` | 1 security → N regions | CASCADE |
 | `asset_sector_weights` | `asset_id` | `assets` | 1 security → N sectors | CASCADE |
 | `asset_exposure_provenance` | `asset_id` | `assets` | 1 security → up to 3 provenances | CASCADE |
+| `jobs` | `requested_by` | `users` | 1 user → N jobs | SET NULL (the job keeps running, without a requester) |
+| `health_events` | `job_id` | `jobs` | 1 job → N log entries | CASCADE (a job and its events are one unit) |
 
 ---
 
@@ -428,6 +439,56 @@ Registration reads the row with `SELECT ... FOR UPDATE`, which also serializes
 concurrent signups so only one of them can be treated as the first user (and
 promoted to `admin`).
 
+### `jobs` — the background work queue
+
+Long-running work against the outside world (price updates, full history
+downloads, asset sync, metadata and splits checks) is queued here instead of
+being executed while the user waits: the API writes a row, the worker picks it
+up and runs it in the background. `total`/`processed` track the per-item
+progress (e.g. one price refresh covers every asset of the vault), and
+`checkpoint` lets an interrupted job resume where it stopped.
+
+| Column | Type | Explanation |
+|---|---|---|
+| `id` | UUID (PK) | the job identifier |
+| `type` | TEXT | `price_refresh`, `history_backfill`, `asset_sync`, `meta_backfill`, `splits_fetch` |
+| `target_type` | TEXT | `asset`, `portfolio` or `global` (`NULL` means the whole server) |
+| `target_id` | UUID | the target's id: a polymorphic reference with **no foreign key** (the table it points to depends on `target_type`) |
+| `status` | TEXT (CHECK) | `queued`, `running`, `done`, `failed` or `partial` |
+| `total` | INT | how many items the job covers |
+| `processed` | INT | how many items are done |
+| `checkpoint` | JSONB | where to resume from (`NULL` until the job stops early) |
+| `error` | TEXT | why it failed (`''` otherwise) |
+| `requested_by` | UUID (FK → `users`) | who queued the job |
+| `created_at` | TIMESTAMPTZ | when it was queued |
+| `started_at` / `finished_at` | TIMESTAMPTZ | when the worker began and ended it (their difference is the duration shown on the Data & Sync page) |
+
+A unique partial index keeps at most one open (`queued`/`running`) job per
+type and target: two concurrent requests for the same work collapse onto the
+one job already queued. Jobs older than the retention (default 90 days) are
+pruned automatically, together with their events; an admin clear removes
+everything.
+
+### `health_events` — the log of every external call
+
+Each call to an external source — prices, FX rates, splits, ticker searches,
+asset metadata, ETF/Morningstar exposure lookups — leaves one row here,
+whether it succeeded or failed. The Data & Sync page merges these rows with
+the queue jobs into a single activity list; a call made by a job carries its
+`job_id`, so opening a job shows exactly the calls it produced.
+
+| Column | Type | Explanation |
+|---|---|---|
+| `id` | UUID (PK) | the event identifier |
+| `asset_id` | UUID | the asset the call concerns, when one exists (plain column, no foreign key) |
+| `job_id` | UUID (FK → `jobs`) | the job that produced the call (`NULL` for standalone calls) |
+| `event_type` | TEXT | what was called: `price_refresh`, `fx_fetch`, `history_fetch`, `split_fetch`, `asset_meta`, `etf_exposure`, ... |
+| `status` | TEXT | `success` or `failure` |
+| `code` / `error_code` | TEXT | outcome marker (`job_completed`, `rate_limited`, ...) and error class |
+| `message` | TEXT | human-readable text, with the ticker or ISIN of the asset involved |
+| `duration_ms` | INT | how long the call took |
+| `created_at` | TIMESTAMPTZ | when it happened |
+
 ---
 
 ## 5. Constraints and indexes at a glance
@@ -447,6 +508,7 @@ promoted to `admin`).
 - `assets.price_source` — only `yahoo`, `manual`, `none`
 - `transactions.type` — only `buy`, `sell`, `dividend`, `split`, `fee`
 - `portfolio_shares.role` — only `admin`, `editor`, `viewer`
+- `jobs.status` — only `queued`, `running`, `done`, `failed`, `partial`
 
 **Indexes** (to speed up searches):
 
@@ -458,6 +520,8 @@ promoted to `admin`).
 - on `asset_country_weights`: the security
 - on `asset_region_weights`: the security
 - on `asset_sector_weights`: the security
+- on `jobs`: status + creation date, and type; a unique partial index keeps at most one open job per type and target
+- on `health_events`: creation date, asset, and the job that produced the call
 
 ---
 
@@ -481,6 +545,12 @@ promoted to `admin`).
 
 In short, who writes and who reads:
 
+- **External work runs through the queue**: a price update, a full history
+  download, an asset sync, a metadata or splits check is recorded as a row in
+  `jobs` and executed in the background by the worker, which logs every call
+  it makes into `health_events`. The Data & Sync page reads both tables and
+  shows them as one activity list; a periodic sweep removes jobs and events
+  older than the retention (default 90 days).
 - **Prices, splits and exchange rates** are downloaded by the worker from
   Yahoo and saved in `prices`, `splits`, `fx_rates` (guided by chapters 12 and
   13 of the guide). The first sync downloads the **complete** history for

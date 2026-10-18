@@ -217,7 +217,7 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 
 ## 6. Il database
 
-Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000019`)
+Le migrazioni (`backend/migrations/`, file numerati da `000001` a `000022`)
 costruiscono lo schema. Le tabelle principali:
 
 | Tabella | Contiene | Spiegazione |
@@ -237,6 +237,7 @@ costruiscono lo schema. Le tabelle principali:
 | `lookup_cache` | la cache del cerca-titolo | risultati già scaricati da Yahoo per la ricerca automatica |
 | `portfolio_series` | serie per portafoglio | valore e costo del portafoglio per ogni giorno |
 | `asset_series` | serie per titolo | valore e costo di ogni titolo per ogni giorno |
+| `jobs` | la coda di lavoro | una riga per job in background (aggiornamento prezzi, storico completo, sync asset, metadati, split) con stato, avanzamento e checkpoint, prelevata dal worker |
 | `health_events` | gli eventi di health | registrazioni di ogni chiamata esterna (aggiornamenti prezzi, metadati, fetch dei provider) mostrate nella pagina "Dati e sincronizzazione" |
 | `server_settings` | le opzioni del server | una sola riga: auto-approvazione delle registrazioni (capitolo 14) |
 
@@ -1288,7 +1289,7 @@ backend/
 │   ├── secrets/            # materializzazione dei segreti per l'immagine secrets-init (Ensure, Health)
 │   ├── series/             # serie giornaliere materializzate (Recompute, LoadRates, FxFactor)
 │   └── service/            # logica di business (service.go, admin.go, backup.go, dbmaint.go)
-├── migrations/             # SQL versionato (000001..000019)
+├── migrations/             # SQL versionato (000001..000022)
 └── go.mod
 ```
 

@@ -32,6 +32,9 @@ At least 8 characters, and the app checks all of it before saving.
 - **Gain/loss colors** — Green/Red by default; **Blue/Orange** swaps them in
   text and charts for colour-blind friendly reading. The sign and the ▲▼
   arrows stay meaningful either way.
+- **About this app** — the build the app is running: version, commit (linked
+  on GitHub) and build time, with a button to copy them when reporting an
+  issue.
 
 ![Settings → Preferences](/screenshots/en/manual/settings-preferences.png)
 

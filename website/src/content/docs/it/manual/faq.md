@@ -23,8 +23,8 @@ Yahoo Finance limita il traffico di richieste intenso, e Peculium lo mostra
 con onestà nella striscia sotto la testata ("Alcuni prezzi non aggiornati
 (limitazione Yahoo)"). Non c'è nulla da riparare lato tuo: il limite passa, e
 puoi recuperare quotazioni fresche su richiesta con **Aggiorna prezzi**. Il
-capitolo [Dati e sincronizzazione](/it/manual/data-sync) — e la pagina di
-salute **Dati e sincronizzazione** per gli admin — mostrano cosa è successo e
+capitolo [Dati e sincronizzazione](/it/manual/data-sync) — e la pagina
+**Dati e sincronizzazione** stessa — mostrano cosa è successo e
 quando.
 
 ## Un asset mostra "senza prezzo" e il suo valore è mantenuto al costo

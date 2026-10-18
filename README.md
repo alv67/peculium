@@ -41,7 +41,7 @@ aggregated in your base currency.*
 - **ETF exposure from JustETF and Morningstar** — a Python microservice resolves the ISIN from a ticker and fetches full country/region + GICS sector weights from JustETF (`POST /assets/{id}/fetch-etf-exposure`) and official regions from Morningstar (`POST /assets/{id}/fetch-morningstar-exposure`); each distribution keeps its source and last-update date
 - **Transaction history** — Buy, sell, dividends, splits, fees with multi-currency support
 - **Dashboard** — Portfolio value, gain/loss, allocation, performance charts, ROI by asset
-- **Market prices** — Yahoo Finance with Redis caching, rate-limit/backoff, series materialization, price health dashboard
+- **Market prices** — Yahoo Finance with Redis caching, rate-limit/backoff, series materialization, and a **Data & Sync** page where sync jobs and every external API call show up as one activity list
 - **Data quality** — Summary exposes staleness / missing-country / missing-sector / missing-FX metrics
 - **Self-contained** — Everything runs via Docker/Podman Compose
 
@@ -70,6 +70,7 @@ aggregated in your base currency.*
 | Frontend | SvelteKit (Svelte 5), TypeScript, Tailwind CSS, ECharts |
 | ETF metadata | Python 3.14 microservice (FastAPI, requests, BeautifulSoup) — JustETF scraping |
 | Database | PostgreSQL 16 |
+| Job queue | PostgreSQL 16 + Go worker — market-data sync runs in the background |
 | Cache | Redis 7 |
 | Container | Docker / Podman + Compose |
 | Auth | JWT (access + refresh tokens, rotation) |
@@ -154,10 +155,12 @@ and send the requests in order.
 
 ## Project Status
 
-The current release is **v1.0.0** (30 Sep 2026): the first official release under the
-Peculium name, adding the admin area (user governance and server settings), per-user and
-server-wide backup & restore, and — from this release on — pull-only installation from the
-public GHCR images.
+The current release is **v1.1.0** (18 Oct 2026): external data & sync — price,
+history, splits and metadata work runs through a background job queue so the
+pages never hang; the Data & Sync page merges sync jobs and provider calls into
+one activity list with progress, filters and a per-job detail panel; the asset
+page reports its price-history completeness and the date of its latest close;
+and the running build is shown in the interface.
 
 Active development on the [`develop`](https://github.com/alv67/peculium/tree/develop) branch — see [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md) for the roadmap. The full release history is on the [project website](https://peculium.dev/releases) and in [GitHub Releases](https://github.com/alv67/peculium/releases).
 

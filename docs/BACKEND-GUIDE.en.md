@@ -225,7 +225,7 @@ h := handler.New(svc, jwtAuth)                                    // HTTP
 ## 6. The database
 
 The migrations (`backend/migrations/`, files numbered from `000001` to
-`000019`) build the schema. The main tables:
+`000022`) build the schema. The main tables:
 
 | Table | Contains | Explanation |
 |---|---|---|
@@ -244,6 +244,7 @@ The migrations (`backend/migrations/`, files numbered from `000001` to
 | `lookup_cache` | the ticker-search cache | results already downloaded from Yahoo for autocomplete |
 | `portfolio_series` | per-portfolio series | portfolio value and cost for each day |
 | `asset_series` | per-security series | value and cost of each security for each day |
+| `jobs` | the work queue | one row per background job (price refresh, history backfill, asset sync, metadata, splits) with status, progress and checkpoint, claimed by the worker |
 | `health_events` | the health events | records of every external call (price updates, metadata, provider fetches) shown on the Data & Sync page |
 | `server_settings` | the server options | a single row: registration auto-approval (chapter 14) |
 
@@ -1264,7 +1265,7 @@ backend/
 │   ├── secrets/            # secret materialization for the secrets-init image (Ensure, Health)
 │   ├── series/             # materialized daily series (Recompute, LoadRates, FxFactor)
 │   └── service/            # business logic (service.go, admin.go, backup.go, dbmaint.go)
-├── migrations/             # versioned SQL (000001..000019)
+├── migrations/             # versioned SQL (000001..000022)
 └── go.mod
 ```
 

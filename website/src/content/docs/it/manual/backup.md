@@ -59,6 +59,6 @@ tieni aperta la pagina fino al risultato.
 ---
 
 Le card a livello utente fanno parte delle [Impostazioni](/it/manual/settings);
-l'area di amministrazione attorno al backup del server — utenti, impostazioni
-server, salute della sincronizzazione — è trattata in
+l'area di amministrazione attorno al backup del server — utenti e
+impostazioni server — è trattata in
 [Amministrazione](/it/manual/administration).

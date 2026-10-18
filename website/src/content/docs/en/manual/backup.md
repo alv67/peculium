@@ -58,5 +58,5 @@ until it reports the result.
 ---
 
 The user-level cards are part of [Settings](/manual/settings); the admin area
-around Server backup — users, server settings, health — is covered in
+around Server backup — users and server settings — is covered in
 [Administration](/manual/administration).

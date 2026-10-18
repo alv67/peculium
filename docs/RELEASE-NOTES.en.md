@@ -1,10 +1,10 @@
 # Release Notes
 
-## Unreleased
+## v1.1.0 — 18 Oct 2026
 
 ### Features
 - On "Data & Sync" jobs and activity now share a single list, newest first: every job appears as one row with its progress or error, and opening a job shows its own log lines in a side panel right next to the list
-- The "Data & Sync" page now shows the sync jobs and their outcome — queued, running, completed, partially failed or failed — with progress, the real duration (no longer always zero) and the error when there is one, refreshed automatically while something is running; a long download shows its own start and finish with the result even if it runs out of time
+- The "Data & Sync" page now shows the sync jobs and their outcome — queued, running, completed, partially failed or failed — with progress, duration and the error when there is one, refreshed automatically while something is running; a long download shows its own start and finish with the result even if it runs out of time
 - Every history download and split check now appears in "Data & Sync", one entry per asset, whether it succeeded or failed, so you can see exactly which assets were updated and when
 - In "Data & Sync" each job now names its target — the asset ticker or the portfolio name — instead of an opaque code
 - The "Data & Sync" page lets an admin clear all sync activity (jobs and their log entries) with one confirmed action, and activity older than 90 days is removed automatically, so the page never grows without bound
