@@ -30,6 +30,10 @@ name: Publish images
 #   :develop       -> the latest build dispatched from the `develop` branch
 #   :rc-<date>     -> a named test/RC build (workflow_dispatch `version` input)
 #   :sha-<commit>  -> the exact commit of any build (always published)
+#
+# RETENTION: every successful build calls prune-images.yml, which deletes old
+# test tags per the rules documented there. Nothing prunes on a timer: the
+# cleanup is attached to the activity that creates the tags.
 
 on:
   push:
@@ -178,3 +182,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --title "Peculium $TAG" --notes-file release-notes.md
+
+  prune:
+    name: Prune old image versions
+    needs: build
+    # The retention policy lives in prune-images.yml; here we only grant it the
+    # token and ask for a real prune.
+    permissions:
+      packages: write
+    uses: ./.github/workflows/prune-images.yml
+    with:
+      dry-run: false
