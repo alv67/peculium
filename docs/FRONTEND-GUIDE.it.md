@@ -796,7 +796,7 @@ Tailwind (gli stessi 640/1024px), quindi stato JS e CSS non divergono mai.
   del server** (`/admin/backup`, `nav.serverBackup`) compaiono
   solo per gli account amministratore — `isAdmin()` (da
   `lib/stores/auth.svelte.ts`) tratta il `role` di sessione `owner`/`admin`
-  come equivalente ad admin. Ogni
+  come equivalente ad admin. `/admin` reindirizza a `/admin/users`, e ogni
   pagina `/admin/*` è avvolta da `AdminGate`.
 - **Pannello comandi** — `layout/CommandPalette.svelte`
   è montato una sola volta nell'`AppShell`, sul tier dei modali (z-40, sotto i
@@ -1740,7 +1740,8 @@ La home di gestione per gli account amministratore, raggiungibile dalla
 sezione Admin della sidebar, dal foglio "Altro" del telefono e dal pannello
 comandi — che renderizzano le sue voci (`Utenti`, `Impostazioni server`,
 `Backup del server`) solo
-quando `isAdmin()`. Il
+quando `isAdmin()`. `/admin` (`routes/admin/+page.svelte`) è un redirect a
+`/admin/users` (`replaceState`, così non resta mai nella cronologia). Il
 contenuto delle pagine è avvolto da `AdminGate`
 (`lib/components/domain/AdminGate.svelte`): chi ha un ruolo di sessione non
 equivalente ad admin e arriva alla route (es. digitando l'URL) trova uno stato
@@ -1810,7 +1811,7 @@ l'amministratore digita esattamente la frase di conferma
 l'archivio nel campo file `dump` e il letterale `confirm=replace` come campo
 del form (`request` invia il `FormData` così com'è, lasciando al browser la
 derivazione del `Content-Type` con il boundary). Il successo risponde
-`{dump_bytes}`: toast più pannello inline con la dimensione dell'archivio
+`{status, mode, dump_bytes, message}`: toast più pannello inline con la dimensione dell'archivio
 ripristinato e un avviso persistente di nuovo login, poiché la tabella utenti fa
 parte dell'archivio e la sessione corrente potrebbe non corrispondere più ai
 dati ripristinati. Gli errori riportano deliberatamente il messaggio del

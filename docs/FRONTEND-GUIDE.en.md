@@ -749,8 +749,8 @@ JS state and CSS never disagree.
   (`/admin/settings`, `nav.serverSettings`) and **Server backup**
   (`/admin/backup`, `nav.serverBackup`) render only for admin accounts —
   `isAdmin()` (from `lib/stores/auth.svelte.ts`) treats the session `role`
-  `owner`/`admin` as admin-equivalent. Every `/admin/*` page content is
-  wrapped in `AdminGate`.
+  `owner`/`admin` as admin-equivalent. `/admin` itself redirects to
+  `/admin/users`, and every `/admin/*` page content is wrapped in `AdminGate`.
 - **Command palette** — `layout/CommandPalette.svelte`
   mounts once in `AppShell` on the modal tier (z-40, under the z-50 toasts).
   The ⌘K/Ctrl+K chord is a `<svelte:window>` handler inside the component
@@ -1653,8 +1653,9 @@ health event (`DELETE /admin/health/events`), then reloads both.
 
 The management home for admin accounts, linked from the sidebar's Admin
 section, the phone More sheet and the command palette — all of which render
-its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`.
-Page content is wrapped in `AdminGate`
+its entries (`Users`, `Server settings`, `Server backup`) only when `isAdmin()`. `/admin`
+(`routes/admin/+page.svelte`) is a redirect to `/admin/users` (`replaceState`,
+so it never stays in history). Page content is wrapped in `AdminGate`
 (`lib/components/domain/AdminGate.svelte`): anyone whose session role is not
 admin-equivalent and lands on the route (e.g. by typing the URL) gets an
 "Admins only" forbidden empty state instead of the page; the backend answers
@@ -1718,7 +1719,7 @@ button only enables once the admin types the exact confirmation phrase
 `POST /admin/db/restore` as `multipart/form-data` with the archive in the
 `dump` file field and the literal `confirm=replace` as a form field (`request`
 sends the `FormData` as-is, leaving `Content-Type` for the browser to derive
-with the boundary). Success answers `{dump_bytes}`: a toast plus an inline
+with the boundary). Success answers `{status, mode, dump_bytes, message}`: a toast plus an inline
 panel with the restored archive size and a persistent re-login notice, since
 the users table is part of the archive and the current session may no longer
 match the restored data. Failures surface the backend message on purpose (400

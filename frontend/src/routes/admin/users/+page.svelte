@@ -111,11 +111,13 @@
     return t(fallbackKey)
   }
 
-  /** Splice the fresh record back into the list and sync the shell when it's
-   * me. */
+  /** Splice the fresh record back into the list (and into the open dialog
+   * targets, which hold row references) and sync the shell when it's me. */
   function applyUpdated(updated: AdminUser): void {
     const index = users.findIndex((u) => u.id === updated.id)
     if (index >= 0) users[index] = updated
+    if (disableTarget && disableTarget.id === updated.id) disableTarget = updated
+    if (resetTarget && resetTarget.id === updated.id) resetTarget = updated
     if (auth.user && auth.user.id === updated.id) {
       auth.user = { ...auth.user, ...updated }
     }

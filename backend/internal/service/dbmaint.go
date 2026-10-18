@@ -126,6 +126,9 @@ func sanitizeSecret(text, secret string) string {
 // BackupDatabase streams a full custom-format dump of the application
 // database into w.
 func (s *Service) BackupDatabase(ctx context.Context, w io.Writer) error {
+	if s.db == nil {
+		return fmt.Errorf("%w: database maintenance is not configured", ErrDBMaintenance)
+	}
 	return s.db.Dump(ctx, w)
 }
 
@@ -136,6 +139,9 @@ func (s *Service) BackupDatabase(ctx context.Context, w io.Writer) error {
 func (s *Service) RestoreDatabase(ctx context.Context, path, confirm string) error {
 	if !strings.EqualFold(strings.TrimSpace(confirm), DBRestoreConfirm) {
 		return fmt.Errorf("%w: restoring requires the explicit confirmation %q", ErrInvalidInput, DBRestoreConfirm)
+	}
+	if s.db == nil {
+		return fmt.Errorf("%w: database maintenance is not configured", ErrDBMaintenance)
 	}
 	return s.db.Restore(ctx, path)
 }

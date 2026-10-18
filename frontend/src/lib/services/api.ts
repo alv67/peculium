@@ -1054,9 +1054,10 @@ export const settingsApi = {
  * the backend default); `replace` deletes the user's portfolios first. */
 export type BackupRestoreMode = 'add' | 'replace'
 
-/** Summary returned by `POST /backup/restore` (extra fields are tolerated by
- * the structural type). */
+/** Summary returned by `POST /backup/restore` (`mode` echoes what was applied;
+ * extra fields are tolerated by the structural type). */
 export interface BackupRestoreSummary {
+  mode: string
   portfolios_created: number
   transactions_created: number
   assets_created: number
@@ -1070,9 +1071,14 @@ export interface BackupDownload {
   filename: string | null
 }
 
-/** Summary returned by `POST /admin/db/restore` (#57 Phase D). */
+/** Summary returned by `POST /admin/db/restore` (#57 Phase D): the server
+ * confirms the mode applied and the received archive size, and always
+ * carries the re-login warning (`message`). */
 export interface DBRestoreSummary {
+  status: string
+  mode: string
   dump_bytes: number
+  message: string
 }
 
 /**
@@ -1131,7 +1137,9 @@ export const adminApi = {
    * the contract this client keeps). A 400 answers a missing
    * confirmation/file; a 500 carries the sanitized `pg_restore` error on
    * purpose — the admin must read what failed, so pages surface
-   * `error.message` for that status.
+   * `error.message` for that status. The successful session may itself be
+   * invalidated by the replaced users table: the summary's `message` warns
+   * about re-login.
    */
   dbRestore: (file: File): Promise<DBRestoreSummary> => {
     const form = new FormData()
