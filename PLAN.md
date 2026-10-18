@@ -255,11 +255,10 @@ window, a per-job detail panel, an admin clear action and 90-day retention. The
 asset page reports the completeness of its price history and the date of its
 latest close, the running build (version, commit, build time) is shown in the
 interface, and a user backup restore queues the asset sync on commit. It also
-carries the user manual (EN/IT) on the website, which publishes with the
-release deployment from `main`.
+carries the user manual (EN/IT) on the website, published with each release tag.
 
-On `main`, **v1.0.0** remains the last published release: the first official
-release under the Peculium name, adding the admin area (user governance and
+The previous release, **v1.0.0**, was the first official release under the
+Peculium name, adding the admin area (user governance and
 server settings), per-user and server-wide backup & restore, clear login
 messages for accounts pending approval or disabled, and — from that release on
 — pull-only installation from public GHCR images (linux/amd64 and linux/arm64).

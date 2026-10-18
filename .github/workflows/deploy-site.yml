@@ -3,14 +3,13 @@
 # ONE-TIME REPO SETTING REQUIRED: Settings → Pages → Build and deployment →
 # Source: **GitHub Actions**. Without it the deploy job fails.
 #
-# Publishes on every push to main and on every `v*` tag (each release);
+# Publishes on every `v*` tag (each release) and on manual dispatch;
 # pull requests only build (artifact is not deployed).
 
 name: Deploy website
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
