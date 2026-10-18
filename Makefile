@@ -3,6 +3,8 @@ COMPOSE := $(shell if command -v docker > /dev/null 2>&1 && docker compose versi
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.dev.yml
 COMPOSE_RELEASE := $(COMPOSE) -f docker-compose.yml
 
+CONTAINER_RT := $(shell if command -v docker > /dev/null 2>&1; then echo "docker"; else echo "podman"; fi)
+
 .PHONY: dev build up up-release down reset logs restart migrate migrate-down frontend-dev test test-e2e db-shell publish help
 
 up: ## Start all services (dev stack)
@@ -36,17 +38,27 @@ frontend-dev: ## Run frontend in dev mode
 build: ## Build all images (dev stack)
 	$(COMPOSE_DEV) build
 
-test: ## Run tests
-	cd backend && go test ./... 2>/dev/null || echo "Go not installed locally, use: $(COMPOSE_DEV) exec backend go test ./..."
+GO_TEST_CMDS := go build ./... && go vet ./... && go test ./...
 
-test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio import/export, EPIC K filters/drill-down)
+test: ## Run backend tests (build, vet, test; host Go if available, else golang:1.27-alpine)
+	@if command -v go > /dev/null 2>&1; then \
+	  cd backend && $(GO_TEST_CMDS); \
+	else \
+	  $(CONTAINER_RT) run --rm -v "$(CURDIR)/backend:/app" -w /app golang:1.27-alpine sh -c '$(GO_TEST_CMDS)'; \
+	fi
+
+test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio import/export, EPIC K filters/drill-down, EPIC B allocations, FX history)
 	$(COMPOSE) -p peculium-test -f docker-compose.test.yml up -d --build
 	@echo "Attendo il backend su http://localhost:8081..."
 	@until curl -s -o /dev/null http://localhost:8081/api/v1/health/prices; do sleep 1; done
-	./tests/test-epic-a.sh http://localhost:8081
-	./tests/test-portfolio-io.sh http://localhost:8081
-	./tests/test-epic-k.sh http://localhost:8081
-	$(COMPOSE) -p peculium-test -f docker-compose.test.yml down -v
+	@rc=0; \
+	./tests/test-epic-a.sh http://localhost:8081 && \
+	./tests/test-portfolio-io.sh http://localhost:8081 && \
+	./tests/test-epic-k.sh http://localhost:8081 && \
+	./tests/test-epic-b.sh http://localhost:8081 && \
+	./tests/test-fx-history.sh http://localhost:8081 || rc=$$?; \
+	$(COMPOSE) -p peculium-test -f docker-compose.test.yml down -v; \
+	exit $$rc
 
 db-shell: ## Connect to postgres (dev stack)
 	$(COMPOSE_DEV) exec postgres psql -U peculium peculium
