@@ -3,23 +3,27 @@
 ## v1.1.0 — 18 Oct 2026
 
 ### Features
-- On "Data & Sync" jobs and activity now share a single list, newest first: every job appears as one row with its progress or error, and opening a job shows its own log lines in a side panel right next to the list
-- The "Data & Sync" page now shows the sync jobs and their outcome — queued, running, completed, partially failed or failed — with progress, duration and the error when there is one, refreshed automatically while something is running; a long download shows its own start and finish with the result even if it runs out of time
-- Every history download and split check now appears in "Data & Sync", one entry per asset, whether it succeeded or failed, so you can see exactly which assets were updated and when
-- In "Data & Sync" each job now names its target — the asset ticker or the portfolio name — instead of an opaque code
-- The "Data & Sync" page lets an admin clear all sync activity (jobs and their log entries) with one confirmed action, and activity older than 90 days is removed automatically, so the page never grows without bound
-- The app now shows which build it is running: the version and build time sit discreetly at the bottom of the sidebar (and on the login page), and a new "About this app" card in Settings → Preferences lists the version, the commit (linked on GitHub) and the build time, with a button to copy it when reporting an issue
-- Market data now downloads in the background instead of making you wait: updating prices, re-downloading an asset's full history or metadata, and simply opening the app or a portfolio all return immediately, and the pages update themselves as soon as the data is ready — so a slow connection or a large collection no longer makes an operation hang or fail silently
-- The asset page now shows the state of its price history: while it is still downloading you see a loading state instead of an empty chart (updated automatically), when there is no history yet you get a button to download it, and when the history is only partially downloaded a note tells you so, with the same button to complete it
-- The assets list now shows each asset's last close with its date, and the asset page labels that date as "data as of": since markets close at different times, each asset's latest value can be dated differently, and that is normal
-- The price-update warning now distinguishes a full success from a partly failed update, and the full-history download tells you when the price history was updated but the stock splits could not be retrieved
-- "Data & Sync" now also logs asset-metadata lookups, so the activity list is a complete inventory of the app's external calls, and you can filter it by call type and outcome — for example to see only the failures
-- In "Data & Sync" the ETF exposure entries now show the asset ticker next to the ISIN, so you can tell at a glance which asset they belong to
-- On "Data & Sync" you can pick the time window — 24h, 7 days or All — and it scopes the summary tiles and the activity list together, so the numbers always match what is listed
+- The "Data & Sync" page gathers everything the app does in the background into one activity list, newest first
+- Each entry shows its status — queued, running, completed, partially failed or failed — with its progress
+- The list shows the duration and the error text of every activity, and updates itself while something is running
+- Opening an entry shows its own details in a side panel right next to the list
+- Choose the time window — 24 hours, 7 days or all — and filter the list by type and outcome, for example to see only the failures
+- The window applies to the summary numbers and the list together, so they always match
+- The list includes every per-asset update — price-history downloads, metadata lookups, automatic price corrections — so you can see which assets changed and when
+- The fund-exposure entries show the asset's short code next to its full fund code, so you can tell at a glance which asset they belong to
+- Admins can clear the whole list with one confirmed action, and entries older than 90 days are removed automatically
+- Market data now downloads in the background: refreshing prices, re-downloading a history or opening the app responds at once, and pages update themselves as the data arrives
+- The asset page now shows the state of its price history: a loading view while it is downloading, instead of an empty chart
+- When the history is missing or only partly downloaded, a button on the page lets you start or complete it
+- The assets list now shows each asset's latest closing price with its date, and the asset page labels it "Data as of"
+- A different date per asset is normal: markets around the world close at different times
+- The price-update warning now tells a full success from a partly failed one, and says when the history was updated but the price corrections were not
+- The app version and its date sit quietly at the bottom of the sidebar and on the login page
+- The "About this app" card in Settings → Preferences shows the version and the commit linked to GitHub, plus a copy button for issue reports
 
 ### Fixes
-- The latest price and the per-period returns are now the same on every installation that refreshes at the same time, instead of sometimes differing
-- Restoring a backup now downloads the market data for the restored assets right away, instead of leaving their charts empty until the next time the app is opened
+- The latest price and the per-period returns now match on every installation that refreshes at the same time
+- Restoring a backup now downloads the market data of the restored assets right away, instead of leaving their charts empty until the next start
 
 ## v1.0.0 — 30 Sep 2026 (first release under the Peculium name)
 

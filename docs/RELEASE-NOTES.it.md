@@ -3,23 +3,27 @@
 ## v1.1.0 — 18 ott 2026
 
 ### Nuove funzionalità
-- In "Dati e sincronizzazione" job e attività ora condividono un unico elenco, dal più recente: ogni job compare come una riga con il suo avanzamento o errore, e aprendo un job le sue voci di registro si mostrano in un pannello laterale proprio accanto all'elenco
-- La pagina "Dati e sincronizzazione" ora mostra i job di sincronizzazione e il loro esito — in coda, in esecuzione, completati, parzialmente falliti o falliti — con avanzamento, la durata e l'errore quando c'è, aggiornato automaticamente mentre qualcosa è in corso; un download lungo mostra la propria riga di inizio e fine con l'esito anche se supera il tempo a disposizione
-- Ogni download dello storico e ogni controllo degli split ora compare in "Dati e sincronizzazione", una voce per asset, sia che sia riuscito sia che sia fallito, così vedi esattamente quali asset sono stati aggiornati e quando
-- In "Dati e sincronizzazione" ogni job ora indica la propria destinazione — il ticker dell'asset o il nome del portafoglio — invece di un codice opaco
-- La pagina "Dati e sincronizzazione" permette a un admin di cancellare tutta l'attività di sincronizzazione (job e relative voci di registro) con una sola azione confermata, e l'attività più vecchia di 90 giorni viene rimossa automaticamente, così la pagina non cresce all'infinito
-- L'app ora mostra quale build sta eseguendo: la versione e l'ora di build compaiono in modo discreto in fondo alla sidebar (e sulla pagina di login), e una card "Informazioni sull'app" in Impostazioni → Preferenze elenca versione, commit (con link su GitHub) e ora di build, con un pulsante per copiarli quando segnali un problema
-- I dati di mercato ora vengono scaricati in background invece di farti aspettare: aggiornare i prezzi, riscaricare lo storico completo o i metadati di un asset e anche solo aprire l'app o un portafoglio ritornano subito, e le pagine si aggiornano da sole appena i dati sono pronti — così una connessione lenta o una collezione grande non fanno più bloccare o fallire un'operazione in silenzio
-- La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre è ancora in download vedi uno stato di caricamento invece di un grafico vuoto (aggiornato da solo), quando lo storico non c'è ancora hai un pulsante per scaricarlo, e quando è scaricato solo in parte una nota te lo segnala, con lo stesso pulsante per completarlo
-- La lista degli asset ora mostra l'ultimo close di ogni asset con la sua data, e la pagina dell'asset etichetta quella data come "dati al": dato che i mercati chiudono in orari diversi, l'ultimo valore di ogni asset può avere una data diversa, ed è normale
-- L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da un aggiornamento parzialmente fallito, e il download dello storico completo segnala quando lo storico prezzi è stato aggiornato ma gli split azionari non sono stati recuperati
-- "Dati e sincronizzazione" ora registra anche le chiamate ai metadati degli asset, così la lista di attività è un inventario completo delle chiamate esterne dell'app, e puoi filtrarla per tipo di chiamata ed esito — per esempio per vedere solo i fallimenti
-- In "Dati e sincronizzazione" le voci di esposizione ETF ora mostrano il ticker dell'asset accanto all'ISIN, così capisci a colpo d'occhio a quale asset si riferiscono
-- In "Dati e sincronizzazione" puoi scegliere la finestra temporale — 24h, 7 giorni o Tutto — che limita insieme le tile di riepilogo e l'elenco di attività, così i numeri corrispondono sempre a quanto elencato
+- La pagina "Dati e sincronizzazione" raccoglie in un unico elenco tutte le operazioni che l'app fa in background, dalla più recente
+- Ogni voce mostra lo stato — in coda, in corso, completato, parzialmente fallito o fallito — con il suo avanzamento
+- L'elenco riporta la durata e il messaggio di errore di ogni attività, e si aggiorna da solo quando qualcosa è in corso
+- Aprendo una voce, i suoi dettagli compaiono in un pannello laterale proprio accanto all'elenco
+- Scegli la finestra temporale — 24 ore, 7 giorni o tutto — e filtra l'elenco per tipo ed esito, per esempio per vedere solo i fallimenti
+- La finestra vale insieme per i numeri di riepilogo e per l'elenco, così corrispondono sempre
+- Nell'elenco trovi ogni aggiornamento legato a un singolo asset — download dello storico prezzi, ricerche di metadati, correzioni automatiche dei prezzi — e vedi quale asset è cambiato e quando
+- Le voci sulle esposizioni dei fondi mostrano il codice breve dell'asset accanto al codice completo del fondo, così riconosci subito a quale asset si riferiscono
+- Un amministratore può svuotare tutto l'elenco con un'unica azione confermata, e le voci più vecchie di 90 giorni vengono rimosse automaticamente
+- I dati di mercato ora si scaricano in background: aggiornare i prezzi, riscaricare uno storico o aprire l'app risponde subito, e le pagine si completano da sole quando i dati arrivano
+- La pagina di un asset ora mostra lo stato del suo storico prezzi: mentre scarica vedi una schermata di caricamento, non un grafico vuoto
+- Se lo storico manca o è solo in parte, un pulsante nella pagina permette di avviarne o completarne il download
+- La lista degli asset ora mostra l'ultimo prezzo di chiusura di ciascun asset con la sua data, e la pagina dell'asset la etichetta come "Dati al"
+- È normale che asset diversi abbiano date diverse: i mercati nel mondo chiudono in orari diversi
+- L'avviso sull'aggiornamento prezzi ora distingue un successo pieno da uno parziale, e segnala quando lo storico è stato aggiornato ma le correzioni dei prezzi no
+- La versione dell'app e la sua data compaiono discrete in fondo alla barra laterale e nella pagina di accesso
+- La card "Informazioni sull'app" in Impostazioni → Preferenze mostra versione e commit con il link su GitHub, più un pulsante per copiare i dati nelle segnalazioni
 
 ### Correzioni
-- L'ultimo prezzo e i rendimenti per periodo ora sono gli stessi su ogni installazione che aggiorna nello stesso momento, invece di risultare talvolta diversi
-- Il ripristino di un backup ora scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i loro grafici vuoti fino alla prossima apertura dell'app
+- L'ultimo prezzo e i rendimenti per periodo ora coincidono su tutte le installazioni che aggiornano nello stesso momento
+- Il ripristino di un backup scarica subito i dati di mercato degli asset ripristinati, invece di lasciare i grafici vuoti fino alla prossima apertura dell'app
 
 ## v1.0.0 — 30 Sep 2026 (prima release con il nuovo nome Peculium)
 
