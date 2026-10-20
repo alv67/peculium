@@ -181,7 +181,7 @@ frontend/
         │   ├── +page.svelte        #   Overview tab (index): price chart,
         │   │                        #   "Where held", quick facts
         │   ├── exposure/           #   Exposure tab (countries/regions/sectors)
-        │   └── data/               #   Data tab (metadata form, danger zone)
+        │   └── data/               #   Data tab (metadata form, danger zone, manual prices)
         ├── portfolios/     # portfolios list + CRUD + import
         ├── portfolios/[id]/ # portfolio detail shell: sticky header,
         │                    # KPI strip, tabs; all data loading + context
@@ -275,6 +275,8 @@ against the backend routes (`backend/cmd/server/main.go`).
 | | quote, fetchProfile | `GET /assets/{id}/quote`, `POST /assets/{id}/fetch-profile` |
 | | exposure, saveExposure, fetchExposure, fetchETFExposure, fetchMorningstarExposure | `GET /assets/{id}/exposure`, `PUT /assets/{id}/exposure`, `POST /assets/{id}/fetch-exposure`, `POST /assets/{id}/fetch-etf-exposure`, `POST /assets/{id}/fetch-morningstar-exposure` |
 | | backfillHistory, sync | `POST /assets/{id}/backfill-history`, `POST /assets/sync` |
+| | manualPrices, saveManualPrice, deleteManualPrice | `GET /assets/{id}/prices/manual` (manual price history, newest date first; only for `manual`/`none` sources), `PUT /assets/{id}/prices/manual` (body `{"date", "close", "volume?"}` — upsert by date: re-recording a date overwrites it; 400 on future dates, `close <= 0` or Yahoo-source assets), `DELETE /assets/{id}/prices/manual/{date}` |
+| | manualPrices, saveManualPrice, deleteManualPrice | `GET /assets/{id}/prices/manual` (manual price history, newest date first, only for `manual`/`none` price sources), `PUT /assets/{id}/prices/manual` (body `{"date", "close", "volume?"}` — upsert by date: same date overwrites; 400 for future dates, `close <= 0` and Yahoo-source assets), `DELETE /assets/{id}/prices/manual/{date}` |
 | `transactionApi` | list, create | `GET /portfolios/{id}/transactions?limit=&offset=&type=&asset_id=&from=&to=` (returns the `TransactionPage` envelope — `transactions`, `total`, applied `limit`/`offset`; default limit 20, max 100, order date desc; the optional combinable filters `type` (buy/sell/dividend/split/fee), `asset_id` (uuid) and the inclusive `from`/`to` `YYYY-MM-DD` bounds narrow the rows **and** the returned `total`), `POST /portfolios/{id}/transactions` |
 | | update, remove | `PATCH/DELETE /transactions/{id}` |
 | `pricesApi` | refresh | `POST /prices/refresh` (optional query `portfolio_id`, returns a 202 `JobEnqueued`; poll `jobsApi.wait`) |
@@ -288,7 +290,7 @@ against the backend routes (`backend/cmd/server/main.go`).
 The types exported alongside (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
 `DashboardSummary`, `ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`,
-`AssetQuote`,
+`AssetQuote`, `ManualPrice`,
 `AssetExposure`, `PortfolioHistory`, `AssetPositionSeries`,
 `PortfolioExportDocument`, ...) mirror the backend models. Monetary values
 arrive as **strings** (e.g. `"1234.56"`) to avoid floating-point rounding
@@ -482,6 +484,7 @@ in white).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | filterable combobox over the already-registered assets (ticker/name, max 8 rows); emits the selected asset id | the transaction modal. The Yahoo ticker lookup for creating assets lives in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | transactions table (Date/Asset/Type badge/Qty/Price/Total/Actions) with a right-aligned edit action | the **portfolio detail** Transactions card; the page feeds it one 20-row page at a time and renders the Previous/Next footer under it |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | add/edit/delete transaction form: asset combobox, type (buy/sell/dividend), quantity/price or amount, date, fees, notes; inline validation and a live total; owns the API calls and toasts. It renders as the `ui/Modal` at ≥ `sm` and as a `ui/Sheet` (bottom sheet) on phones (via the `viewport` store), sharing one form/footer snippet pair; Delete removes the row immediately and shows a 5 s **undo** toast instead of a `ConfirmDialog` — the undo re-POSTs the captured payload, which yields a new id | the **portfolio detail** page, opened by "Add Transaction" and by the transaction table edit action |
+| `ManualPricesCard.svelte` (`lib/components/domain/`) | **manual prices section** (EPIC J.1): compact insert form (date + close + optional volume) over the newest-first manual history table; the row pencil prefills the form and the PUT upserts by date, so saving the same date is the edit path, while the row trash deletes through the standard `ui/ConfirmDialog`; client validation mirrors the backend guards (no future dates — the date input carries `max` today — and close > 0) as inline field errors and backend 400s surface through the error toast; owns the `GET/PUT/DELETE /assets/{id}/prices/manual` trio, and after every successful write reloads the table and calls the `refresh` prop (the shell's `refetchAssetData`) so the quote strip and the Overview chart pick the new close up | the asset detail **Data tab**, mounted only when the asset's `price_source` is `manual` or `none` |
 | `SettingsTabs.svelte` (`lib/components/domain/`) | link-based tab bar for the Settings subroutes (Profile / Password / Preferences / Currencies / Backup & restore), active tab marked with `aria-current="page"`; the pill container is `max-w-full flex-wrap` so all five tabs stay reachable at phone widths | all five **Settings** pages |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | shared **Chart ⇄ Table** segmented disclosure: a thin wrapper over `SegmentedControl` bound to the owning chart's internal `view` state (`'chart' \| 'table'`, `$bindable`), labeled `Chart`/`Table` through `chartView.*`; the tablist accessible name interpolates the chart's own heading when it has one (`chartView.ariaNamed`, generic `chartView.aria` otherwise) | embedded by `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` and `AllocationDonut` (see the "View as table" note below); callers hide it with `showTableToggle={false}` where a list of the same rows already sits directly under the chart |
 
@@ -1307,9 +1310,11 @@ Called endpoints: `assetApi.get`, `.quote`, `pricesApi.byAsset(id)`,
 `assetApi.exposure(id)`, `assetApi.splits(id)`; the shell's session price
 refresh is watched via `priceRefresh.revision` and refetches the quote/prices.
 The isolated, non-blocking, silent-on-error `portfolioApi.dashboard()` fetch
-behind "Where held" (below) is a separate call. The tabs introduce no further
-endpoint: `assetApi.update`/`.meta`/`.backfillHistory`/`.remove` (also used for
-delete) and the exposure PUT/prefill/derive set live in the shell.
+behind "Where held" (below) is a separate call. `assetApi.update`/`.meta`/
+`.backfillHistory`/`.remove` (also used for delete) and the exposure
+PUT/prefill/derive set live in the shell, as does the `refetchAssetData` the
+Data tab passes into the Manual prices card as its chart-refresh callback; the
+card itself owns only its manual prices GET/PUT/DELETE trio.
 
 The sticky shell header (stacked at `top-[var(--app-header-h)]`, its negative
 margins/padding mirroring `<main>`'s responsive `px-4 lg:px-6` / `pt-4 lg:pt-6`):
@@ -1363,9 +1368,19 @@ prezzo** `price_source` selector), same dirty-save (`hasChanges` enables
 "Salva modifiche"; the PATCH, the shared `form` `$state` and the
 `form.isin` prefill sync all live in the layout, so unsaved edits survive
 tab switches); the **danger zone** with the asset's three shell-owned
-actions (update from Yahoo / backfill / delete); and
-two muted, disabled placeholder items — manual price
-entry and fixed-income attributes.
+actions (update from Yahoo / backfill / delete); the **Manual prices**
+section (`ManualPricesCard`, `lib/components/domain/`) — rendered only when
+the asset's `price_source` is `manual` or `none` — with its compact insert
+form (date + close + optional volume) and the newest-first history table
+(date, close via `formatCurrency` in the asset currency, volume), each row
+carrying a pencil that prefills the form for the edit path (the PUT upserts
+by date, so saving the same date overwrites) and a trash that deletes
+through the standard `ConfirmDialog`; client validation mirrors the backend
+guards (no future dates — the date input also carries `max` today — and
+close > 0) as inline field errors, backend 400s surface through the error
+toast, and after every successful write the table reloads plus the shell's
+`refetchAssetData` refreshes the quote strip and the Overview chart; and one
+muted, disabled placeholder item — fixed-income attributes.
 
 TAB **Exposure** — the geo/sector distribution widgets:
 

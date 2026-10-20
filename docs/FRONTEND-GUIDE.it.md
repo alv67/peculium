@@ -189,7 +189,7 @@ frontend/
         │   ├── +page.svelte        #   tab Panoramica (indice): grafico
         │   │                        #   prezzi, "Dove è detenuto", dati principali
         │   ├── exposure/           #   tab Esposizione (paesi/regioni/settori)
-        │   └── data/               #   tab Dati (form metadati, zona pericolosa)
+        │   └── data/               #   tab Dati (form metadati, zona pericolosa, prezzi manuali)
         ├── portfolios/     # elenco portafogli + CRUD + import
         ├── portfolios/[id]/ # shell del dettaglio portafoglio: header
         │                    # sticky, strip KPI, tab; tutto il data loading
@@ -288,6 +288,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 | | quote, fetchProfile | `GET /assets/{id}/quote`, `POST /assets/{id}/fetch-profile` |
 | | exposure, saveExposure, fetchExposure, fetchETFExposure, fetchMorningstarExposure | `GET /assets/{id}/exposure`, `PUT /assets/{id}/exposure`, `POST /assets/{id}/fetch-exposure`, `POST /assets/{id}/fetch-etf-exposure`, `POST /assets/{id}/fetch-morningstar-exposure` |
 | | backfillHistory, sync | `POST /assets/{id}/backfill-history`, `POST /assets/sync` |
+| | manualPrices, saveManualPrice, deleteManualPrice | `GET /assets/{id}/prices/manual` (storico prezzi manuali, data più recente prima; solo per fonti `manual`/`none`), `PUT /assets/{id}/prices/manual` (body `{"date", "close", "volume?"}` — upsert per data: registrando di nuovo una data la sovrascrive; 400 su date future, `close <= 0` o asset con fonte Yahoo), `DELETE /assets/{id}/prices/manual/{date}` |
 | `transactionApi` | list, create | `GET /portfolios/{id}/transactions?limit=&offset=&type=&asset_id=&from=&to=` (restituisce l'involucro `TransactionPage` — `transactions`, `total`, `limit`/`offset` applicati; limite di default 20, max 100, ordine per data decrescente; i filtri opzionali e combinabili `type` (buy/sell/dividend/split/fee), `asset_id` (uuid) e i limiti `from`/`to` `YYYY-MM-DD` inclusivi restringono le righe **e** il `total` restituito), `POST /portfolios/{id}/transactions` |
 | | update, remove | `PATCH/DELETE /transactions/{id}` |
 | `pricesApi` | refresh | `POST /prices/refresh` (query opzionale `portfolio_id`, restituisce un 202 `JobEnqueued`; poi `jobsApi.wait`) |
@@ -301,7 +302,7 @@ verificato contro le rotte del backend (`backend/cmd/server/main.go`).
 I tipi esportati accanto (`User`, `Portfolio`, `Asset`, `Transaction`,
 `TransactionPage`, `PortfolioSummary`, `AssetHolding`, `Dashboard`,
 `DashboardSummary`,
-`ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`, `AssetQuote`,
+`ActiveBreakdown`, `ClosedBreakdown`, `Job`, `JobEnqueued`, `AssetQuote`, `ManualPrice`,
 `AssetExposure`, `PortfolioHistory`, `AssetPositionSeries`,
 `PortfolioExportDocument`, ...) rispecchiano i modelli del backend. I
 valori monetari arrivano come **stringhe** (es. `"1234.56"`) per evitare errori
@@ -501,6 +502,7 @@ scuro contornato di bianco).
 | `AssetCombobox.svelte` (`lib/components/domain/`) | combobox filtrabile sugli asset già registrati (ticker/nome, max 8 righe); emette l'id dell'asset selezionato | la modale transazione. La ricerca ticker Yahoo per creare asset vive in `AssetSearchAutocomplete` |
 | `TransactionTable.svelte` (`lib/components/domain/`) | tabella transazioni (Data/Asset/Type badge/Qty/Price/Total/Azioni) con azione di modifica allineata a destra | la card Transactions del **dettaglio portafoglio**; la pagina le passa una pagina da 20 righe alla volta e mostra i pulsanti Previous/Next con l'intervallo sotto di essa |
 | `AddTransactionModal.svelte` (`lib/components/domain/`) | form di aggiunta/modifica/eliminazione transazione: combobox asset, tipo (buy/sell/dividend), quantità/prezzo o importo, data, commissioni, note; validazione inline e totale live; gestisce chiamate API e toast. Si presenta come `ui/Modal` da `sm` in su e come `ui/Sheet` (bottom sheet) sui telefoni (store `viewport`), condividendo un'unica coppia di snippet form/piè; Elimina rimuove la riga subito e mostra un toast **undo** da 5 s invece del `ConfirmDialog` — l'undo re-INVIA il payload catturato, con nuovo id | la pagina **dettaglio portafoglio**, aperta da "Add Transaction" e dall'azione di modifica della tabella |
+| `ManualPricesCard.svelte` (`lib/components/domain/`) | **sezione prezzi manuali** (EPIC J.1): form compatto di inserimento (data + close + volume opzionale) sopra la tabella dello storico manuale con la data più recente in cima; la matita della riga precompila il form e la PUT fa upsert per data, quindi salvare la stessa data è il percorso di modifica, mentre il cestino elimina tramite il `ui/ConfirmDialog` standard; la validazione client rispecchia i guard del backend (niente date future — il campo data porta `max` a oggi — e close > 0) come errori inline dei campi, e i 400 del backend emergono tramite il toast di errore; possiede il trio `GET/PUT/DELETE /assets/{id}/prices/manual`, e dopo ogni scrittura riuscita ricarica la tabella e chiama la prop `refresh` (`refetchAssetData` della shell) così la fascia quote e il grafico Overview recepiscono il nuovo close | il tab **Dati** del dettaglio asset, montata solo quando il `price_source` dell'asset è `manual` o `none` |
 | `SettingsTabs.svelte` (`lib/components/domain/`) | barra di tab basata su link per le subroute delle Impostazioni (Profilo / Password / Preferenze / Valute / Backup e ripristino), tab attivo marcato con `aria-current="page"`; il contenitore delle pill `max-w-full flex-wrap` mantiene tutte e cinque le tab raggiungibili a larghezza telefono | tutte e cinque le pagine **Settings** |
 | `ChartTableToggle.svelte` (`lib/components/ui/`) | disclosure segmentata **Grafico ⇄ Tabella** condivisa: wrapper sottile di `SegmentedControl` legato allo stato `view` interno (`'chart' \| 'table'`, `$bindable`) del grafico che lo ospita, con etichette `Chart`/`Table` da `chartView.*`; il nome accessibile della tablist interpola il titolo proprio del grafico, se ce l'ha (`chartView.ariaNamed`, altrimenti il generico `chartView.aria`) | incorporato da `ExposureBarChart`, `ClassDonut`, `ExposurePie`, `PerformanceChart`, `CapitalChart` e `AllocationDonut` (vedi la nota "Vedi come tabella" qui sotto); i chiamanti lo nascondono con `showTableToggle={false}` dove sotto al grafico è già presente un elenco delle stesse righe |
 
@@ -1376,11 +1378,12 @@ Endpoint chiamati: `assetApi.get`, `.quote`, `pricesApi.byAsset(id)`,
 dello shell è osservato via `priceRefresh.revision` e rifà il fetch di
 quote/prezzi.
 La chiamata isolata, non bloccante e silenziosa in caso di errore
-`portfolioApi.dashboard()` dietro "Dove è detenuto" (sotto) è separata. Le tab
-non introducono ulteriori endpoint:
+`portfolioApi.dashboard()` dietro "Dove è detenuto" (sotto) è separata.
 `assetApi.update`/`.meta`/`.backfillHistory`/`.remove` (usati anche per
 l'eliminazione) e il set PUT/prefill/derive dell'esposizione vivono nella
-shell.
+shell, così come `refetchAssetData` che il tab Dati passa alla card Manual
+prices come callback di refresh del grafico; la card possiede solo il trio
+GET/PUT/DELETE dei prezzi manuali.
 
 L'header sticky della shell (impilato a `top-[var(--app-header-h)]`, con margini/padding
 negativi che rispecchiano il `px-4 lg:px-6` / `pt-4 lg:pt-6` responsivo di `<main>`):
@@ -1436,9 +1439,20 @@ stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, selettore
 "Salva modifiche"; il PATCH, il `form` `$state` condiviso e la sincronzza
 `form.isin` dei prefills vivono nel layout, quindi le modifiche non salvate
 sopravvivono ai cambi di tab); la **zona pericolosa** con le tre azioni
-della shell (aggiorna da Yahoo / backfill / elimina); e
-due segnaposto muti e disabilitati — inserimento prezzo manuale e
-attributi obbligazionari.
+della shell (aggiorna da Yahoo / backfill / elimina); la sezione **Manual
+prices** (`ManualPricesCard`, `lib/components/domain/`) — renderizzata solo
+quando il `price_source` dell'asset è `manual` o `none` — con il suo form
+compatto di inserimento (data + close + volume opzionale) e la tabella dello
+storico con la data più recente in cima (data, close via `formatCurrency`
+nella valuta dell'asset, volume); ogni riga porta una matita che precompila
+il form per il percorso di modifica (la PUT fa upsert per data, quindi
+salvare la stessa data la sovrascrive) e un cestino che elimina tramite il
+`ConfirmDialog` standard; la validazione client rispecchia i guard del
+backend (niente date future — il campo data porta anche `max` a oggi — e
+close > 0) come errori inline dei campi, i 400 del backend emergono tramite
+il toast di errore, e dopo ogni scrittura riuscita la tabella si ricarica
+più `refetchAssetData` della shell aggiorna la fascia quote e il grafico
+Overview; e un segnaposto muto e disabilitato — attributi obbligazionari.
 
 TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 

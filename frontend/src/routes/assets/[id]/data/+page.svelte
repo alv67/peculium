@@ -5,6 +5,7 @@
   import Badge from '$lib/components/ui/Badge.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import ManualPricesCard from '$lib/components/domain/ManualPricesCard.svelte'
   import { getAssetPage } from '../context'
 
   /**
@@ -14,9 +15,10 @@
    * the layout and prefills still sync `form.isin` from here), the
    * `price_source` selector, the danger zone (Yahoo meta refresh / full
    * history backfill / delete asset — the same layout-owned actions as the
-   * header `⋯` menu, sharing their busy spinners), and the EPIC J reserved
-   * slots (J.1 manual price entry, J.2 fixed-income attributes) as muted
-   * "coming soon" placeholders with no behaviour yet.
+   * header `⋯` menu, sharing their busy spinners), the EPIC J.1 Manual
+   * prices section (live only for `manual`/`none` price sources) and the
+   * J.2 fixed-income slot still a muted "coming soon" placeholder with no
+   * behaviour yet.
    */
   const ctx = getAssetPage()
 </script>
@@ -144,17 +146,20 @@
     </div>
   </div>
 
-  <!-- EPIC J reserved slots (spec §6.3: the Data tab is their designed
-       home). Placeholders only — no behaviour, no endpoints, nothing to
-       ship yet; they make the future surface discoverable. -->
-  <div class="mb-6 rounded-card border border-dashed border-border p-4">
-    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-      <h2 class="font-semibold text-muted-foreground">{t('asset.manualPrice')}</h2>
-      <Badge>{t('quickActions.comingSoon')}</Badge>
-    </div>
-    <p class="text-sm text-muted-foreground">{t('asset.manualPriceHint')}</p>
-  </div>
+  <!-- EPIC J.1 (manual price entry, #105): a live section for assets without
+       an automatic feed — the manual endpoints exist only for `manual`/`none`
+       price sources, so the section renders only for them. -->
+  {#if ctx.asset.price_source === 'manual' || ctx.asset.price_source === 'none'}
+    <ManualPricesCard
+      assetId={ctx.id ?? ''}
+      currency={ctx.currency}
+      refresh={ctx.refetchAssetData}
+    />
+  {/if}
 
+  <!-- EPIC J reserved slot (J.2): placeholder only — no behaviour, no
+       endpoint, nothing to ship yet; it makes the future surface
+       discoverable. -->
   <div class="rounded-card border border-dashed border-border p-4">
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-semibold text-muted-foreground">{t('asset.fixedIncome')}</h2>

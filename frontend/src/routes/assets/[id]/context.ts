@@ -89,6 +89,10 @@ export interface AssetPageContext {
   refreshFromYahoo(): void
   readonly backfillingHistory: boolean
   backfillHistory(): void
+  /** Refetches quote, prices and splits (cache cleared): used when a sync
+   * job ends and after every manual-price write (J.1) so the quote strip and
+   * the Overview chart pick the new history up. */
+  refetchAssetData(): Promise<void>
   /** True while an open sync/backfill job is updating this asset's data. */
   readonly dataSyncing: boolean
   /** Opens the layout-mounted delete confirmation. */
