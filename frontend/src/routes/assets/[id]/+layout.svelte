@@ -31,7 +31,7 @@
   import ExposureGeoModal from '$lib/components/ExposureGeoModal.svelte'
   import ExposureSectorModal from '$lib/components/ExposureSectorModal.svelte'
   import { setAssetPage, type AssetForm, type AssetPageContext, type HeldRow } from './context'
-  import { positiveCountries, sectorsList, withoutOther } from './exposure-utils'
+  import { positiveCountries, withoutOther } from './exposure-utils'
 
   /**
    * Asset shell (EPIC K.4b, spec §4.2/§6.3): the single long asset page
@@ -162,21 +162,21 @@
     Math.round(regionsEdit.reduce((acc, r) => acc + (Number(r.weight) || 0), 0) * 100) / 100,
   )
   const sumSectors = $derived(
-    sectorsEdit.reduce((acc, r) => acc + (Number(r.weight) || 0), 0),
+    Math.round(sectorsEdit.reduce((acc, r) => acc + (Number(r.weight) || 0), 0) * 100) / 100,
   )
   const sumCountries = $derived(
     Math.round(
       countriesEdit.reduce((acc, r) => acc + (Number(r.weight) || 0), 0) * 100,
     ) / 100,
   )
-  // Countries and regions may legitimately sum below 100: for regions the
-  // backend folds the residual into «Other / Not Classified» at persist time;
-  // for countries the residual just stays unattributed (saving countries no
-  // longer re-derives the regions — that happens only via «Calcola da paesi»).
-  // Only a sum above 100 (± float epsilon) blocks saving. Sectors still
-  // require 100 ±0.5.
+  // Countries, regions and sectors may legitimately sum below 100: for
+  // regions and sectors the backend folds the residual into «Other / Not
+  // Classified» at persist time; for countries the residual just stays
+  // unattributed (saving countries no longer re-derives the regions — that
+  // happens only via «Calcola da paesi»). Only a sum above 100 (± float
+  // epsilon) blocks saving.
   const regionsValid = $derived(sumRegions <= 100 + 1e-9)
-  const sectorsValid = $derived(Math.abs(sumSectors - 100) <= 0.5)
+  const sectorsValid = $derived(sumSectors <= 100 + 1e-9)
   const countriesValid = $derived(sumCountries <= 100 + 1e-9)
 
   // 1D/1W/1M/1Y/YTD quote deltas of `AssetQuote`, as compact chips in the
@@ -307,7 +307,7 @@
       exposure = ex
       splits = sp
       regionsEdit = withoutOther(ex.regions)
-      sectorsEdit = sectorsList(ex.sectors)
+      sectorsEdit = withoutOther(ex.sectors)
       countriesEdit = positiveCountries(ex.countries)
       // Hydrate the persisted provenance per dimension (source + last-update
       // date). Dimensions never persisted carry no provenance entry: badge
@@ -560,7 +560,7 @@
     fetchingETF = true
     try {
       const preview = await assetApi.fetchETFExposure(id)
-      sectorsEdit = sectorsList(preview.sectors)
+      sectorsEdit = withoutOther(preview.sectors)
       sectorsSource = 'justetf'
       sectorsUpdatedAt = null
       if (preview.isin) form.isin = preview.isin
@@ -582,7 +582,7 @@
     prefilling = true
     try {
       const preview = await assetApi.fetchExposure(id)
-      sectorsEdit = sectorsList(preview.sectors)
+      sectorsEdit = withoutOther(preview.sectors)
       sectorsSource = 'yahoo'
       sectorsUpdatedAt = null
       toast.success(t('asset.sectorsPrefilledYahoo'))
@@ -610,7 +610,7 @@
     fetchingMorningstar = true
     try {
       const preview = await assetApi.fetchMorningstarExposure(id)
-      sectorsEdit = sectorsList(preview.sectors)
+      sectorsEdit = withoutOther(preview.sectors)
       sectorsSource = 'morningstar'
       sectorsUpdatedAt = null
       if (preview.isin) form.isin = preview.isin
@@ -667,7 +667,7 @@
         sectors_source: sentSource,
       })
       exposure = saved
-      sectorsEdit = sectorsList(saved.sectors)
+      sectorsEdit = withoutOther(saved.sectors)
       sectorsSource = saved.provenance?.sectors?.source ?? sentSource
       sectorsUpdatedAt = saved.provenance?.sectors?.updated_at ?? null
       toast.success(t('asset.sectorsSaved'))
@@ -690,7 +690,7 @@
       countriesEdit = positiveCountries(preview.countries)
       countriesSource = 'morningstar'
       countriesUpdatedAt = null
-      sectorsEdit = sectorsList(preview.sectors)
+      sectorsEdit = withoutOther(preview.sectors)
       sectorsSource = 'morningstar'
       sectorsUpdatedAt = null
       if (preview.isin) form.isin = preview.isin
@@ -773,7 +773,7 @@
   // sector edits/previews never resurface on reopen.
   function openSectorModal(): void {
     if (!exposure) return
-    sectorsEdit = sectorsList(exposure.sectors)
+    sectorsEdit = withoutOther(exposure.sectors)
     sectorsSource = exposure.provenance?.sectors?.source ?? null
     sectorsUpdatedAt = exposure.provenance?.sectors?.updated_at ?? null
     sectorModalOpen = true

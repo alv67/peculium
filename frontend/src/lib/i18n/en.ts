@@ -430,7 +430,6 @@ export const en = {
     over100Title: 'The weights sum to over 100%: lower them to be able to save',
     residualCountries: 'Unallocated residual: {pct}%.',
     residualRegions: 'Unclassified residual: {pct}% — excluded from the chart.',
-    sumMustBe100: 'The weights must sum to 100 (±0.5) — current: {pct}%',
   },
   /**
    * Provenance badges (EPIC K bug-fix): the pill label, the tooltip/aria

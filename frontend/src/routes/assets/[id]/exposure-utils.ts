@@ -9,8 +9,8 @@ import type { ExposureRow } from '$lib/services/api'
  * import the same normalisation rules.
  */
 
-/** The hidden fallback region injected server-side at persist time; the UI
- * never displays or edits it. */
+/** The hidden fallback row injected server-side at persist time for the
+ * regions AND sectors dimensions; the UI never displays or edits it. */
 export const OTHER_REGION = 'Other / Not Classified'
 
 /**
@@ -74,8 +74,8 @@ export function positiveCountries(rows: ExposureRow[]): ExposureRow[] {
 }
 
 /**
- * Copy backend/provider region rows in canonical order, dropping the
- * «Other / Not Classified» residual, rounding weights and normalising
+ * Copy backend/provider region or sector rows in canonical order, dropping
+ * the «Other / Not Classified» residual, rounding weights and normalising
  * slightly-over-100 provider totals via `capAtHundred`: sums, donut and
  * table then work on visible rows only (the page re-adds the open-donut
  * gap via complete={false}).
@@ -86,11 +86,4 @@ export function withoutOther(rows: ExposureRow[]): ExposureRow[] {
       .filter((r) => r.name !== OTHER_REGION)
       .map((r) => ({ ...r, weight: roundWeight(r.weight) })),
   )
-}
-
-/** Copy provider/backend sector rows rounding weights to 2 decimals and
- *  normalising slightly-over-100 totals via capAtHundred (import-time only;
- *  manual edits bypass it and stay governed by the sector guard). */
-export function sectorsList(rows: ExposureRow[]): ExposureRow[] {
-  return capAtHundred(rows.map((r) => ({ ...r, weight: roundWeight(r.weight) })))
 }
