@@ -1485,8 +1485,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       peso · elimina`, ordinata per peso **desc** (riordinata su add/remove/blur,
       mai mentre si digita — la barra si anima live così le righe non saltano).
       Il colore della barra segue la palette della card per rango; la barra è
-      nascosta sotto `sm`, dove la riga tiene codice, nome, peso ed elimina per
-      stare in un telefono da 375px. Un select
+      nascosta sotto `sm` e l'input peso tiene il `w-24` della tabella regioni,
+      così su un telefono da 375px la riga mantiene codice, nome, peso ed
+      elimina con lo stesso ritmo delle righe regioni. Un select
       nativo + "Aggiungi" inserisce un codice canonico non ancora presente (il
       focus passa al suo input peso). La lista è **flessibile**
       (`min-h-0 flex-1 overflow-y-auto`): cresce fino a riempire il box così il
