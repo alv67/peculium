@@ -55,10 +55,11 @@ Key conventions:
 - **Base-aware everything.** Every internal link and asset goes through
   `withBase()` in `src/lib/base.ts` (or `import.meta.env.BASE_URL` directly).
   Never hardcode root-absolute URLs like `/install` in markup.
-- **Tailwind v3** (same major as `frontend/`), wired through Astro's native
-  PostCSS support: `postcss.config.mjs` + `tailwind.config.mjs` + the
-  `@tailwind` directives in `src/styles/global.css`. The `@astrojs/tailwind`
-  integration is not used because its peer range does not cover Astro 7.
+- **Tailwind v4**, wired through the official Vite plugin
+  (`@tailwindcss/vite`, registered in `astro.config.mjs`): the stylesheet starts
+  with `@import "tailwindcss"` and loads the JS theme from `tailwind.config.mjs`
+  via `@config` in `src/styles/global.css`. The plugin prefixes CSS itself, so
+  there is no PostCSS config and no `autoprefixer`.
 - **Single source of truth for releases.** GitHub Releases are created from
   `docs/RELEASE-NOTES.en.md` / `.it.md`, so the build reads those files directly
   — never the network. `src/lib/releases.ts` locates them by walking up the
