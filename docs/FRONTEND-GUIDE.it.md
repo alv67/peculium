@@ -1519,8 +1519,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       non sono persistite): subito dopo un prefill o una modifica manuale il
       badge mostra **solo l'etichetta**, e la data compare quando la
       dimensione viene di nuovo salvata.
-  - **`ExposureSectorModal`** ha la tabella dei settori, validata a 100 ± 0,5
-    (i settori richiedono il totale esatto). Nell'header
+  - **`ExposureSectorModal`** ha la tabella dei settori; solo una somma sopra
+    100 blocca il salvataggio — un totale più basso è ammesso e il server fonde
+    il residuo in «Other / Not Classified» al salvataggio. Nell'header
     mostra la stessa pillola `ProvenanceBadge` dei box geografici, guidata da
     `sectorsSource` + `sectorsUpdatedAt` della shell (`da JustETF`, `da Yahoo`,
     `da Morningstar`, `manuale`): ogni prefill dei settori imposta il badge
@@ -1620,7 +1621,7 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
    prefill del provider e reload canonico dopo il salvataggio) passa da
    `sectorsList`, che prima arrotonda ogni peso a 2 decimali e poi applica
    `capAtHundred`; le modifiche manuali sui settori bypassano l'helper e
-   restano governate dal guard settori (100 ± 0,5).
+   restano governate dal guard settori (blocca solo una somma sopra 100).
 
 ### `/settings` — Impostazioni (`routes/settings/+page.svelte`)
 

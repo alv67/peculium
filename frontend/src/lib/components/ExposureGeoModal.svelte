@@ -207,11 +207,11 @@
              `exposure.deriveTitle`) -->
         <div class="flex flex-col rounded-card border border-border bg-muted p-3 sm:p-4">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
               <h3 class="font-medium">{t('exposure.countries')}</h3>
               <ProvenanceBadge source={countriesSource} updatedAt={countriesUpdatedAt} />
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex shrink-0 items-center gap-1.5">
               <button
                 onclick={prefillCountriesFromETF}
                 disabled={assetType !== 'etf' || fetchingETF || fetchingMorningstar}
@@ -398,11 +398,11 @@
         <!-- Regions -->
         <div class="flex flex-col rounded-card border border-border bg-muted p-3 sm:p-4">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
               <h3 class="font-medium">{t('exposure.regions')}</h3>
               <ProvenanceBadge source={regionsSource} updatedAt={regionsUpdatedAt} />
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex shrink-0 items-center gap-1.5">
               <button
                 onclick={deriveRegionsFromCountries}
                 disabled={derivingRegions || fetchingMorningstar}

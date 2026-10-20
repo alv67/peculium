@@ -1447,8 +1447,9 @@ TAB **Exposure** — the geo/sector distribution widgets:
       responses carry no provenance (previews are not persisted): right after
       a prefill or a manual edit the badge shows the **label only**, and the
       date appears once the dimension is saved again.
-  - **`ExposureSectorModal`** has the sector table, validated to 100 ± 0.5
-     (sectors require an exact total). Its header shows the
+  - **`ExposureSectorModal`** has the sector table; only a sum above 100
+    blocks the save — a lower total is allowed and the server folds the
+    residual into «Other / Not Classified» at persist time. Its header shows the
     same `ProvenanceBadge` pill as the geo boxes, driven by the shell-owned
     `sectorsSource` + `sectorsUpdatedAt` (`da JustETF`, `da Yahoo`,
     `da Morningstar`, `manuale`): each sector prefill sets the badge (label
@@ -1545,7 +1546,7 @@ TAB **Exposure** — the geo/sector distribution widgets:
    (page load, provider prefill and the canonical reload after a save) runs
    through `sectorsList`, which first rounds each weight to 2 decimals and
    then applies `capAtHundred`; manual sector edits bypass it and stay
-   governed by the sector guard (100 ± 0.5).
+   governed by the sector guard (only a sum above 100 blocks the save).
 
 ### `/settings` — Settings (`routes/settings/+page.svelte`)
 

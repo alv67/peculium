@@ -76,7 +76,7 @@
     tabindex="-1"
   >
     <div
-      class="relative mx-4 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-card border-border bg-surface p-6 shadow-raised"
+      class="relative mx-2 max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-card border-border bg-surface p-3 shadow-raised sm:mx-4 sm:p-6"
     >
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{t('exposure.editSectors')}</h2>
@@ -90,13 +90,13 @@
       </div>
 
       <!-- Sectors -->
-      <div class="flex flex-col rounded-card border border-border bg-muted p-4">
-        <div class="mb-3 flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
+      <div class="flex flex-col rounded-card border border-border bg-muted p-3 sm:p-4">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
             <h3 class="font-medium">{t('exposure.sectorTitle')}</h3>
             <ProvenanceBadge source={sectorsSource} updatedAt={sectorsUpdatedAt} />
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex shrink-0 items-center gap-1.5">
             <button
               onclick={prefillSectorsFromETF}
               disabled={fetchingETF || assetType !== 'etf'}
@@ -182,7 +182,7 @@
                           s.weight = e.currentTarget.value
                           onSectorsDirty()
                         }}
-                        class="no-spinner w-24 rounded-control border border-input px-3 py-1.5 text-right text-sm tabular-nums"
+                        class="no-spinner w-16 rounded-control border border-input px-2 py-1.5 text-right text-sm tabular-nums"
                       />
                     </td>
                   </tr>
