@@ -1,4 +1,4 @@
-import type { Transaction } from '$lib/services/api'
+import type { Transaction } from '#lib/services/api.js'
 
 /**
  * Activity-tab filter model + URL query codec (EPIC K.4c, spec §6.2/§6.4/§8.2:
@@ -50,7 +50,7 @@ function parseDateParam(value: string): string | undefined {
 /** Parse the filters out of a URL query. Unknown types, malformed dates and
  * empty values degrade to "unfiltered" instead of erroring, so a stale or
  * hand-edited link never wedges the tab. */
-export function parseTransactionFilters(params: URLSearchParams): TransactionFilters {
+export function parseTransactionFilters(params: Pick<URLSearchParams, 'get'>): TransactionFilters {
   const type = params.get(URL_KEYS.type) ?? ''
   const assetId = params.get(URL_KEYS.assetId)?.trim() ?? ''
   return {

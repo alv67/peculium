@@ -1,16 +1,16 @@
 <script lang="ts">
   import { Pencil } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { formatCurrency } from '$lib/format'
-  import type { Transaction } from '$lib/services/api'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { formatCurrency } from '#lib/format.js'
+  import type { Transaction } from '#lib/services/api.js'
+  import Table from '#lib/components/ui/Table.svelte'
+  import THead from '#lib/components/ui/THead.svelte'
+  import TBody from '#lib/components/ui/TBody.svelte'
+  import Tr from '#lib/components/ui/Tr.svelte'
+  import Th from '#lib/components/ui/Th.svelte'
+  import Td from '#lib/components/ui/Td.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
 
   /**
    * Transactions table (EPIC E.2): extracted from the portfolio detail page.

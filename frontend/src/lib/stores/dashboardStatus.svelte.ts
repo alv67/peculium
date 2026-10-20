@@ -1,4 +1,4 @@
-import type { Dashboard } from '$lib/services/api'
+import type { Dashboard } from '#lib/services/api.js'
 
 /**
  * Vault-level data-quality counters feeding the global quality strip in

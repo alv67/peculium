@@ -1,6 +1,6 @@
 <script lang="ts">
   import SegmentedControl from './SegmentedControl.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
 
   /**
    * Chart ⇄ Table segmented toggle (EPIC K.5b, redesign spec §9.1): the

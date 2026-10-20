@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { t } from '$lib/i18n/index.svelte'
-  import { appVersion } from '$lib/stores/appVersion.svelte'
-  import { toast } from '$lib/stores/toast.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { appVersion } from '#lib/stores/appVersion.svelte.js'
+  import { toast } from '#lib/stores/toast.svelte.js'
   import Button from '../ui/Button.svelte'
   import Card from '../ui/Card.svelte'
   import { cx } from '../ui/utils'

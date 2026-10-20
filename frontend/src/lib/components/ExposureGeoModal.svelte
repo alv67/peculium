@@ -1,14 +1,14 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
   import { Calculator, Globe2, Info, Loader2, X, Plus, Trash2 } from 'lucide-svelte'
-  import type { ExposureRow } from '$lib/services/api'
-  import { CANONICAL_COUNTRIES, countryDisplayName } from '$lib/countryNames'
-  import { t } from '$lib/i18n/index.svelte'
+  import type { ExposureRow } from '#lib/services/api.js'
+  import { CANONICAL_COUNTRIES, countryDisplayName } from '#lib/countryNames.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import ExposurePie from './ExposurePie.svelte'
   import ProvenanceBadge from './ProvenanceBadge.svelte'
-  import { colorForRow, resolvePalette } from '$lib/chartPalette'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import { totalColorClass } from '$lib/ui-colors'
+  import { colorForRow, resolvePalette } from '#lib/chartPalette.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
+  import { totalColorClass } from '#lib/ui-colors.js'
 
   let {
     open = $bindable(false),

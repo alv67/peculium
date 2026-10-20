@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
-  import { cx } from '$lib/components/ui/utils'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { cx } from '#lib/components/ui/utils.js'
 
   /**
    * Link-based tab bar for the Settings subroutes (EPIC E.4): real anchors so

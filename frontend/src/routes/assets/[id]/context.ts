@@ -5,7 +5,7 @@ import type {
   AssetQuote,
   Price,
   SplitInfo,
-} from '$lib/services/api'
+} from '#lib/services/api.js'
 
 /** Editable metadata form (the Data tab's inputs bind into it; provider
  * prefills sync `form.isin` from the layout). */

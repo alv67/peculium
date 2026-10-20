@@ -4,9 +4,9 @@
   import { afterNavigate, goto } from '$app/navigation'
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { priceRefresh } from '#lib/stores/priceRefresh.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import {
     portfolioApi,
     transactionApi,
@@ -20,15 +20,15 @@
     type PortfolioClassAllocation,
     type PortfolioGeographyAllocation,
     type PortfolioSectorAllocation,
-  } from '$lib/services/api'
-  import { formatCurrency } from '$lib/format'
+  } from '#lib/services/api.js'
+  import { formatCurrency } from '#lib/format.js'
   import { ArrowLeft, Download, MoreHorizontal, Plus, Trash2, Upload } from 'lucide-svelte'
-  import AddTransactionModal from '$lib/components/domain/AddTransactionModal.svelte'
-  import ImportPortfolioModal from '$lib/components/domain/ImportPortfolioModal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import PnlValue from '$lib/components/ui/PnlValue.svelte'
-  import Tabs from '$lib/components/ui/Tabs.svelte'
+  import AddTransactionModal from '#lib/components/domain/AddTransactionModal.svelte'
+  import ImportPortfolioModal from '#lib/components/domain/ImportPortfolioModal.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte'
+  import PnlValue from '#lib/components/ui/PnlValue.svelte'
+  import Tabs from '#lib/components/ui/Tabs.svelte'
   import { setPortfolioPage, type PortfolioPageContext } from './context'
   import {
     parseTransactionFilters,
@@ -55,21 +55,20 @@
    */
   let { children }: { children: Snippet } = $props()
 
-  const id = $derived(page.params.id as string | undefined)
-
-  let portfolio = $state<Portfolio | null>(null)
-  let summary = $state<PortfolioSummary | null>(null)
-  let transactions = $state<Transaction[] | null>(null)
-  let assets = $state<Asset[] | null>(null)
-  let history = $state<PortfolioHistory | null>(null)
-  let classAlloc = $state<PortfolioClassAllocation | null>(null)
-  let classAllocError = $state(false)
-  let geoAlloc = $state<PortfolioGeographyAllocation | null>(null)
-  let sectorAlloc = $state<PortfolioSectorAllocation | null>(null)
-  let geoAllocError = $state(false)
-  let sectorAllocError = $state(false)
-  let showTx = $state(false)
-  let editingTx = $state<Transaction | null>(null)
+  const id = $derived(page.params.id as string | undefined);
+  let portfolio = $state<Portfolio | null>(null);
+  let summary = $state<PortfolioSummary | null>(null);
+  let transactions = $state<Transaction[] | null>(null);
+  let assets = $state<Asset[] | null>(null);
+  let history = $state<PortfolioHistory | null>(null);
+  let classAlloc = $state<PortfolioClassAllocation | null>(null);
+  let classAllocError = $state(false);
+  let geoAlloc = $state<PortfolioGeographyAllocation | null>(null);
+  let sectorAlloc = $state<PortfolioSectorAllocation | null>(null);
+  let geoAllocError = $state(false);
+  let sectorAllocError = $state(false);
+  let showTx = $state(false);
+  let editingTx = $state<Transaction | null>(null);
 
   // EPIC I.9 (#88): the Transactions table is paginated through the
   // `TransactionPage` envelope of `GET /portfolios/{id}/transactions`
@@ -79,12 +78,13 @@
   // tabs), so Activity reopens exactly where it was left.
   // Every fetch below additionally applies the K.4c URL-persisted filters
   // (see `txFilters`), so the pagination total is the FILTERED count.
-  const TX_PAGE_SIZE = 20
-  let txPage = $state(1)
-  let txLimit = $state(TX_PAGE_SIZE)
-  let txOffset = $state(0)
-  let txTotal = $state(0)
-  let txLoading = $state(false)
+  const TX_PAGE_SIZE = 20;
+
+  let txPage = $state(1);
+  let txLimit = $state(TX_PAGE_SIZE);
+  let txOffset = $state(0);
+  let txTotal = $state(0);
+  let txLoading = $state(false);
 
   // EPIC K.4c (spec §6.2/§6.4/§8.2): the Activity filters — transaction
   // type, asset and date range — live in the tab's URL query
@@ -118,14 +118,14 @@
    * every chip). The watcher below performs the actual reset + refetch, so
    * the flow stays identical for back/forward navigations too. */
   function setTxFilters(next: TransactionFilters): void {
-    const url = new URL(page.url)
+    const url = new URL(page.url.href)
     applyTransactionFilters(url, next)
     if (url.search === page.url.search) return
     // The URL is cloned from the CURRENT `page.url` (already resolved by
     // SvelteKit; only the query is rewritten), same convention as the
     // keyboard nav in `ui/Tabs`.
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    void goto(url, { replaceState: true, keepFocus: true, noScroll: true })
+     
+    void goto(url, { replace: true, reset: false })
   }
 
   // Changing any filter resets the window to the first page of the filtered
@@ -138,13 +138,15 @@
     parseTransactionFilters(page.url.searchParams),
   )
   $effect(() => {
-    const sig = transactionFiltersSignature(txFilters)
-    if (sig === appliedFiltersSig) return
-    appliedFiltersSig = sig
-    txPage = 1
-    txOffset = 0
-    void loadTransactions()
-  })
+    const sig = transactionFiltersSignature(txFilters);
+
+    if (sig === appliedFiltersSig) return;
+
+    appliedFiltersSig = sig;
+    txPage = 1;
+    txOffset = 0;
+    void loadTransactions();
+  });
 
   // Same "1–20 of 137" range label and footer layout as the health page.
   const txRangeLabel = $derived(
@@ -209,9 +211,10 @@
   // state, and a `Spinner` covers every load. The card lives on the
   // Overview tab; the fetch stays here because the session price refresh
   // and every transaction mutation refetch the buckets too (E.9).
-  let perf = $state<DashboardPerformance | null>(null)
-  let perfLoading = $state(true)
-  let granularity = $state<'month' | 'year'>('month')
+  let perf = $state<DashboardPerformance | null>(null);
+
+  let perfLoading = $state(true);
+  let granularity = $state<'month' | 'year'>('month');
 
   // SegmentedControl binds a plain string; the accessors keep the union type.
   function getGranularity(): string {
@@ -299,17 +302,20 @@
   // completions that happen while this layout is mounted refetch.
   let seenRefresh = priceRefresh.revision
   $effect(() => {
-    const rev = priceRefresh.revision
-    if (rev === seenRefresh) return
-    seenRefresh = rev
-    void refetchAfterRefresh()
-  })
+    const rev = priceRefresh.revision;
+
+    if (rev === seenRefresh) return;
+
+    seenRefresh = rev;
+    void refetchAfterRefresh();
+  });
 
   async function loadAllocations(): Promise<void> {
-    if (!id) return
-    classAllocError = false
-    geoAllocError = false
-    sectorAllocError = false
+    if (!id) return;
+
+    classAllocError = false;
+    geoAllocError = false;
+    sectorAllocError = false;
 
     // L'allocazione per classi è isolata: se il backend non la espone ancora
     // (es. asset_class non popolati) non blocca il resto della pagina.
@@ -408,8 +414,9 @@
   // Delete mirrors the list page: confirm dialog → API → toast → leave the
   // (now gone) portfolio. `goto` is deliberately not awaited so this
   // handler never races the dialog's own close-then-unmount sequence.
-  let showDeleteDialog = $state(false)
-  let deleting = $state(false)
+  let showDeleteDialog = $state(false);
+
+  let deleting = $state(false);
 
   function requestDelete(): void {
     menuOpen = false
@@ -420,12 +427,12 @@
     if (!id) return
     deleting = true
     try {
-      await portfolioApi.delete(id)
-      toast.success(t('portfolio.deleted'))
-      void goto(resolve('/portfolios'))
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('common.deleteFailed')
-      toast.error(message)
+      await portfolioApi.delete(id);
+      toast.success(t('portfolio.deleted'));
+      void goto(resolve('portfolios'));
+    } catch(err: unknown) {
+      const message = err instanceof Error ? err.message : t('common.deleteFailed');
+      toast.error(message);
     } finally {
       deleting = false
     }
@@ -434,9 +441,10 @@
   // `⋯` popup: same close contract as the shell's UserMenu (Escape back to
   // the trigger / outside pointerdown / route change — tab clicks navigate,
   // so the strip swapping tabs also dismisses the menu).
-  let menuOpen = $state(false)
-  let menuRoot = $state<HTMLDivElement | null>(null)
-  let menuTrigger = $state<HTMLButtonElement | null>(null)
+  let menuOpen = $state(false);
+
+  let menuRoot = $state<HTMLDivElement | null>(null);
+  let menuTrigger = $state<HTMLButtonElement | null>(null);
 
   function handleMenuKeydown(event: KeyboardEvent): void {
     if (!menuOpen) return
@@ -446,7 +454,11 @@
     }
   }
 
-  afterNavigate(() => (menuOpen = false))
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === 'goto') return;
+
+    return menuOpen = false;
+  });
 
   $effect(() => {
     if (!menuOpen) return
@@ -467,12 +479,27 @@
   // ".." slot next to `[+ Transaction]`).
   const tabItems = $derived(
     id
-      ? [
-          { href: resolve(`/portfolios/${id}`), label: t('portfolio.tabOverview') },
-          { href: resolve(`/portfolios/${id}/positions`), label: t('portfolio.tabPositions') },
-          { href: resolve(`/portfolios/${id}/activity`), label: t('portfolio.tabActivity') },
-          { href: resolve(`/portfolios/${id}/allocation`), label: t('portfolio.tabAllocation') },
-        ]
+    ? [
+      {
+        href: resolve(`portfolios/${id}`),
+        label: t('portfolio.tabOverview')
+      },
+
+      {
+        href: resolve(`portfolios/${id}/positions`),
+        label: t('portfolio.tabPositions')
+      },
+
+      {
+        href: resolve(`portfolios/${id}/activity`),
+        label: t('portfolio.tabActivity')
+      },
+
+      {
+        href: resolve(`portfolios/${id}/allocation`),
+        label: t('portfolio.tabAllocation')
+      }
+    ]
       : [],
   )
 
@@ -553,7 +580,7 @@
   } satisfies PortfolioPageContext)
 </script>
 
-<svelte:window onkeydown={handleMenuKeydown} />
+<svelte:window onkeydown={handleMenuKeydown}></svelte:window>
 
 <div class="p-4 lg:p-6">
   <!-- Sticky entity header (spec §5.1/§6.2): `top` follows the live
@@ -568,7 +595,7 @@
     <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div class="min-w-0">
         <a
-          href={resolve('/portfolios')}
+          href={resolve('portfolios')}
           class="focus-ring -ml-1 inline-flex items-center gap-1 rounded-control text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -599,7 +626,7 @@
             aria-label={t('portfolio.actionsMenu')}
             aria-haspopup="true"
             aria-expanded={menuOpen}
-            onclick={() => (menuOpen = !menuOpen)}
+            onclick={() => menuOpen = !menuOpen}
             class="focus-ring inline-flex h-9 w-9 items-center justify-center rounded-control border border-input text-foreground transition-colors hover:bg-muted"
           >
             <MoreHorizontal class="h-4 w-4" aria-hidden="true" />
@@ -657,12 +684,23 @@
            secondary chips — in the PORTFOLIO currency. It stays mounted
            while tabs swap; the full Active/Closed roll-up remains on the
            Overview tab. -->
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span class="text-xl font-bold tabular-nums">
-          {formatCurrency(summary.active.value, currency)}
-        </span>
-        <PnlValue value={summary.active.gain_loss} kind="currency" {currency} />
-        <PnlValue value={summary.active.gain_loss_pct} kind="percent" />
+
+      <div
+        class="flex flex-wrap items-baseline gap-x-3 gap-y-1"
+      >
+        <span class="text-xl font-bold tabular-nums">{formatCurrency(summary.active.value, currency)}</span>
+
+        <PnlValue
+          value={summary.active.gain_loss}
+          kind="currency"
+          currency={currency}
+        />
+
+        <PnlValue
+          value={summary.active.gain_loss_pct}
+          kind="percent"
+        />
+
         <span class="text-xs text-muted-foreground">{t('hero.allTime')}</span>
       </div>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -673,8 +711,14 @@
           </span>
         </span>
         <span class="inline-flex items-center gap-1.5">
-          {t('hero.realized')}
-          <PnlValue value={summary.closed.realized} kind="currency" {currency} size="sm" />
+          {t('hero.realized')} 
+
+          <PnlValue
+            value={summary.closed.realized}
+            kind="currency"
+            currency={currency}
+            size="sm"
+          />
         </span>
         <span class="inline-flex items-center gap-1.5">
           {t('hero.dividends')}
@@ -695,7 +739,7 @@
   bind:open={showTx}
   portfolioId={id ?? ''}
   assets={assets ?? []}
-  {currency}
+  currency={currency}
   editing={editingTx}
   onsuccess={reloadAfterMutation}
 />

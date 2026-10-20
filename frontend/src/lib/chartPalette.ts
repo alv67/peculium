@@ -1,5 +1,5 @@
-import type { ResolvedTheme } from '$lib/stores/theme.svelte'
-import { palette as paletteState } from '$lib/stores/palette.svelte'
+import type { ResolvedTheme } from '#lib/stores/theme.svelte.js'
+import { palette as paletteState } from '#lib/stores/palette.svelte.js'
 
 /**
  * Light-mode series palette. Mirrors the `--chart-1..12` custom properties

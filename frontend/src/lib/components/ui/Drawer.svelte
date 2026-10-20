@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'
   import { fade } from 'svelte/transition'
   import { X } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Button from './Button.svelte'
   import { focusTrap } from './focus-trap'
   import { backdropFade, edgeSlide } from './transitions'

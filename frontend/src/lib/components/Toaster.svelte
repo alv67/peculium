@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { toast, toasts } from '$lib/stores/toast.svelte'
+  import { toast, toasts } from '#lib/stores/toast.svelte.js'
   import { CheckCircle2, XCircle, AlertTriangle, X } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
 
   /**
    * Toast viewport (EPIC D.2): surface-raised cards with a semantic icon

@@ -8,7 +8,7 @@ import type {
   PortfolioSectorAllocation,
   PortfolioSummary,
   Transaction,
-} from '$lib/services/api'
+} from '#lib/services/api.js'
 import type { TransactionFilters } from './tx-filters'
 
 /**

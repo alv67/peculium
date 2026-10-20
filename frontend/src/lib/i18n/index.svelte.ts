@@ -1,6 +1,6 @@
-import { browser } from '$app/environment'
-import { en, type Dictionary } from './en'
-import { it } from './it'
+import { browser } from '$app/env';
+import { en, type Dictionary } from './en';
+import { it } from './it';
 
 /**
  * Tiny rune-based i18n runtime (EPIC K.1b, decision D1): two dictionaries +

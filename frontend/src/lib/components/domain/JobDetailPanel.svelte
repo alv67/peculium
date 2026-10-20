@@ -1,14 +1,14 @@
 <script lang="ts">
   import { AlertTriangle } from 'lucide-svelte'
-  import { formatDuration } from '$lib/format'
-  import { t } from '$lib/i18n/index.svelte'
-  import type { ActivityItem, HealthEvent } from '$lib/services/api'
-  import { viewport } from '$lib/stores/viewport.svelte'
-  import AsyncCard from '$lib/components/ui/AsyncCard.svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import Drawer from '$lib/components/ui/Drawer.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import Sheet from '$lib/components/ui/Sheet.svelte'
+  import { formatDuration } from '#lib/format.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import type { ActivityItem, HealthEvent } from '#lib/services/api.js'
+  import { viewport } from '#lib/stores/viewport.svelte.js'
+  import AsyncCard from '#lib/components/ui/AsyncCard.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import Drawer from '#lib/components/ui/Drawer.svelte'
+  import EmptyState from '#lib/components/ui/EmptyState.svelte'
+  import Sheet from '#lib/components/ui/Sheet.svelte'
   import { JOB_TARGET_KEYS, JOB_TYPE_KEYS, labeled, statusBadge } from './job-status'
 
   /**

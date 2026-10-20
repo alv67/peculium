@@ -13,9 +13,9 @@
  * in-flight POST (never a double Yahoo hit while a refresh is already
  * running).
  */
-import { t } from '$lib/i18n/index.svelte'
-import { clearGetCache, jobsApi, pricesApi, type Job } from '$lib/services/api'
-import { toast } from '$lib/stores/toast.svelte'
+import { t } from '#lib/i18n/index.svelte.js'
+import { clearGetCache, jobsApi, pricesApi, type Job } from '#lib/services/api.js'
+import { toast } from '#lib/stores/toast.svelte.js'
 
 export const priceRefresh = $state({
   /** Once-per-session guard: true as soon as the refresh has been triggered. */

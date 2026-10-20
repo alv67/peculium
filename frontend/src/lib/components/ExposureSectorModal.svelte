@@ -1,12 +1,12 @@
 <script lang="ts">
   import { Info, Loader2, X } from 'lucide-svelte'
-  import type { ExposureRow } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
+  import type { ExposureRow } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import ExposurePie from './ExposurePie.svelte'
   import ProvenanceBadge from './ProvenanceBadge.svelte'
-  import { colorForRow, resolvePalette } from '$lib/chartPalette'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import { totalColorClass } from '$lib/ui-colors'
+  import { colorForRow, resolvePalette } from '#lib/chartPalette.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
+  import { totalColorClass } from '#lib/ui-colors.js'
 
   let {
     open = $bindable(false),

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { X } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Button from './Button.svelte'
   import { cx, OVERLAY_OPEN_GRACE_MS } from './utils'
 

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { auth, updateProfile } from '$lib/stores/auth.svelte'
-  import { settingsApi, type Currency } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import SettingsTabs from '$lib/components/domain/SettingsTabs.svelte'
-  import CurrencySelect from '$lib/components/domain/CurrencySelect.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { auth, updateProfile } from '#lib/stores/auth.svelte.js'
+  import { settingsApi, type Currency } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import SettingsTabs from '#lib/components/domain/SettingsTabs.svelte'
+  import CurrencySelect from '#lib/components/domain/CurrencySelect.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import Input from '#lib/components/ui/Input.svelte'
 
   let name = $state(auth.user?.name ?? '')
   let email = $state(auth.user?.email ?? '')

@@ -1,17 +1,17 @@
 <script lang="ts">
-  import ExposureBarChart, { type ExposureBarRow } from '$lib/components/domain/ExposureBarChart.svelte'
-  import ClassDonut from '$lib/components/domain/ClassDonut.svelte'
-  import AllocationDrillPanel from '$lib/components/domain/AllocationDrillPanel.svelte'
-  import { countryDisplayName } from '$lib/countryNames'
-  import { chartSemanticColors } from '$lib/chartPalette'
-  import { assetClassLabel } from '$lib/format'
-  import { t } from '$lib/i18n/index.svelte'
-  import { resolved } from '$lib/stores/theme.svelte'
+  import ExposureBarChart, { type ExposureBarRow } from '#lib/components/domain/ExposureBarChart.svelte'
+  import ClassDonut from '#lib/components/domain/ClassDonut.svelte'
+  import AllocationDrillPanel from '#lib/components/domain/AllocationDrillPanel.svelte'
+  import { countryDisplayName } from '#lib/countryNames.js'
+  import { chartSemanticColors } from '#lib/chartPalette.js'
+  import { assetClassLabel } from '#lib/format.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
   import {
     portfolioApi,
     type AllocationDrill,
     type AllocationDrillDim,
-  } from '$lib/services/api'
+  } from '#lib/services/api.js'
   import { getPortfolioPage } from '../context'
 
   /**

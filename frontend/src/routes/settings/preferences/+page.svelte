@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { isLocale, locale, setLocale, t, type Locale } from '$lib/i18n/index.svelte'
-  import { palette, setCvd } from '$lib/stores/palette.svelte'
-  import { setThemeMode, theme } from '$lib/stores/theme.svelte'
-  import SettingsTabs from '$lib/components/domain/SettingsTabs.svelte'
-  import VersionChip from '$lib/components/layout/VersionChip.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
-  import Select from '$lib/components/ui/Select.svelte'
+  import { isLocale, locale, setLocale, t, type Locale } from '#lib/i18n/index.svelte.js'
+  import { palette, setCvd } from '#lib/stores/palette.svelte.js'
+  import { setThemeMode, theme } from '#lib/stores/theme.svelte.js'
+  import SettingsTabs from '#lib/components/domain/SettingsTabs.svelte'
+  import VersionChip from '#lib/components/layout/VersionChip.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte'
+  import Select from '#lib/components/ui/Select.svelte'
 
   /**
    * Settings → Preferences (EPIC K.1b): the first fully translated surface,

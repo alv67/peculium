@@ -1,4 +1,4 @@
-import type { ExposureRow } from '$lib/services/api'
+import type { ExposureRow } from '#lib/services/api.js'
 
 /**
  * Pure exposure-list helpers shared between the asset shell

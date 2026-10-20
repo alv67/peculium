@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { toast } from '$lib/stores/toast.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { portfolioApi, type Currency } from '$lib/services/api'
-  import Modal from '$lib/components/ui/Modal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
-  import Textarea from '$lib/components/ui/Textarea.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { portfolioApi, type Currency } from '#lib/services/api.js'
+  import Modal from '#lib/components/ui/Modal.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import Input from '#lib/components/ui/Input.svelte'
+  import Textarea from '#lib/components/ui/Textarea.svelte'
   import CurrencySelect from './CurrencySelect.svelte'
 
   /** Portfolio creation dialog (EPIC E.3): owns the form, API call and toast. */

@@ -2,7 +2,7 @@
   import { Banknote, Briefcase, Ellipsis, LayoutDashboard } from 'lucide-svelte'
   import { page } from '$app/state'
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import { cx } from '../ui/utils'
 
   /**

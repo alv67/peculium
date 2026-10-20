@@ -52,7 +52,7 @@
   function handleKeydown(event: KeyboardEvent): void {
     const from = chips.findIndex((p) => p.value === (event.target as HTMLElement).dataset.value)
     const current = from === -1 ? selectedIndex : from
-    let next = -1
+    let next: number
     switch (event.key) {
       case 'ArrowRight':
       case 'ArrowDown':

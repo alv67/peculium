@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Select from '../ui/Select.svelte'
 
   /**
@@ -16,12 +16,11 @@
    * is exactly what the spec asks before a custom dropdown is ever worth
    * building.
    */
-  let {
-    portfolios,
-    class: className = '',
-  }: {
-    /** Minimal id+name projection so any portfolio summary shape fits. */
-    portfolios: readonly { portfolio_id: string; portfolio_name: string }[]
+  let { portfolios, class: className = ''
+
+  /** Minimal id+name projection so any portfolio summary shape fits. */
+   }: { 
+    portfolios: readonly { portfolio_id: string; portfolio_name: string }[];
     class?: string
   } = $props()
 
@@ -29,7 +28,7 @@
     const id = (event.currentTarget as HTMLSelectElement).value
     // Selecting the wealth option (empty value) stays on the current page;
     // any portfolio selection leaves, so the select never needs resetting.
-    if (id) void goto(resolve(`/portfolios/${id}`))
+    if (id) void goto(resolve(`portfolios/${id}`));
   }
 </script>
 

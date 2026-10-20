@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { toast } from '$lib/stores/toast.svelte'
-  import { authApi } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import SettingsTabs from '$lib/components/domain/SettingsTabs.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { authApi } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import SettingsTabs from '#lib/components/domain/SettingsTabs.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import Input from '#lib/components/ui/Input.svelte'
 
   let currentPassword = $state('')
   let newPassword = $state('')

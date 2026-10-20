@@ -8,44 +8,45 @@
     type Dashboard,
     type DashboardAllocation,
     type DashboardPerformance,
-    type PortfolioPerformanceSummary,
-  } from '$lib/services/api'
-  import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
-  import { applyDashboardStatus } from '$lib/stores/dashboardStatus.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import AllocationDonut from '$lib/components/domain/AllocationDonut.svelte'
-  import CapitalChart from '$lib/components/domain/CapitalChart.svelte'
-  import FirstRunChecklist from '$lib/components/domain/FirstRunChecklist.svelte'
-  import InvestmentsTable from '$lib/components/domain/InvestmentsTable.svelte'
-  import PerformanceChart from '$lib/components/domain/PerformanceChart.svelte'
-  import ScopeSwitcher from '$lib/components/domain/ScopeSwitcher.svelte'
-  import Sparkline, { type SparklinePoint } from '$lib/components/domain/Sparkline.svelte'
-  import ClassDonut from '$lib/components/domain/ClassDonut.svelte'
-  import ExposureBarChart, { type ExposureBarRow } from '$lib/components/domain/ExposureBarChart.svelte'
-  import AllocationDrillPanel from '$lib/components/domain/AllocationDrillPanel.svelte'
-  import { countryDisplayName } from '$lib/countryNames'
-  import { chartSemanticColors } from '$lib/chartPalette'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import PeriodChips from '$lib/components/ui/PeriodChips.svelte'
-  import PnlValue from '$lib/components/ui/PnlValue.svelte'
-  import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
-  import { ChevronDown } from 'lucide-svelte'
-  import { formatCurrency, formatPercent, assetClassLabel } from '$lib/format'
-  import { pnlColorClass } from '$lib/ui-colors'
+    type PortfolioPerformanceSummary
+  } from '#lib/services/api.js';
 
-  let dash = $state<Dashboard | null>(null)
-  let alloc = $state<DashboardAllocation | null>(null)
-  let loading = $state(true)
+  import { priceRefresh } from '#lib/stores/priceRefresh.svelte.js';
+  import { applyDashboardStatus } from '#lib/stores/dashboardStatus.svelte.js';
+  import { t } from '#lib/i18n/index.svelte.js';
+  import AllocationDonut from '#lib/components/domain/AllocationDonut.svelte';
+  import CapitalChart from '#lib/components/domain/CapitalChart.svelte';
+  import FirstRunChecklist from '#lib/components/domain/FirstRunChecklist.svelte';
+  import InvestmentsTable from '#lib/components/domain/InvestmentsTable.svelte';
+  import PerformanceChart from '#lib/components/domain/PerformanceChart.svelte';
+  import ScopeSwitcher from '#lib/components/domain/ScopeSwitcher.svelte';
+  import Sparkline, { type SparklinePoint } from '#lib/components/domain/Sparkline.svelte';
+  import ClassDonut from '#lib/components/domain/ClassDonut.svelte';
+  import ExposureBarChart, { type ExposureBarRow } from '#lib/components/domain/ExposureBarChart.svelte';
+  import AllocationDrillPanel from '#lib/components/domain/AllocationDrillPanel.svelte';
+  import { countryDisplayName } from '#lib/countryNames.js';
+  import { chartSemanticColors } from '#lib/chartPalette.js';
+  import { resolved } from '#lib/stores/theme.svelte.js';
+  import Card from '#lib/components/ui/Card.svelte';
+  import PeriodChips from '#lib/components/ui/PeriodChips.svelte';
+  import PnlValue from '#lib/components/ui/PnlValue.svelte';
+  import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte';
+  import Table from '#lib/components/ui/Table.svelte';
+  import THead from '#lib/components/ui/THead.svelte';
+  import TBody from '#lib/components/ui/TBody.svelte';
+  import Tr from '#lib/components/ui/Tr.svelte';
+  import Th from '#lib/components/ui/Th.svelte';
+  import Td from '#lib/components/ui/Td.svelte';
+  import Badge from '#lib/components/ui/Badge.svelte';
+  import EmptyState from '#lib/components/ui/EmptyState.svelte';
+  import Spinner from '#lib/components/ui/Spinner.svelte';
+  import { ChevronDown } from 'lucide-svelte';
+  import { formatCurrency, formatPercent, assetClassLabel } from '#lib/format.js';
+  import { pnlColorClass } from '#lib/ui-colors.js';
+
+  let dash = $state<Dashboard | null>(null);
+  let alloc = $state<DashboardAllocation | null>(null);
+  let loading = $state(true);
 
   // Performance buckets (EPIC I.3): vault-wide percentage return and
   // invested-capital series in the base currency, monthly by default,
@@ -146,10 +147,12 @@
     ).filter((p) => heroPeriods.includes(p.value)),
   )
   const heroBuckets = $derived.by(() => {
-    const rows = perf?.buckets ?? []
-    if (perf?.granularity !== 'month' || heroPeriod === 'ALL') return rows
-    return rows.slice(Math.max(rows.length - (heroPeriod === '1Y' ? 12 : 36), 0))
-  })
+    const rows = perf?.buckets ?? [];
+
+    if (perf?.granularity !== 'month' || heroPeriod === 'ALL') return rows;
+
+    return rows.slice(Math.max(rows.length - (heroPeriod === '1Y' ? 12 : 36), 0));
+  });
 
   onMount(async () => {
     try {
@@ -193,16 +196,16 @@
 
   let seenRefresh = priceRefresh.revision
   $effect(() => {
-    const rev = priceRefresh.revision
-    if (rev === seenRefresh) return
-    seenRefresh = rev
-    void reloadAfterRefresh()
-  })
+    const rev = priceRefresh.revision;
 
-  const hasMultipleCurrencies = $derived((dash?.by_currency?.length ?? 0) > 1)
-  const portfolioSlices = $derived(
-    (dash?.portfolios ?? []).map((p) => ({ name: p.portfolio_name, value: Number(p.active.value) })),
-  )
+    if (rev === seenRefresh) return;
+
+    seenRefresh = rev;
+    void reloadAfterRefresh();
+  });
+
+  const hasMultipleCurrencies = $derived((dash?.by_currency?.length ?? 0) > 1);
+  const portfolioSlices = $derived((dash?.portfolios ?? []).map((p) => ({ name: p.portfolio_name, value: Number(p.active.value) })));
 
   // Zone C sparklines (EPIC K.3b, spec §6.1/§9.2): per-portfolio market-value
   // history rendered inside the portfolio cards. Fetched in the background
@@ -264,26 +267,23 @@
   // payloads are mapped onto the generic ExposureBarRow shape consumed by
   // ExposureBarChart (countries keep their raw ISO codes as row identity; the
   // chart maps them to full names via `labelFor`, see the country panel below).
-  const regionBarRows = $derived<ExposureBarRow[]>(
-    (alloc?.regions ?? []).map((r) => ({ name: r.region, value: r.value, weight: r.weight })),
-  )
-  const sectorBarRows = $derived<ExposureBarRow[]>(
-    (alloc?.sectors ?? []).map((s) => ({ name: s.sector, value: s.value, weight: s.weight })),
-  )
-  const countryBarRows = $derived<ExposureBarRow[]>(
-    (alloc?.countries ?? []).map((c) => ({ name: c.country, value: c.value, weight: c.weight })),
-  )
+  const regionBarRows = $derived<ExposureBarRow[]>((alloc?.regions ?? []).map((r) => ({ name: r.region, value: r.value, weight: r.weight })));
+
+  const sectorBarRows = $derived<ExposureBarRow[]>((alloc?.sectors ?? []).map((s) => ({ name: s.sector, value: s.value, weight: s.weight })));
+  const countryBarRows = $derived<ExposureBarRow[]>((alloc?.countries ?? []).map((c) => ({ name: c.country, value: c.value, weight: c.weight })));
 
   // Equity-universe coverage note for the bar charts, mirroring the long
   // covered/excluded note the donut charts render themselves; shown only when
   // non-equity holdings were actually excluded.
   const equityUniverseNote = $derived.by(() => {
-    const covered = Number(alloc?.covered_value || 0)
-    const excluded = Number(alloc?.excluded_value || 0)
-    const total = covered + excluded
-    if (total <= 0 || excluded <= 0) return undefined
-    return t('allocation.equityUniverse', { pct: ((covered / total) * 100).toFixed(1) })
-  })
+    const covered = Number(alloc?.covered_value || 0);
+    const excluded = Number(alloc?.excluded_value || 0);
+    const total = covered + excluded;
+
+    if (total <= 0 || excluded <= 0) return undefined;
+
+    return t('allocation.equityUniverse', { pct: (covered / total * 100).toFixed(1) });
+  });
 
   // Aggregated "Other" buckets are muted grey, like the slice treatment in the
   // donut charts. Read via chartSemanticColors so it re-evaluates on theme
@@ -308,10 +308,11 @@
   // carries (class key / ISO code / region / sector name — may contain
   // spaces); the `title` is the label the same chart displays. The vault
   // scope fetches `dashboardAllocationDrill`, in the base currency.
-  let drillOpen = $state(false)
-  let drillDim = $state<AllocationDrillDim>('class')
-  let drillKey = $state('')
-  let drillTitle = $state('')
+  let drillOpen = $state(false);
+
+  let drillDim = $state<AllocationDrillDim>('class');
+  let drillKey = $state('');
+  let drillTitle = $state('');
 
   function openDrill(dim: AllocationDrillDim, key: string, label = key): void {
     drillDim = dim
@@ -494,7 +495,10 @@
           {#each dash.portfolios as p (p.portfolio_id)}
             {@const spark = sparklines[p.portfolio_id]}
             <Card class="transition-colors hover:border-accent">
-              <a href={resolve(`/portfolios/${p.portfolio_id}`)} class="block p-4">
+              <a
+                href={resolve(`portfolios/${p.portfolio_id}`)}
+                class="block p-4"
+              >
                 <div class="flex items-baseline justify-between gap-2">
                   <span class="truncate font-semibold">{p.portfolio_name}</span>
                   <span class="shrink-0 text-xs text-muted-foreground">{p.currency}</span>
@@ -630,7 +634,7 @@
                   <Tr>
                     <Td>
                       <a
-                        href={resolve(`/assets/${a.asset_id}`)}
+                        href={resolve(`assets/${a.asset_id}`)}
                         class="font-medium text-accent-text hover:underline"
                       >
                         {a.ticker}

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
 
   /**
    * `/admin` index (issue #57 Phase A): the management area opens directly on
@@ -13,8 +13,8 @@
    * Users page. The spinner only flashes for the moment of the redirect.
    */
   onMount(() => {
-    void goto(resolve('/admin/users'), { replaceState: true, noScroll: true })
-  })
+    void goto(resolve('admin/users'), { replace: true, reset: false });
+  });
 </script>
 
 <div class="flex justify-center py-12">

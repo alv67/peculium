@@ -1,4 +1,4 @@
-import { browser } from '$app/environment'
+import { browser } from '$app/env';
 
 /**
  * Reactive viewport helper (EPIC K.2): a thin `matchMedia` wrapper exposing

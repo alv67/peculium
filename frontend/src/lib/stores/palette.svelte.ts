@@ -1,4 +1,4 @@
-import { browser } from '$app/environment'
+import { browser } from '$app/env';
 
 /**
  * Optional colour-vision-deficient (CVD) gain/loss palette (EPIC K.5c,

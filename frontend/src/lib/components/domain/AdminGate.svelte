@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { isAdmin } from '$lib/stores/auth.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { isAdmin } from '#lib/stores/auth.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import EmptyState from '../ui/EmptyState.svelte'
 
   /**

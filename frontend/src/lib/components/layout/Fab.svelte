@@ -2,9 +2,9 @@
   import { HandCoins, Plus, RefreshCw, SquarePen } from 'lucide-svelte'
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
-  import { portfolioApi } from '$lib/services/api'
-  import { refreshPrices } from '$lib/stores/priceRefresh.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { portfolioApi } from '#lib/services/api.js'
+  import { refreshPrices } from '#lib/stores/priceRefresh.svelte.js'
   import QuickActionSheet, { type QuickAction } from './QuickActionSheet.svelte'
 
   /**
@@ -40,14 +40,13 @@
       // safest destination — it shows its own error state.
       onSelect: async () => {
         try {
-          const portfolios = await portfolioApi.list()
-          await goto(
-            portfolios.length === 1
-              ? resolve(`/portfolios/${portfolios[0].id}`)
-              : resolve('/portfolios'),
-          )
+          const portfolios = await portfolioApi.list();
+
+          await goto(portfolios.length === 1
+            ? resolve(`portfolios/${portfolios[0].id}`)
+            : resolve('portfolios'));
         } catch {
-          await goto(resolve('/portfolios'))
+          await goto(resolve('portfolios'));
         }
       },
     },
@@ -57,7 +56,7 @@
       hintKey: 'quickActions.addAssetHint',
       icon: Plus,
       // The assets page owns the Yahoo-lookup creation flow.
-      onSelect: () => goto(resolve('/assets')),
+      onSelect: () => goto(resolve('assets'))
     },
     {
       id: 'refresh-prices',
@@ -76,9 +75,9 @@
       id: 'enter-price',
       labelKey: 'quickActions.enterPrice',
       icon: SquarePen,
-      disabled: true, // EPIC J.1 has not landed yet — reserved slot.
-    },
-  ]
+      disabled: true // EPIC J.1 has not landed yet — reserved slot.
+    }
+  ];
 
   const hasEnabledAction = $derived(actions.some((action) => !action.disabled))
 </script>
@@ -90,10 +89,12 @@
     aria-label={t('fab.open')}
     aria-haspopup="dialog"
     aria-expanded={sheetOpen}
-    onclick={() => (sheetOpen = true)}
-  >
-    <Plus class="h-6 w-6" />
-  </button>
+    onclick={() => sheetOpen = true}
+  ><Plus class="h-6 w-6" /></button>
 {/if}
 
-<QuickActionSheet open={sheetOpen} {actions} onClose={() => (sheetOpen = false)} />
+<QuickActionSheet
+  open={sheetOpen}
+  actions={actions}
+  onClose={() => sheetOpen = false}
+/>

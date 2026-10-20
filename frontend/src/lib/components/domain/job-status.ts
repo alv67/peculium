@@ -1,4 +1,4 @@
-import { t, type MessageKey } from '$lib/i18n/index.svelte'
+import { t, type MessageKey } from '#lib/i18n/index.svelte.js'
 
 /**
  * Shared status/type vocabulary of the admin "Data & Sync" view (#226): ONE

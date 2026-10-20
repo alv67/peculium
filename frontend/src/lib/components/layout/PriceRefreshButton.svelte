@@ -1,7 +1,7 @@
 <script lang="ts">
   import { RefreshCw } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { priceRefresh, refreshPrices } from '$lib/stores/priceRefresh.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { priceRefresh, refreshPrices } from '#lib/stores/priceRefresh.svelte.js'
   import Button from '../ui/Button.svelte'
   import { cx } from '../ui/utils'
 

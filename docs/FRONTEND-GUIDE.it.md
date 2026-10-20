@@ -115,9 +115,9 @@ e in `docker-compose.yml` per lo stack di release pull-only):
 
 ### Come funziona il build SvelteKit
 
-- `frontend/svelte.config.js` usa **`@sveltejs/adapter-static`** con
-  `fallback: 'index.html'`: un build "statico", adatto a un server che serve
-  solo file (nginx). Il `fallback` lo rende una SPA senza flash: ogni URL
+- `frontend/vite.config.ts` passa **`@sveltejs/adapter-static`** al plugin
+  `sveltekit()` con `fallback: 'index.html'`: un build "statico", adatto a un
+  server che serve solo file (nginx). Il `fallback` lo rende una SPA senza flash: ogni URL
   sconosciuto restituisce il guscio `index.html`, che poi carica la pagina
   giusta.
 - `frontend/src/routes/+layout.ts` imposta `export const ssr = false` e
@@ -159,8 +159,8 @@ da una pagina servita altrove.
 
 ```
 frontend/
-├── svelte.config.js        # adapter-static + fallback index.html
-├── vite.config.ts          # porta dev 5173 + proxy /api
+├── vite.config.ts          # plugin SvelteKit (adapter-static, fallback
+│                           # index.html), porta dev 5173 + proxy /api
 ├── tailwind.config.js      # contenuto Tailwind: ./src/**/*.{html,js,svelte,ts}
 ├── postcss.config.js       # tailwindcss + autoprefixer
 ├── Dockerfile              # build node → serve nginx (porta 80)
@@ -170,7 +170,7 @@ frontend/
     ├── app.html            # HTML radice (bootstrap tema, meta theme-color, favicon, titolo)
     ├── app.css             # @tailwind + token semantici (:root / .dark) + base layer
     ├── app.d.ts            # namespace App di SvelteKit (segnaposto)
-    ├── lib/                # codice condiviso (la "parte interessante")
+    ├── lib/                # codice condiviso (la "parte interessante"), importato come #lib/<file>.js
     │   ├── components/     # primitive ui/, layout/ (AppShell + chrome adattivo), Toaster + wrapper ECharts
     │   ├── services/api.ts # l'unico client API (capitolo 5)
     │   ├── stores/         # auth.svelte.ts, toast.svelte.ts, theme.svelte.ts, viewport.svelte.ts (rune Svelte 5)
@@ -975,7 +975,7 @@ Uno store a rune che contiene `auth.user` e `auth.isLoading`:
 
 Lo **shell** (`AppShell.svelte`) possiede il refresh prezzi una-volta-per-sessione:
 al mount — su qualunque pagina d'ingresso, deep-link inclusi — chiama
-`refreshPrices()` dallo store condiviso `$lib/stores/priceRefresh.svelte`. Quello
+`refreshPrices()` dallo store condiviso `#lib/stores/priceRefresh.svelte.js`. Quello
 store è il **percorso di refresh unico** dell'app (il trigger automatico dello
 shell, il controllo nell'header, il Fab e la palette comandi passano tutti di
 qui), quindi trigger concorrenti si de-duplicano in un solo accodamento e un
@@ -1552,7 +1552,7 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       `sectors`, solo ETF come JustETF; l'endpoint è cachato per ISIN, quindi
       se paesi/regioni sono già stati letti la chiamata è immediata).
   La **palette dei colori è condivisa**
-  (`$lib/chartPalette.ts`): i quadratini colorati prima di ogni nome usano
+  (`#lib/chartPalette.js`): i quadratini colorati prima di ogni nome usano
   `colorForRow`, che restituisce esattamente il colore della fetta nel chart,
   quindi quadratino e grafico combaciano sempre. I grafici nelle modali sono
   **muti** (`mute` su `ExposurePie`: nessuna etichetta di valore né tooltip

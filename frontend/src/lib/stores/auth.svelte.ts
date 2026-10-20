@@ -1,4 +1,4 @@
-import { authApi, type User } from '$lib/services/api'
+import { authApi, type User } from '#lib/services/api.js'
 
 export const auth = $state({
   user: null as User | null,

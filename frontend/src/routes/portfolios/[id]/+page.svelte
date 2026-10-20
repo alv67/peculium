@@ -1,14 +1,14 @@
 <script lang="ts">
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import { ArrowRight } from 'lucide-svelte'
-  import ClassDonut from '$lib/components/domain/ClassDonut.svelte'
-  import InvestmentsTable from '$lib/components/domain/InvestmentsTable.svelte'
-  import PerformanceChart from '$lib/components/domain/PerformanceChart.svelte'
-  import PositionChart from '$lib/components/PositionChart.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
+  import ClassDonut from '#lib/components/domain/ClassDonut.svelte'
+  import InvestmentsTable from '#lib/components/domain/InvestmentsTable.svelte'
+  import PerformanceChart from '#lib/components/domain/PerformanceChart.svelte'
+  import PositionChart from '#lib/components/PositionChart.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
   import { getPortfolioPage } from './context'
 
   /**
@@ -21,8 +21,9 @@
    * transactions page (→ Activity tab). Every value is read from the shell
    * context; nothing is fetched here.
    */
-  const ctx = getPortfolioPage()
-  const currency = $derived(ctx.currency)
+  const ctx = getPortfolioPage();
+
+  const currency = $derived(ctx.currency);
 
   // Card-level control state only: which history series is plotted.
   let selectedAsset = $state('')
@@ -40,7 +41,12 @@
        Realized / Open G/L / Assets) is gone, only the asset count stays as
        a muted secondary line under the card. -->
   <div class="mb-6">
-    <InvestmentsTable active={ctx.summary.active} closed={ctx.summary.closed} {currency} />
+    <InvestmentsTable
+      active={ctx.summary.active}
+      closed={ctx.summary.closed}
+      currency={currency}
+    />
+
     <p class="mt-2 text-xs text-muted-foreground">{t('common.assetCount', { count: ctx.summary.asset_count })}</p>
   </div>
 {/if}
@@ -90,7 +96,7 @@
       splits={selectedAsset
         ? ctx.history.assets.find((a) => a.asset_id === selectedAsset)?.splits ?? []
         : ctx.history.splits}
-      {currency}
+      currency={currency}
     />
   {:else}
     <p class="text-sm text-muted-foreground">{t('chartView.noData')}</p>
@@ -106,7 +112,7 @@
     <h2 class="font-semibold">{t('portfolio.tabAllocation')}</h2>
     {#if ctx.id}
       <a
-        href={resolve(`/portfolios/${ctx.id}/allocation`)}
+        href={resolve(`portfolios/${ctx.id}/allocation`)}
         class="focus-ring inline-flex items-center gap-1 rounded-control text-sm font-medium text-accent-text hover:underline"
       >
         {t('portfolio.viewAllocation')}
