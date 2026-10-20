@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import tailwindcss from '@tailwindcss/vite';
 import { satteri } from '@astrojs/markdown-satteri';
 import satteriSiteUrls from './src/lib/satteri-site-urls';
 
@@ -19,6 +20,9 @@ export default defineConfig({
   site: 'https://peculium.dev',
   base,
   trailingSlash: 'ignore',
+  vite: {
+    plugins: [tailwindcss()],
+  },
   markdown: {
     processor: satteri({ hastPlugins: [satteriSiteUrls(base)] }),
   },
