@@ -1,21 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { resolve } from '$app/paths'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { assetApi, settingsApi, type Asset, type Currency } from '$lib/services/api'
-  import { formatCurrency } from '$lib/format'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { assetApi, settingsApi, type Asset, type Currency } from '#lib/services/api.js'
+  import { formatCurrency } from '#lib/format.js'
   import { Plus, Trash2 } from 'lucide-svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
-  import CreateAssetModal from '$lib/components/domain/CreateAssetModal.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte'
+  import Table from '#lib/components/ui/Table.svelte'
+  import THead from '#lib/components/ui/THead.svelte'
+  import TBody from '#lib/components/ui/TBody.svelte'
+  import Tr from '#lib/components/ui/Tr.svelte'
+  import Th from '#lib/components/ui/Th.svelte'
+  import Td from '#lib/components/ui/Td.svelte'
+  import CreateAssetModal from '#lib/components/domain/CreateAssetModal.svelte'
 
   let showCreate = $state(false)
   let assets = $state<Asset[] | null>(null)
@@ -23,9 +23,10 @@
   let currencies = $state<Currency[]>([])
 
   // Delete-confirmation dialog (D.2): replaces the native confirm().
-  let showDeleteDialog = $state(false)
-  let deleting = $state(false)
-  let assetToDelete = $state<{ id: string; ticker: string } | null>(null)
+  let showDeleteDialog = $state(false);
+
+  let deleting = $state(false);
+  let assetToDelete = $state<{ id: string; ticker: string } | null>(null);
 
   onMount(async () => {
     try {
@@ -69,10 +70,7 @@
 <div class="p-6">
   <div class="mb-6 flex items-center justify-between">
     <h1 class="text-2xl font-bold">{t('nav.assets')}</h1>
-    <Button onclick={() => (showCreate = true)}>
-      <Plus class="h-4 w-4" />
-      {t('asset.add')}
-    </Button>
+    <Button onclick={() => showCreate = true}><Plus class="h-4 w-4" />{t('asset.add')}</Button>
   </div>
 
   {#if loading}
@@ -95,7 +93,10 @@
           {#each assets ?? [] as a (a.id)}
             <Tr>
               <Td class="font-medium">
-                <a href={resolve(`/assets/${a.id}`)} class="text-accent-text hover:underline">{a.ticker}</a>
+                <a
+                  href={resolve(`assets/${a.id}`)}
+                  class="text-accent-text hover:underline"
+                >{a.ticker}</a>
               </Td>
               <Td class="text-muted-foreground">{a.name}</Td>
               <Td><Badge>{a.type}</Badge></Td>
@@ -131,7 +132,11 @@
   {/if}
 </div>
 
-<CreateAssetModal bind:open={showCreate} {currencies} onsuccess={reloadAssets} />
+<CreateAssetModal
+  bind:open={showCreate}
+  currencies={currencies}
+  onsuccess={reloadAssets}
+/>
 
 <ConfirmDialog
   bind:open={showDeleteDialog}

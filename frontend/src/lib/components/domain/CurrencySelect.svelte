@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { currencySymbol } from '$lib/format'
-  import type { Currency } from '$lib/services/api'
-  import Select from '$lib/components/ui/Select.svelte'
+  import { currencySymbol } from '#lib/format.js'
+  import type { Currency } from '#lib/services/api.js'
+  import Select from '#lib/components/ui/Select.svelte'
 
   /** Currency dropdown labelled with the shared currency symbols (EPIC E.3). */
   let {

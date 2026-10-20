@@ -4,10 +4,10 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import type { MessageKey } from '$lib/i18n/index.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { priceRefresh } from '#lib/stores/priceRefresh.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import type { MessageKey } from '#lib/i18n/index.svelte.js'
   import {
     assetApi,
     clearGetCache,
@@ -20,18 +20,32 @@
     type AssetQuote,
     type ExposureRow,
     type Price,
-    type SplitInfo,
-  } from '$lib/services/api'
-  import { formatCurrency, assetTypeLabel, assetClassLabel, priceSourceLabel } from '$lib/format'
-  import { ArrowLeft } from 'lucide-svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import PnlValue from '$lib/components/ui/PnlValue.svelte'
-  import Tabs from '$lib/components/ui/Tabs.svelte'
-  import ExposureGeoModal from '$lib/components/ExposureGeoModal.svelte'
-  import ExposureSectorModal from '$lib/components/ExposureSectorModal.svelte'
-  import { setAssetPage, type AssetForm, type AssetPageContext, type HeldRow } from './context'
-  import { positiveCountries, withoutOther } from './exposure-utils'
+    type SplitInfo
+  } from '#lib/services/api.js';
+
+  import {
+    formatCurrency,
+    assetTypeLabel,
+    assetClassLabel,
+    priceSourceLabel
+  } from '#lib/format.js';
+
+  import { ArrowLeft } from 'lucide-svelte';
+  import Badge from '#lib/components/ui/Badge.svelte';
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte';
+  import PnlValue from '#lib/components/ui/PnlValue.svelte';
+  import Tabs from '#lib/components/ui/Tabs.svelte';
+  import ExposureGeoModal from '#lib/components/ExposureGeoModal.svelte';
+  import ExposureSectorModal from '#lib/components/ExposureSectorModal.svelte';
+
+  import {
+    setAssetPage,
+    type AssetForm,
+    type AssetPageContext,
+    type HeldRow
+  } from './context';
+
+  import { positiveCountries, withoutOther } from './exposure-utils';
 
   /**
    * Asset shell (EPIC K.4b, spec §4.2/§6.3): the single long asset page
@@ -72,14 +86,14 @@
    */
   let { children }: { children: Snippet } = $props()
 
-  const id = $derived(page.params.id as string | undefined)
+  const id = $derived(page.params.id as string | undefined);
+  let loading = $state(true);
+  let asset = $state<Asset | null>(null);
+  let quote = $state<AssetQuote | null>(null);
+  let prices = $state<Price[]>([]);
+  let splits = $state<SplitInfo[]>([]);
+  let exposure = $state<AssetExposure | null>(null);
 
-  let loading = $state(true)
-  let asset = $state<Asset | null>(null)
-  let quote = $state<AssetQuote | null>(null)
-  let prices = $state<Price[]>([])
-  let splits = $state<SplitInfo[]>([])
-  let exposure = $state<AssetExposure | null>(null)
   // "Where held" rows (see the docstring): `null` until the isolated
   // dashboard fetch resolves, `heldFailed` when it did not.
   let held = $state<HeldRow[] | null>(null)
@@ -122,10 +136,11 @@
   // #193: true while an open sync/backfill job updates this asset's data
   // (`data_status.state === 'syncing'`); the Overview tab swaps the empty
   // chart for a spinner while it holds.
-  let dataSyncing = $state(false)
-  let syncTimer: ReturnType<typeof setInterval> | undefined
-  let geoModalOpen = $state(false)
-  let sectorModalOpen = $state(false)
+  let dataSyncing = $state(false);
+
+  let syncTimer: ReturnType<typeof setInterval> | undefined;
+  let geoModalOpen = $state(false);
+  let sectorModalOpen = $state(false);
 
   let form = $state<AssetForm>({
     ticker: '',
@@ -141,18 +156,10 @@
   const currency = $derived(asset?.currency || 'USD')
 
   const hasChanges = $derived.by(() => {
-    if (!asset) return false
-    return (
-      form.ticker !== asset.ticker ||
-      form.isin !== (asset.isin || '') ||
-      form.name !== asset.name ||
-      form.type !== asset.type ||
-      form.currency !== asset.currency ||
-      form.exchange !== (asset.exchange || '') ||
-      form.asset_class !== (asset.asset_class || 'other') ||
-      form.price_source !== (asset.price_source || 'yahoo')
-    )
-  })
+    if (!asset) return false;
+
+    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.price_source !== (asset.price_source || 'yahoo');
+  });
 
   // Totals are computed on the 2-decimal values that actually enter the edit
   // lists (also mirrored in the modal footer): this keeps the displayed sum,
@@ -175,9 +182,10 @@
   // unattributed (saving countries no longer re-derives the regions — that
   // happens only via «Calcola da paesi»). Only a sum above 100 (± float
   // epsilon) blocks saving.
-  const regionsValid = $derived(sumRegions <= 100 + 1e-9)
-  const sectorsValid = $derived(sumSectors <= 100 + 1e-9)
-  const countriesValid = $derived(sumCountries <= 100 + 1e-9)
+  const regionsValid = $derived(sumRegions <= 100 + 1e-9);
+
+  const sectorsValid = $derived(sumSectors <= 100 + 1e-9);
+  const countriesValid = $derived(sumCountries <= 100 + 1e-9);
 
   // 1D/1W/1M/1Y/YTD quote deltas of `AssetQuote`, as compact chips in the
   // sticky header (spec §6.3; the old body-level "Metriche quote" card's
@@ -242,17 +250,17 @@
     if (!id) return
     syncTimer = setInterval(async () => {
       if (!id) return
-      try {
+        try {
         const a = await assetApi.get(id, { noCache: true })
         asset = a
         dataSyncing = a.data_status?.state === 'syncing'
-        if (!dataSyncing) {
+          if (!dataSyncing) {
           stopSyncPolling()
           void refetchAssetData()
+          }
+        } catch {
+          // Keep the previous data; the next tick retries.
         }
-      } catch {
-        // Keep the previous data; the next tick retries.
-      }
     }, 4000)
   }
 
@@ -324,8 +332,8 @@
       toast.error(message)
       const status = (err as { status?: number } | null)?.status
       if (status === 404) {
-        goto(resolve('/assets'), { replaceState: true })
-        return
+        goto(resolve('assets'), { replace: true });
+        return;
       }
     } finally {
       loading = false
@@ -358,11 +366,13 @@
   // completions that happen while this layout is mounted refetch.
   let seenRefresh = priceRefresh.revision
   $effect(() => {
-    const rev = priceRefresh.revision
-    if (rev === seenRefresh) return
-    seenRefresh = rev
-    void refetchAfterRefresh()
-  })
+    const rev = priceRefresh.revision;
+
+    if (rev === seenRefresh) return;
+
+    seenRefresh = rev;
+    void refetchAfterRefresh();
+  });
 
   /** Fill `held` with one row per portfolio currently holding this asset
    * (qty > 0: closed holdings are skipped), derived from the per-portfolio
@@ -785,8 +795,9 @@
   // `requestDelete` reaches this layout only through the context (the Data
   // tab's Danger zone): the header `⋯` menu that used to duplicate these
   // actions was removed (#117), together with its open/close machinery.
-  let showDeleteDialog = $state(false)
-  let deleting = $state(false)
+  let showDeleteDialog = $state(false);
+
+  let deleting = $state(false);
 
   function requestDelete(): void {
     showDeleteDialog = true
@@ -796,12 +807,12 @@
     if (!id) return
     deleting = true
     try {
-      await assetApi.remove(id)
-      toast.success(t('asset.deleted'))
-      void goto(resolve('/assets'))
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('common.deleteFailed')
-      toast.error(message)
+      await assetApi.remove(id);
+      toast.success(t('asset.deleted'));
+      void goto(resolve('assets'));
+    } catch(err: unknown) {
+      const message = err instanceof Error ? err.message : t('common.deleteFailed');
+      toast.error(message);
     } finally {
       deleting = false
     }
@@ -812,11 +823,18 @@
   // tab from the URL, so deep links and the back button just work.
   const tabItems = $derived(
     id
-      ? [
-          { href: resolve(`/assets/${id}`), label: t('asset.tabOverview') },
-          { href: resolve(`/assets/${id}/exposure`), label: t('asset.tabExposure') },
-          { href: resolve(`/assets/${id}/data`), label: t('asset.tabData') },
-        ]
+    ? [
+      { href: resolve(`assets/${id}`), label: t('asset.tabOverview') },
+      {
+        href: resolve(`assets/${id}/exposure`),
+        label: t('asset.tabExposure')
+      },
+
+      {
+        href: resolve(`assets/${id}/data`),
+        label: t('asset.tabData')
+      }
+    ]
       : [],
   )
 
@@ -893,7 +911,7 @@
     <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div class="min-w-0">
         <a
-          href={resolve('/assets')}
+          href={resolve('assets')}
           class="focus-ring -ml-1 inline-flex items-center gap-1 rounded-control text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -951,26 +969,26 @@
 {#if asset}
   <ExposureGeoModal
     bind:open={geoModalOpen}
-    onClose={() => (geoModalOpen = false)}
+    onClose={() => geoModalOpen = false}
     bind:regionsEdit
     bind:countriesEdit
-    {sumRegions}
-    {sumCountries}
-    {savingRegions}
-    {savingCountries}
-    {saveRegions}
-    {saveCountries}
-    {fetchingETF}
-    {fetchingMorningstar}
-    {derivingRegions}
-    {prefillCountriesFromETF}
-    {deriveRegionsFromCountries}
-    {prefillRegionsFromMorningstar}
-    {prefillCountriesFromMorningstar}
-    {countriesSource}
-    {regionsSource}
-    {countriesUpdatedAt}
-    {regionsUpdatedAt}
+    sumRegions={sumRegions}
+    sumCountries={sumCountries}
+    savingRegions={savingRegions}
+    savingCountries={savingCountries}
+    saveRegions={saveRegions}
+    saveCountries={saveCountries}
+    fetchingETF={fetchingETF}
+    fetchingMorningstar={fetchingMorningstar}
+    derivingRegions={derivingRegions}
+    prefillCountriesFromETF={prefillCountriesFromETF}
+    deriveRegionsFromCountries={deriveRegionsFromCountries}
+    prefillRegionsFromMorningstar={prefillRegionsFromMorningstar}
+    prefillCountriesFromMorningstar={prefillCountriesFromMorningstar}
+    countriesSource={countriesSource}
+    regionsSource={regionsSource}
+    countriesUpdatedAt={countriesUpdatedAt}
+    regionsUpdatedAt={regionsUpdatedAt}
     onCountriesDirty={markCountriesManual}
     onRegionsDirty={markRegionsManual}
     assetType={asset.type}
@@ -978,20 +996,20 @@
 
   <ExposureSectorModal
     bind:open={sectorModalOpen}
-    onClose={() => (sectorModalOpen = false)}
+    onClose={() => sectorModalOpen = false}
     bind:sectorsEdit
-    {sumSectors}
-    {sectorsValid}
-    {savingSectors}
-    {saveSectors}
-    {prefilling}
-    {fetchingETF}
-    {fetchingMorningstar}
-    {prefillSectorsFromETF}
-    {prefillSectorsFromYahoo}
-    {prefillSectorsFromMorningstar}
-    {sectorsSource}
-    {sectorsUpdatedAt}
+    sumSectors={sumSectors}
+    sectorsValid={sectorsValid}
+    savingSectors={savingSectors}
+    saveSectors={saveSectors}
+    prefilling={prefilling}
+    fetchingETF={fetchingETF}
+    fetchingMorningstar={fetchingMorningstar}
+    prefillSectorsFromETF={prefillSectorsFromETF}
+    prefillSectorsFromYahoo={prefillSectorsFromYahoo}
+    prefillSectorsFromMorningstar={prefillSectorsFromMorningstar}
+    sectorsSource={sectorsSource}
+    sectorsUpdatedAt={sectorsUpdatedAt}
     onSectorsDirty={markSectorsManual}
     assetType={asset.type}
   />

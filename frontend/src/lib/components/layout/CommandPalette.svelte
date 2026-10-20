@@ -26,22 +26,23 @@
   import { fade } from 'svelte/transition'
   import { afterNavigate, goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import { t, type MessageKey } from '$lib/i18n/index.svelte'
+  import { t, type MessageKey } from '#lib/i18n/index.svelte.js'
   import {
     assetApi,
     portfolioApi,
     type Asset,
     type AssetLookupResult,
-    type Portfolio,
-  } from '$lib/services/api'
-  import { palette, setCvd } from '$lib/stores/palette.svelte'
-  import { isAdmin } from '$lib/stores/auth.svelte'
-  import { refreshPrices } from '$lib/stores/priceRefresh.svelte'
-  import { setThemeMode, theme, type ThemeMode } from '$lib/stores/theme.svelte'
-  import { viewport } from '$lib/stores/viewport.svelte'
-  import { focusTrap } from '../ui/focus-trap'
-  import { backdropFade } from '../ui/transitions'
-  import { cx } from '../ui/utils'
+    type Portfolio
+  } from '#lib/services/api.js';
+
+  import { palette, setCvd } from '#lib/stores/palette.svelte.js';
+  import { isAdmin } from '#lib/stores/auth.svelte.js';
+  import { refreshPrices } from '#lib/stores/priceRefresh.svelte.js';
+  import { setThemeMode, theme, type ThemeMode } from '#lib/stores/theme.svelte.js';
+  import { viewport } from '#lib/stores/viewport.svelte.js';
+  import { focusTrap } from '../ui/focus-trap';
+  import { backdropFade } from '../ui/transitions';
+  import { cx } from '../ui/utils';
 
   /**
    * Global command palette (EPIC K.5a, spec §8.1): ⌘K / Ctrl+K opens a
@@ -115,36 +116,31 @@
     hay: string
   }
 
-  let {
-    open = $bindable(false),
-    ontogglesidebar = undefined,
-  }: {
-    /** Bindable so the shell header trigger, the chord and Esc share one state. */
-    open?: boolean
-    /** Shell sidebar toggle; the *Toggle sidebar* row renders only with it. */
-    ontogglesidebar?: (() => void) | undefined
-  } = $props()
+  let { open = $bindable(false), ontogglesidebar = undefined
 
-  const uid = $props.id()
-  const listboxId = `${uid}-listbox`
+  /** Bindable so the shell header trigger, the chord and Esc share one state. */
+  /** Shell sidebar toggle; the *Toggle sidebar* row renders only with it. */
+   }: { open?: boolean; ontogglesidebar?: (() => void) | undefined } = $props();
 
-  let query = $state('')
-  let rawActive = $state(0)
-  let portfolios = $state<Portfolio[]>([])
-  let assets = $state<Asset[]>([])
-  let lookup = $state<{ status: 'idle' | 'loading' | 'ready'; results: AssetLookupResult[] }>({
-    status: 'idle',
-    results: [],
-  })
-  let inputEl = $state<HTMLInputElement | null>(null)
+  const uid = $props.id();
+  const listboxId = `${uid}-listbox`;
+  let query = $state('');
+  let rawActive = $state(0);
+  let portfolios = $state<Portfolio[]>([]);
+  let assets = $state<Asset[]>([]);
+
+  let lookup = $state<{ 
+    status: 'idle' | 'loading' | 'ready';
+    results: AssetLookupResult[]
+   }>({ status: 'idle', results: [] });
+
+  let inputEl = $state<HTMLInputElement | null>(null);
 
   // Plain flags (never rendered): request de-duplication and race guards.
-  let listsLoading = false
-  let lookupSeq = 0
+  let listsLoading = false;
 
-  const normalizedQuery = $derived(
-    query.trim().toLowerCase().replace(/\s+/g, ' '),
-  )
+  let lookupSeq = 0;
+  const normalizedQuery = $derived(query.trim().toLowerCase().replace(/\s+/g, ' '));
 
   /** Monotonic counter: a lookup response is applied only if it is still the latest. */
   function setLookup(next: { status: 'idle' | 'loading' | 'ready'; results: AssetLookupResult[] }): void {
@@ -177,12 +173,12 @@
       const data = await portfolioApi.list()
       // Coerce like `fetchLists` (issue #121): a `null` list must fall back to
       // the portfolios page, not throw through the array access below.
-      const rows = Array.isArray(data) ? data : []
-      await goto(
-        rows.length === 1 ? resolve(`/portfolios/${rows[0].id}`) : resolve('/portfolios'),
-      )
+      const rows = Array.isArray(data) ? data : [];
+      await goto(rows.length === 1
+        ? resolve(`portfolios/${rows[0].id}`)
+        : resolve('portfolios'));
     } catch {
-      await goto(resolve('/portfolios'))
+      await goto(resolve('portfolios'));
     }
   }
 
@@ -224,8 +220,11 @@
     // While unfiltered the dynamic sections are capped (a 200-asset vault
     // should not turn the palette into a scroll wall); under a query every
     // match counts, ranked by score.
-    const portfolioSource = empty ? portfolios.slice(0, MAX_ITEMS_WHEN_EMPTY) : portfolios
-    const assetSource = empty ? assets.slice(0, MAX_ITEMS_WHEN_EMPTY) : assets
+    const portfolioSource = empty
+      ? portfolios.slice(0, MAX_ITEMS_WHEN_EMPTY)
+      : portfolios;
+
+    const assetSource = empty ? assets.slice(0, MAX_ITEMS_WHEN_EMPTY) : assets;
 
     const goItems: PaletteItem[] = [
       row({
@@ -242,7 +241,7 @@
         label: t('nav.portfolios'),
         icon: Briefcase,
         keywords: 'portfolio',
-        run: () => goto(resolve('/portfolios')),
+        run: () => goto(resolve('portfolios'))
       }),
       row({
         id: 'go-assets',
@@ -250,7 +249,7 @@
         label: t('nav.assets'),
         icon: Banknote,
         keywords: 'asset securities instruments',
-        run: () => goto(resolve('/assets')),
+        run: () => goto(resolve('assets'))
       }),
       row({
         id: 'go-data-sync',
@@ -258,7 +257,7 @@
         label: t('nav.dataSync'),
         icon: Activity,
         keywords: 'admin health sync prices',
-        run: () => goto(resolve('/admin/health')),
+        run: () => goto(resolve('admin/health'))
       }),
       row({
         id: 'go-settings',
@@ -266,7 +265,7 @@
         label: t('nav.settings'),
         icon: Settings,
         keywords: 'preferences profile',
-        run: () => goto(resolve('/settings')),
+        run: () => goto(resolve('settings'))
       }),
       row({
         id: 'go-settings-profile',
@@ -274,7 +273,7 @@
         label: t('settingsTabs.profile'),
         hint: t('nav.settings'),
         icon: User,
-        run: () => goto(resolve('/settings')),
+        run: () => goto(resolve('settings'))
       }),
       row({
         id: 'go-settings-password',
@@ -283,7 +282,7 @@
         hint: t('nav.settings'),
         icon: KeyRound,
         keywords: 'security',
-        run: () => goto(resolve('/settings/password')),
+        run: () => goto(resolve('settings/password'))
       }),
       row({
         id: 'go-settings-preferences',
@@ -292,7 +291,7 @@
         hint: t('nav.settings'),
         icon: SlidersHorizontal,
         keywords: 'theme language palette',
-        run: () => goto(resolve('/settings/preferences')),
+        run: () => goto(resolve('settings/preferences'))
       }),
       row({
         id: 'go-settings-currencies',
@@ -301,7 +300,7 @@
         hint: t('nav.settings'),
         icon: CircleDollarSign,
         keywords: 'fx exchange rates',
-        run: () => goto(resolve('/settings/currencies')),
+        run: () => goto(resolve('settings/currencies'))
       }),
       row({
         id: 'go-settings-backup',
@@ -310,64 +309,62 @@
         hint: t('nav.settings'),
         icon: Download,
         keywords: 'backup restore download export import data json',
-        run: () => goto(resolve('/settings/backup')),
+        run: () => goto(resolve('settings/backup'))
       }),
       // Admin destinations mirror the sidebar's Admin section: only offered
       // to admin-equivalent accounts (#57).
-      ...(isAdmin()
+      ...isAdmin()
         ? [
-            row({
-              id: 'go-admin-users',
-              section: 'go',
-              label: t('nav.users'),
-              hint: t('nav.sectionAdmin'),
-              icon: Users,
-              keywords: 'admin accounts roles approve disable reset password',
-              run: () => goto(resolve('/admin/users')),
-            }),
-            row({
-              id: 'go-admin-settings',
-              section: 'go',
-              label: t('nav.serverSettings'),
-              hint: t('nav.sectionAdmin'),
-              icon: ServerCog,
-              keywords: 'admin auto approve registrations server settings',
-              run: () => goto(resolve('/admin/settings')),
-            }),
-            row({
-              id: 'go-admin-db-backup',
-              section: 'go',
-              label: t('nav.serverBackup'),
-              hint: t('nav.sectionAdmin'),
-              icon: DatabaseBackup,
-              keywords: 'admin database dump restore pg_dump pg_restore server backup',
-              run: () => goto(resolve('/admin/backup')),
-            }),
-          ]
-        : []),
-      ...portfolioSource.map((p) =>
-        row({
-          id: `go-portfolio-${p.id}`,
-          section: 'go',
-          label: p.name,
-          hint: p.currency,
-          icon: FolderClosed,
-          run: () => goto(resolve(`/portfolios/${p.id}`)),
-        }),
-      ),
-    ]
+          row({
+            id: 'go-admin-users',
+            section: 'go',
+            label: t('nav.users'),
+            hint: t('nav.sectionAdmin'),
+            icon: Users,
+            keywords: 'admin accounts roles approve disable reset password',
+            run: () => goto(resolve('admin/users'))
+          }),
+          row({
+            id: 'go-admin-settings',
+            section: 'go',
+            label: t('nav.serverSettings'),
+            hint: t('nav.sectionAdmin'),
+            icon: ServerCog,
+            keywords: 'admin auto approve registrations server settings',
+            run: () => goto(resolve('admin/settings'))
+          }),
+          row({
+            id: 'go-admin-db-backup',
+            section: 'go',
+            label: t('nav.serverBackup'),
+            hint: t('nav.sectionAdmin'),
+            icon: DatabaseBackup,
+            keywords: 'admin database dump restore pg_dump pg_restore server backup',
+            run: () => goto(resolve('admin/backup'))
+          })
+        ]
+        : [],
+
+      ...portfolioSource.map((p) => row({
+        id: `go-portfolio-${p.id}`,
+        section: 'go',
+        label: p.name,
+        hint: p.currency,
+        icon: FolderClosed,
+        run: () => goto(resolve(`portfolios/${p.id}`))
+      }))
+    ];
 
     const assetItems: PaletteItem[] = assetSource.map((a) =>
       row({
-        id: `asset-${a.id}`,
-        section: 'assets',
-        label: a.name || a.ticker,
-        hint: a.ticker,
-        icon: Banknote,
-        keywords: `${a.ticker} ${a.type} ${a.asset_class}`,
-        run: () => goto(resolve(`/assets/${a.id}`)),
-      }),
-    )
+      id: `asset-${a.id}`,
+      section: 'assets',
+      label: a.name || a.ticker,
+      hint: a.ticker,
+      icon: Banknote,
+      keywords: `${a.ticker} ${a.type} ${a.asset_class}`,
+      run: () => goto(resolve(`assets/${a.id}`))
+    }));
 
     // Live Yahoo affordance: never filtered locally (it mirrors the raw
     // query); the debounced effect below feeds `lookup` for its hint.
@@ -376,20 +373,19 @@
       const top = lookup.results[0]
       assetItems.push(
         row({
-          id: 'assets-yahoo',
-          section: 'assets',
-          label: t('commandPalette.yahooRow', { query: rawQuery }),
+        id: 'assets-yahoo',
+        section: 'assets',
+        label: t('commandPalette.yahooRow', { query: rawQuery }),
           hint:
             lookup.status === 'loading'
-              ? t('commandPalette.searching')
+          ? t('commandPalette.searching')
               : top
                 ? `${top.ticker} · ${top.name}`
                 : undefined,
-          icon: Search,
-          keywords: 'yahoo symbol search',
-          run: () => goto(resolve('/assets')),
-        }),
-      )
+        icon: Search,
+        keywords: 'yahoo symbol search',
+        run: () => goto(resolve('assets'))
+      }));
     }
 
     const actionItems: PaletteItem[] = [
@@ -447,17 +443,14 @@
     }
 
     const filter = (items: PaletteItem[]): PaletteItem[] => {
-      if (empty) return items
-      return items
-        .map((item) => ({ item, score: matchScore(item.hay, q) }))
-        .filter((m): m is { item: PaletteItem; score: number } => m.score !== null)
-        // Stable Array#sort keeps the defined order inside each score tier.
-        .sort((a, b) => a.score - b.score)
-        .slice(0, MAX_MATCHES)
-        .map((m) => m.item)
-    }
+      if (empty) return items;
 
-    let index = 0
+      return items.map((item) => ({ item, score: matchScore(item.hay, q) })).filter((m): m is { item: PaletteItem; score: number } => m.score !== null).// Stable Array#sort keeps the defined order inside each score tier.
+      sort((a, b) => a.score - b.score).slice(0, MAX_MATCHES).map((m) => m.item);
+    };
+
+    let index = 0;
+
     const sections = [
       { labelKey: 'commandPalette.sectionGoTo' as MessageKey, items: filter(goItems) },
       { labelKey: 'commandPalette.sectionAssets' as MessageKey, items: filter(assetItems) },
@@ -465,7 +458,7 @@
     ]
       .filter((section) => section.items.length > 0)
       .map((section) => ({
-        labelKey: section.labelKey,
+      labelKey: section.labelKey,
         rows: section.items.map((item) => ({ id: item.id, index: index++, item })),
       }))
 
@@ -515,15 +508,16 @@
         break
       case 'Enter': {
         const current = view.sections.flatMap((section) => section.rows)[activeIndex]
-        if (current) {
+          if (current) {
           event.preventDefault()
           runItem(current.item)
+          }
+        break
         }
-        break
-      }
-      // Escape closes on the overlay handler (it sees the bubbled key too).
+
       default:
-        break
+        // Escape closes on the overlay handler (it sees the bubbled key too).
+        break;
     }
   }
 
@@ -582,13 +576,15 @@
           if (seq === lookupSeq) {
             setLookup({ status: 'ready', results: Array.isArray(results) ? results : [] })
           }
-        })
-        .catch(() => {
-          if (seq === lookupSeq) setLookup({ status: 'ready', results: [] })
-        })
-    }, LOOKUP_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  })
+        }).catch(() => {
+          if (seq === lookupSeq) setLookup({ status: 'ready', results: [] });
+        });
+      },
+      LOOKUP_DEBOUNCE_MS
+    );
+
+    return () => clearTimeout(timer);
+  });
 
   // Any query edit restarts the tour of the list from the top row.
   $effect(() => {
@@ -599,18 +595,21 @@
   // Follow the active option on arrow/Home/End (no-op when already in view;
   // `block: 'nearest'` also skips the scroll under reduced motion).
   $effect(() => {
-    const id = `${uid}-opt-${activeIndex}`
-    if (!open) return
-    document.getElementById(id)?.scrollIntoView({ block: 'nearest' })
-  })
+    const id = `${uid}-opt-${activeIndex}`;
+
+    if (!open) return;
+
+    document.getElementById(id)?.scrollIntoView({ block: 'nearest' });
+  });
 
   // Back/forward (or any other navigation) while open: dismiss the dialog.
-  afterNavigate(() => {
-    if (open) open = false
-  })
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === 'goto') return;
+    if (open) open = false;
+  });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+<svelte:window onkeydown={handleGlobalKeydown}></svelte:window>
 
 {#if open}
   <div
@@ -691,7 +690,7 @@
                     row.index === activeIndex ? 'bg-accent/10' : 'hover:bg-muted',
                   )}
                   onmousedown={(event: MouseEvent) => event.preventDefault()}
-                  onmousemove={() => (rawActive = row.index)}
+                  onmousemove={() => rawActive = row.index}
                   onclick={() => runItem(row.item)}
                 >
                   <Icon class="h-4 w-4 shrink-0 text-accent-text" />

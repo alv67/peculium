@@ -1,8 +1,8 @@
 <script lang="ts">
   import { resolve } from '$app/paths'
   import { TriangleAlert } from 'lucide-svelte'
-  import { formatCurrency } from '$lib/format'
-  import { t } from '$lib/i18n/index.svelte'
+  import { formatCurrency } from '#lib/format.js'
+  import { t } from '#lib/i18n/index.svelte.js'
 
   /**
    * Vault-level data-quality strip (EPIC K.3a, redesign spec §6.1/§8.5): a
@@ -49,14 +49,22 @@
           amount: formatCurrency(fxMissingValue, currency),
           count: fxMissingCount,
         }),
-        href: resolve('/settings/currencies'),
-      })
+        href: resolve('settings/currencies')
+      });
     }
     if (partial) {
-      out.push({ id: 'partial', label: t('quality.refreshPartial'), href: resolve('/admin/health') })
+      out.push({
+        id: 'partial',
+        label: t('quality.refreshPartial'),
+        href: resolve('admin/health')
+      });
     }
     if (refreshFailed) {
-      out.push({ id: 'stale', label: t('quality.refreshFailed'), href: resolve('/admin/health') })
+      out.push({
+        id: 'stale',
+        label: t('quality.refreshFailed'),
+        href: resolve('admin/health')
+      });
     }
     return out
   })

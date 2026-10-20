@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths'
   import { ArrowRight, Check } from 'lucide-svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Card from '../ui/Card.svelte'
   import { cx } from '../ui/utils'
 
@@ -20,14 +20,12 @@
    * anyway so the component never lies when the payload is fresher than the
    * moment the branch was taken.
    */
-  let {
-    portfolioCount = 0,
-    assetCount = 0,
-    transactionSeen = false,
-  }: {
-    portfolioCount?: number
-    assetCount?: number
-    /** True when any portfolio already shows buy/sell activity. */
+  let { portfolioCount = 0, assetCount = 0, transactionSeen = false
+
+  /** True when any portfolio already shows buy/sell activity. */
+   }: { 
+    portfolioCount?: number;
+    assetCount?: number;
     transactionSeen?: boolean
   } = $props()
 
@@ -36,25 +34,25 @@
       key: 'portfolio',
       title: t('checklist.stepPortfolio'),
       hint: t('checklist.stepPortfolioHint'),
-      href: resolve('/portfolios'),
-      done: portfolioCount > 0,
+      href: resolve('portfolios'),
+      done: portfolioCount > 0
     },
     {
       key: 'asset',
       title: t('checklist.stepAsset'),
       hint: t('checklist.stepAssetHint'),
-      href: resolve('/assets'),
-      done: assetCount > 0,
+      href: resolve('assets'),
+      done: assetCount > 0
     },
     {
       key: 'transaction',
       title: t('checklist.stepTransaction'),
       hint: t('checklist.stepTransactionHint'),
-      href: resolve('/portfolios'),
-      done: transactionSeen,
-    },
-  ])
-  const currentIndex = $derived(steps.findIndex((s) => !s.done))
+      href: resolve('portfolios'),
+      done: transactionSeen
+    }
+  ]);
+  const currentIndex = $derived(steps.findIndex((s) => !s.done));
 </script>
 
 <Card class="p-6">

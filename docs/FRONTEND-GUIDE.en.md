@@ -108,9 +108,9 @@ and in `docker-compose.yml` for the pull-only release stack):
 
 ### How the SvelteKit build works
 
-- `frontend/svelte.config.js` uses **`@sveltejs/adapter-static`** with
-  `fallback: 'index.html'`: a "static" build, suitable for a server that only
-  serves files (nginx). The `fallback` makes it a flash-less SPA: any unknown
+- `frontend/vite.config.ts` passes **`@sveltejs/adapter-static`** to the
+  `sveltekit()` plugin with `fallback: 'index.html'`: a "static" build,
+  suitable for a server that only serves files (nginx). The `fallback` makes it a flash-less SPA: any unknown
   URL returns the shell `index.html`, which then loads the right page.
 - `frontend/src/routes/+layout.ts` sets `export const ssr = false` and
   `export const prerender = false`: no server-side rendering, no prebuilt
@@ -150,8 +150,8 @@ matters only if the API is called directly from a page served elsewhere.
 
 ```
 frontend/
-├── svelte.config.js        # adapter-static + fallback index.html
-├── vite.config.ts          # dev port 5173 + /api proxy
+├── vite.config.ts          # SvelteKit plugin (adapter-static, fallback
+│                           # index.html), dev port 5173 + /api proxy
 ├── tailwind.config.js      # Tailwind content: ./src/**/*.{html,js,svelte,ts}
 ├── postcss.config.js       # tailwindcss + autoprefixer
 ├── Dockerfile              # node build → nginx serve (port 80)
@@ -161,7 +161,7 @@ frontend/
     ├── app.html            # root HTML (theme bootstrap, meta theme-color, favicon, title)
     ├── app.css             # @tailwind + semantic tokens (:root / .dark) + base layer
     ├── app.d.ts            # SvelteKit App namespace (placeholders)
-    ├── lib/                # shared code (the "meat")
+    ├── lib/                # shared code (the "meat"), imported as #lib/<file>.js
     │   ├── components/     # ui/ primitives, layout/ (AppShell + adaptive chrome), Toaster + the ECharts wrappers
     │   ├── services/api.ts # the single API client (chapter 5)
     │   ├── stores/         # auth.svelte.ts, toast.svelte.ts, theme.svelte.ts, viewport.svelte.ts (Svelte 5 runes)
@@ -921,7 +921,7 @@ A rune-based store that holds `auth.user` and `auth.isLoading`:
 
 The **shell** (`AppShell.svelte`) owns the once-per-session price refresh: on
 mount — on any landing page, including deep links — it calls `refreshPrices()`
-from the shared `$lib/stores/priceRefresh.svelte` store. That store is the
+from the shared `#lib/stores/priceRefresh.svelte.js` store. That store is the
 **single refresh path** for the whole app (the shell's automatic trigger, the
 header control, the Fab and the command palette all go through it), so
 concurrent triggers de-duplicate into one enqueue and a shared `revision`
@@ -1479,7 +1479,7 @@ TAB **Exposure** — the geo/sector distribution widgets:
       **"Prefill Morningstar"** (`fetchMorningstarExposure`, applies `sectors`
       only, ETF-only like JustETF; the endpoint is cached per ISIN, so when
       countries/regions were already fetched the call is immediate).
-  The **colour palette is shared** (`$lib/chartPalette.ts`): the coloured
+  The **colour palette is shared** (`#lib/chartPalette.js`): the coloured
   squares before each name use `colorForRow`, which returns exactly the slice
   colour in the chart, so square and chart always match. The charts inside the
   modals are **mute** (`mute` on `ExposurePie`: no value labels and no tooltip

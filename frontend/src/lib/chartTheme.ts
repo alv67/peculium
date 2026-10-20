@@ -13,8 +13,8 @@
  * plain `init` (ECharts resolves registered names at runtime).
  */
 import { registerTheme } from 'echarts/core'
-import type { ResolvedTheme } from '$lib/stores/theme.svelte'
-import { CHART_PALETTE, CHART_PALETTE_DARK } from '$lib/chartPalette'
+import type { ResolvedTheme } from '#lib/stores/theme.svelte.js'
+import { CHART_PALETTE, CHART_PALETTE_DARK } from '#lib/chartPalette.js'
 
 /** Keep in sync with `fontFamily.sans` in tailwind.config.js (the canvas
  *  cannot resolve the CSS font stack). */

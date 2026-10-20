@@ -1,4 +1,4 @@
-import { t, type MessageKey } from '$lib/i18n/index.svelte'
+import { t, type MessageKey } from '#lib/i18n/index.svelte.js'
 
 const currencySymbols: Record<string, string> = {
   USD: '$',

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { t } from '$lib/i18n/index.svelte'
-  import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel } from '$lib/format'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel } from '#lib/format.js'
   import { History, RefreshCw, Trash2 } from 'lucide-svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
-  import ManualPricesCard from '$lib/components/domain/ManualPricesCard.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
+  import ManualPricesCard from '#lib/components/domain/ManualPricesCard.svelte'
   import { getAssetPage } from '../context'
 
   /**

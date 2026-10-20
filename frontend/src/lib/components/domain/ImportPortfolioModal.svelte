@@ -1,20 +1,20 @@
 <script lang="ts">
   import { Upload } from 'lucide-svelte'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import {
     assetApi,
     jobsApi,
     portfolioApi,
     type Portfolio,
     type PortfolioExportDocument,
-  } from '$lib/services/api'
-  import { markDataSynced } from '$lib/stores/priceRefresh.svelte'
-  import Modal from '$lib/components/ui/Modal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
-  import Select from '$lib/components/ui/Select.svelte'
+  } from '#lib/services/api.js'
+  import { markDataSynced } from '#lib/stores/priceRefresh.svelte.js'
+  import Modal from '#lib/components/ui/Modal.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import Input from '#lib/components/ui/Input.svelte'
+  import Select from '#lib/components/ui/Select.svelte'
 
   /** JSON portfolio-import dialog (EPIC E.3), extracted from the portfolios page. */
   let {

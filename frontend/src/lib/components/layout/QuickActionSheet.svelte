@@ -1,6 +1,6 @@
 <script module lang="ts">
   import type { RefreshCw } from 'lucide-svelte'
-  import type { MessageKey } from '$lib/i18n/index.svelte'
+  import type { MessageKey } from '#lib/i18n/index.svelte.js'
 
   /**
    * One row of the quick-actions sheet. The Fab owns the list (labels are
@@ -23,7 +23,7 @@
 </script>
 
 <script lang="ts">
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Button from '../ui/Button.svelte'
   import Sheet from '../ui/Sheet.svelte'
 

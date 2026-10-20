@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import { cx } from './utils'
 
   /**
@@ -76,8 +76,8 @@
     tabs[next].focus()
     // Roving focus that activates: the href comes from `items`, resolved by
     // the caller (see docstring), so the rule below cannot know it's safe.
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    void goto(items[next].href, { keepFocus: true })
+     
+    void goto(items[next].href, { reset: false })
   }
 </script>
 

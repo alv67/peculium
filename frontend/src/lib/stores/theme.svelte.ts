@@ -1,9 +1,8 @@
-import { browser } from '$app/environment'
+import { browser } from '$app/env';
 
-export type ThemeMode = 'light' | 'dark' | 'system'
-export type ResolvedTheme = 'light' | 'dark'
-
-export const THEME_STORAGE_KEY = 'peculium-theme'
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type ResolvedTheme = 'light' | 'dark';
+export const THEME_STORAGE_KEY = 'peculium-theme';
 
 /** Legacy storage key: when the new key is absent, the value stored here is
  *  adopted and written forward once, so no saved preference is lost. */
@@ -61,7 +60,9 @@ export const theme = $state({
  * tracks the underlying `theme` state, so callers re-run on theme changes.
  */
 export function resolved(): ResolvedTheme {
-  return theme.mode === 'system' ? (theme.systemPrefersDark ? 'dark' : 'light') : theme.mode
+  return theme.mode === 'system'
+    ? theme.systemPrefersDark ? 'dark' : 'light'
+    : theme.mode;
 }
 
 function syncThemeClass(): void {

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Search } from 'lucide-svelte'
-  import { assetApi, type AssetLookupResult } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
+  import { assetApi, type AssetLookupResult } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import Input from '#lib/components/ui/Input.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
 
   /**
    * Yahoo ticker lookup field (EPIC E.3): debounced autocomplete over

@@ -12,8 +12,8 @@
    * the pill border, while `bg-surface` + a muted text tone keep the original
    * subtle look; the provenance identity dots stay on the chart tokens.
    */
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import { t, type MessageKey } from '$lib/i18n/index.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import { t, type MessageKey } from '#lib/i18n/index.svelte.js'
 
   let {
     source = null as string | null,

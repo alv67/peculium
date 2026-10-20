@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'
   import { afterNavigate } from '$app/navigation'
   import { fade, slide } from 'svelte/transition'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import { OVERLAY_OPEN_GRACE_MS } from '../ui/utils'
 
   /**
@@ -82,11 +82,13 @@
 
   // Route change (nav link clicked inside the drawer): close without
   // restoring focus to the More trigger — see `suppressRestore` above.
-  afterNavigate(() => {
-    if (!open) return
-    suppressRestore = true
-    open = false
-  })
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === 'goto') return;
+    if (!open) return;
+
+    suppressRestore = true;
+    open = false;
+  });
 
   // Capture/restore keyed on `open`; the cleanup form also covers the drawer
   // being destroyed while open (e.g. logout unmounts the shell).

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Banknote, PanelLeft, Search } from 'lucide-svelte'
-  import { browser } from '$app/environment'
-  import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
-  import Button from '../ui/Button.svelte'
-  import PriceRefreshButton from './PriceRefreshButton.svelte'
-  import ThemeToggle from './ThemeToggle.svelte'
-  import UserMenu from './UserMenu.svelte'
+  import { Banknote, PanelLeft, Search } from 'lucide-svelte';
+  import { browser } from '$app/env';
+  import { resolve } from '$app/paths';
+  import { t } from '#lib/i18n/index.svelte.js';
+  import Button from '../ui/Button.svelte';
+  import PriceRefreshButton from './PriceRefreshButton.svelte';
+  import ThemeToggle from './ThemeToggle.svelte';
+  import UserMenu from './UserMenu.svelte';
 
   /**
    * Sticky top bar (EPIC D.3, adaptive since K.2). Left: the sidebar
@@ -39,22 +39,19 @@
    * z-20: same tier as the dropdowns it hosts (header and its popovers must
    * both stay under the drawer/sheet tier, z-30).
    */
-  let {
-    collapsed,
-    ontogglecollapse,
-    onopenpalette,
-  }: {
-    /** Sidebar rail state (drives the collapse toggle's label/pressed). */
-    collapsed: boolean
-    ontogglecollapse: () => void
-    /** Opens the K.5a command palette (the shell owns its bindable state). */
+  let { collapsed, ontogglecollapse, onopenpalette
+
+  /** Sidebar rail state (drives the collapse toggle's label/pressed). */
+  /** Opens the K.5a command palette (the shell owns its bindable state). */
+   }: { 
+    collapsed: boolean;
+    ontogglecollapse: () => void;
     onopenpalette?: () => void
   } = $props()
 
   // The ⌘K hint carries the platform's real chord (⌘ on Apple, Ctrl
   // elsewhere); the palette component handles both chords identically.
-  const chord =
-    browser && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? '⌘K' : 'Ctrl K'
+  const chord = browser && (/Mac|iPhone|iPad|iPod/i).test(navigator.userAgent) ? '⌘K' : 'Ctrl K';
 </script>
 
 <header

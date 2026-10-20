@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { toast } from '$lib/stores/toast.svelte'
-  import { adminApi, type ServerSettings } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import AdminGate from '$lib/components/domain/AdminGate.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
-  import Switch from '$lib/components/ui/Switch.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { adminApi, type ServerSettings } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import AdminGate from '#lib/components/domain/AdminGate.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import EmptyState from '#lib/components/ui/EmptyState.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
+  import Switch from '#lib/components/ui/Switch.svelte'
 
   /**
    * Admin → Server settings (issue #57 Phase A): the one server-wide switch

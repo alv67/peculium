@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/i18n/index.svelte'
-  import PositionTable, { type PositionRow } from '$lib/components/domain/PositionTable.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import PositionTable, { type PositionRow } from '#lib/components/domain/PositionTable.svelte'
   import { getPortfolioPage } from '../context'
 
   /**

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { Download, Upload } from 'lucide-svelte'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { adminApi, errorStatus, saveBlob, type DBRestoreSummary } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import AdminGate from '$lib/components/domain/AdminGate.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import Field from '$lib/components/ui/Field.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
-  import Modal from '$lib/components/ui/Modal.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { adminApi, errorStatus, saveBlob, type DBRestoreSummary } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import AdminGate from '#lib/components/domain/AdminGate.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import Field from '#lib/components/ui/Field.svelte'
+  import Input from '#lib/components/ui/Input.svelte'
+  import Modal from '#lib/components/ui/Modal.svelte'
 
   /**
    * Admin → Server backup (issue #57 Phase D): whole-database dump and

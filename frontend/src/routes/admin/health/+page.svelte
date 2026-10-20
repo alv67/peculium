@@ -1,33 +1,33 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { toast } from '$lib/stores/toast.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
   import {
     adminApi,
     healthApi,
     type ActivityItem,
     type HealthEvent,
     type HealthSummary,
-  } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import { isAdmin } from '$lib/stores/auth.svelte'
-  import { formatDuration } from '$lib/format'
-  import { priceRefresh } from '$lib/stores/priceRefresh.svelte'
+  } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { isAdmin } from '#lib/stores/auth.svelte.js'
+  import { formatDuration } from '#lib/format.js'
+  import { priceRefresh } from '#lib/stores/priceRefresh.svelte.js'
   import { ChevronRight } from 'lucide-svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import JobDetailPanel from '$lib/components/domain/JobDetailPanel.svelte'
-  import { JOB_TARGET_KEYS, JOB_TYPE_KEYS, labeled, statusBadge } from '$lib/components/domain/job-status'
-  import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte'
-  import Select from '$lib/components/ui/Select.svelte'
-  import Spinner from '$lib/components/ui/Spinner.svelte'
-  import StatCard from '$lib/components/ui/StatCard.svelte'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte'
+  import JobDetailPanel from '#lib/components/domain/JobDetailPanel.svelte'
+  import { JOB_TARGET_KEYS, JOB_TYPE_KEYS, labeled, statusBadge } from '#lib/components/domain/job-status.js'
+  import SegmentedControl from '#lib/components/ui/SegmentedControl.svelte'
+  import Select from '#lib/components/ui/Select.svelte'
+  import Spinner from '#lib/components/ui/Spinner.svelte'
+  import StatCard from '#lib/components/ui/StatCard.svelte'
+  import Table from '#lib/components/ui/Table.svelte'
+  import THead from '#lib/components/ui/THead.svelte'
+  import TBody from '#lib/components/ui/TBody.svelte'
+  import Tr from '#lib/components/ui/Tr.svelte'
+  import Th from '#lib/components/ui/Th.svelte'
+  import Td from '#lib/components/ui/Td.svelte'
 
   const PAGE_SIZE = 50
 

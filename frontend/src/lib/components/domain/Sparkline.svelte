@@ -5,11 +5,11 @@
   import { LineChart } from 'echarts/charts'
   import { GridComponent } from 'echarts/components'
   import { CanvasRenderer } from 'echarts/renderers'
-  import { chartSemanticColors } from '$lib/chartPalette'
-  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
-  import { t } from '$lib/i18n/index.svelte'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import { cx } from '$lib/components/ui/utils'
+  import { chartSemanticColors } from '#lib/chartPalette.js'
+  import { PECULIUM_CHART_THEMES } from '#lib/chartTheme.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
+  import { cx } from '#lib/components/ui/utils.js'
 
   use([LineChart, GridComponent, CanvasRenderer])
 

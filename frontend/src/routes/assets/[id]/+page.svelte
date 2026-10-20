@@ -1,23 +1,24 @@
 <script lang="ts">
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
   import {
     formatCurrency,
     assetTypeLabel,
     assetClassLabel,
-    priceSourceLabel,
-  } from '$lib/format'
-  import PriceChart from '$lib/components/PriceChart.svelte'
-  import PnlValue from '$lib/components/ui/PnlValue.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
-  import { getAssetPage } from './context'
+    priceSourceLabel
+  } from '#lib/format.js';
+
+  import PriceChart from '#lib/components/PriceChart.svelte';
+  import PnlValue from '#lib/components/ui/PnlValue.svelte';
+  import Button from '#lib/components/ui/Button.svelte';
+  import EmptyState from '#lib/components/ui/EmptyState.svelte';
+  import Table from '#lib/components/ui/Table.svelte';
+  import THead from '#lib/components/ui/THead.svelte';
+  import TBody from '#lib/components/ui/TBody.svelte';
+  import Tr from '#lib/components/ui/Tr.svelte';
+  import Th from '#lib/components/ui/Th.svelte';
+  import Td from '#lib/components/ui/Td.svelte';
+  import { getAssetPage } from './context';
 
   /**
    * Overview tab (EPIC K.4b, spec §6.3): the price chart with its
@@ -37,12 +38,13 @@
     { key: '3M', days: 90 },
     { key: '1Y', days: 365 },
     { key: 'YTD', days: -1 },
-    { key: 'MAX', days: Infinity },
-  ] as const
-  type RangeKey = (typeof RANGES)[number]['key']
+    { key: 'MAX', days: Infinity }
+  ] as const;
 
-  let range = $state<RangeKey | null>('1Y')
-  let programmaticallyZooming = $state(false)
+  type RangeKey = (typeof RANGES)[number]['key'];
+
+  let range = $state<RangeKey | null>('1Y');
+  let programmaticallyZooming = $state(false);
 
   const chartSeries = $derived.by(() => {
     return [...ctx.prices]
@@ -64,9 +66,9 @@
   })
 
   function selectRange(r: RangeKey): void {
-    programmaticallyZooming = true
-    range = r
-    setTimeout(() => (programmaticallyZooming = false), 300)
+    programmaticallyZooming = true;
+    range = r;
+    setTimeout(() => programmaticallyZooming = false, 300);
   }
 
   function handleChartZoom(): void {
@@ -81,12 +83,11 @@
   // Progress of the running job (its processed/total), when it reports one:
   // the per-asset history backfill counts 2 work items (history + splits),
   // the global asset sync reports none → indeterminate bar.
-  const syncTotal = $derived(ctx.asset?.data_status?.total ?? 0)
-  const syncPercent = $derived(
-    syncTotal > 0
-      ? Math.min(100, Math.round(((ctx.asset?.data_status?.processed ?? 0) / syncTotal) * 100))
-      : 0,
-  )
+  const syncTotal = $derived(ctx.asset?.data_status?.total ?? 0);
+
+  const syncPercent = $derived(syncTotal > 0
+    ? Math.min(100, Math.round((ctx.asset?.data_status?.processed ?? 0) / syncTotal * 100))
+    : 0);
 
   // Read-only identity summary of the loaded asset: the values the edit form
   // (Data tab) carries, as label/value pairs. ISINs and codes use the mono
@@ -96,14 +97,30 @@
     if (!a) return []
     return [
       { label: t('asset.factIsin'), value: a.isin || '—', mono: true },
-      { label: t('asset.factType'), value: assetTypeLabel(a.type), mono: false },
+      {
+        label: t('asset.factType'),
+        value: assetTypeLabel(a.type),
+        mono: false
+      },
+
       {
         label: t('asset.factClass'),
         value: a.asset_class ? assetClassLabel(a.asset_class) : '—',
         mono: false,
       },
-      { label: t('asset.factCurrency'), value: a.currency, mono: false },
-      { label: t('asset.factExchange'), value: a.exchange || '—', mono: false },
+
+      {
+        label: t('asset.factCurrency'),
+        value: a.currency,
+        mono: false
+      },
+
+      {
+        label: t('asset.factExchange'),
+        value: a.exchange || '—',
+        mono: false
+      },
+
       {
         label: t('asset.factPriceSource'),
         value: priceSourceLabel(a.price_source || 'yahoo'),
@@ -172,7 +189,7 @@
       <PriceChart
         series={chartSeries}
         currency={ctx.currency}
-        {zoomStart}
+        zoomStart={zoomStart}
         splits={ctx.splits}
         onDataZoom={handleChartZoom}
       />
@@ -229,7 +246,7 @@
                 <Tr>
                   <Td>
                     <a
-                      href={resolve(`/portfolios/${row.portfolioId}`)}
+                      href={resolve(`portfolios/${row.portfolioId}`)}
                       class="font-medium text-accent-text hover:underline"
                     >{row.portfolioName}</a>
                   </Td>

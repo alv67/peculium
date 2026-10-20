@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Check, Monitor, Moon, Sun } from 'lucide-svelte'
   import { afterNavigate } from '$app/navigation'
-  import { t } from '$lib/i18n/index.svelte'
-  import { resolved, setThemeMode, theme, type ThemeMode } from '$lib/stores/theme.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { resolved, setThemeMode, theme, type ThemeMode } from '#lib/stores/theme.svelte.js'
   import Button from '../ui/Button.svelte'
 
   /**
@@ -29,10 +29,9 @@
     { value: 'system', label: t('theme.system'), icon: Monitor },
   ])
 
-  let open = $state(false)
-  let root = $state<HTMLDivElement | null>(null)
-
-  const current = $derived(modes.find((m) => m.value === theme.mode) ?? modes[0])
+  let open = $state(false);
+  let root = $state<HTMLDivElement | null>(null);
+  const current = $derived(modes.find((m) => m.value === theme.mode) ?? modes[0]);
 
   // Mid-sentence labels are lower-cased inside the composed aria-labels
   // ("Theme: dark" / "Tema: scuro"); the dictionary keys guarantee the
@@ -66,10 +65,11 @@
     }
   }
 
-  afterNavigate(() => (open = false))
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === 'goto') return;
 
-  // Outside-click close, keyed on `open` (listener only exists while open).
-  // Clicks on the trigger are inside `root`, so they never double-toggle.
+    return open = false;
+  });
   $effect(() => {
     if (!open) return
     function handlePointerdown(event: PointerEvent): void {
@@ -82,7 +82,7 @@
   })
 </script>
 
-<svelte:window onkeydown={handleWindowKeydown} />
+<svelte:window onkeydown={handleWindowKeydown}></svelte:window>
 
 <div class="relative" bind:this={root}>
   <Button

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ChevronDown, LogOut } from 'lucide-svelte'
   import { afterNavigate } from '$app/navigation'
-  import { auth, logout } from '$lib/stores/auth.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { auth, logout } from '#lib/stores/auth.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
   import Button from '../ui/Button.svelte'
   import { cx } from '../ui/utils'
 
@@ -33,20 +33,23 @@
     class?: string
   } = $props()
 
-  let open = $state(false)
-  let root = $state<HTMLDivElement | null>(null)
-  let trigger = $state<HTMLButtonElement | null>(null)
+  let open = $state(false);
+  let root = $state<HTMLDivElement | null>(null);
+  let trigger = $state<HTMLButtonElement | null>(null);
+  const name = $derived(auth.user?.name || auth.user?.email || t('user.fallbackName'));
 
-  const name = $derived(auth.user?.name || auth.user?.email || t('user.fallbackName'))
   // Non-compact: the visible name *is* the accessible label (label-in-name);
   // the compact trigger renders only initials, so it needs an explicit one.
   const triggerLabel = $derived(compact ? t('user.accountMenu') : undefined)
   const initials = $derived.by(() => {
-    const parts = auth.user?.name?.trim().split(/\s+/).filter(Boolean)
-    if (parts?.length) return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
-    const email = auth.user?.email?.trim()
-    return email ? email[0].toUpperCase() : '?'
-  })
+    const parts = auth.user?.name?.trim().split(/\s+/).filter(Boolean);
+
+    if (parts?.length) return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+
+    const email = auth.user?.email?.trim();
+
+    return email ? email[0].toUpperCase() : '?';
+  });
 
   function toggle(): void {
     open = !open
@@ -60,7 +63,11 @@
     }
   }
 
-  afterNavigate(() => (open = false))
+  afterNavigate(({ shallow, type }) => {
+    if (shallow && type === 'goto') return;
+
+    return open = false;
+  });
 
   $effect(() => {
     if (!open) return
@@ -74,7 +81,7 @@
   })
 </script>
 
-<svelte:window onkeydown={handleWindowKeydown} />
+<svelte:window onkeydown={handleWindowKeydown}></svelte:window>
 
 <div class={cx('relative', className)} bind:this={root}>
   <button

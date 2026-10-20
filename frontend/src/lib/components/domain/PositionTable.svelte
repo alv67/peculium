@@ -1,15 +1,15 @@
 <script lang="ts">
   import { resolve } from '$app/paths'
-  import { t } from '$lib/i18n/index.svelte'
-  import { formatCurrency, formatPercent } from '$lib/format'
-  import { pnlColorClass } from '$lib/ui-colors'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
-  import Badge from '$lib/components/ui/Badge.svelte'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { formatCurrency, formatPercent } from '#lib/format.js'
+  import { pnlColorClass } from '#lib/ui-colors.js'
+  import Table from '#lib/components/ui/Table.svelte'
+  import THead from '#lib/components/ui/THead.svelte'
+  import TBody from '#lib/components/ui/TBody.svelte'
+  import Tr from '#lib/components/ui/Tr.svelte'
+  import Th from '#lib/components/ui/Th.svelte'
+  import Td from '#lib/components/ui/Td.svelte'
+  import Badge from '#lib/components/ui/Badge.svelte'
 
   // Shape-agnostic row consumed by both the dashboard (E.1) and the portfolio
   // detail page (E.2); callers map their API payload onto it. Monetary fields
@@ -92,7 +92,7 @@
           <Td>
             {#if linkAssets && row.assetId}
               <a
-                href={resolve(`/assets/${row.assetId}`)}
+                href={resolve(`assets/${row.assetId}`)}
                 class="font-medium text-accent-text hover:underline"
               >
                 {row.ticker}

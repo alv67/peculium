@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Asset } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import Input from '$lib/components/ui/Input.svelte'
-  import { cx } from '$lib/components/ui/utils'
+  import type { Asset } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import Input from '#lib/components/ui/Input.svelte'
+  import { cx } from '#lib/components/ui/utils.js'
 
   /**
    * Filterable combobox over the already-registered assets (EPIC E.2): picks

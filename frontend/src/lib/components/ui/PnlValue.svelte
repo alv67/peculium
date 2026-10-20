@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { formatCurrency, formatSignedPercent } from '$lib/format'
-  import { pnlColorClass } from '$lib/ui-colors'
+  import { formatCurrency, formatSignedPercent } from '#lib/format.js'
+  import { pnlColorClass } from '#lib/ui-colors.js'
   import { cx } from './utils'
 
   /**

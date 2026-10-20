@@ -1,16 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { resolve } from '$app/paths'
-  import { toast } from '$lib/stores/toast.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { portfolioApi, settingsApi, type Portfolio, type Currency } from '$lib/services/api'
+  import { toast } from '#lib/stores/toast.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { portfolioApi, settingsApi, type Portfolio, type Currency } from '#lib/services/api.js'
   import { Plus, ExternalLink, Upload } from 'lucide-svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import CreatePortfolioModal from '$lib/components/domain/CreatePortfolioModal.svelte'
-  import ImportPortfolioModal from '$lib/components/domain/ImportPortfolioModal.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte'
+  import EmptyState from '#lib/components/ui/EmptyState.svelte'
+  import CreatePortfolioModal from '#lib/components/domain/CreatePortfolioModal.svelte'
+  import ImportPortfolioModal from '#lib/components/domain/ImportPortfolioModal.svelte'
 
   let showCreate = $state(false)
   let showImport = $state(false)
@@ -19,9 +19,10 @@
   let loading = $state(true)
 
   // Delete-confirmation dialog (D.2): replaces the native confirm().
-  let showDeleteDialog = $state(false)
-  let deleting = $state(false)
-  let portfolioToDelete = $state('')
+  let showDeleteDialog = $state(false);
+
+  let deleting = $state(false);
+  let portfolioToDelete = $state('');
 
   onMount(async () => {
     try {
@@ -62,24 +63,19 @@
 </script>
 
 {#snippet createAction()}
-  <Button onclick={() => (showCreate = true)}>
-    <Plus class="h-4 w-4" />
-    {t('portfolio.new')}
-  </Button>
+  <Button onclick={() => showCreate = true}><Plus class="h-4 w-4" />{t('portfolio.new')}</Button>
 {/snippet}
 
 <div class="p-6">
   <div class="mb-6 flex items-center justify-between">
     <h1 class="text-2xl font-bold">{t('nav.portfolios')}</h1>
     <div class="flex items-center gap-2">
-      <Button variant="secondary" onclick={() => (showImport = true)}>
-        <Upload class="h-4 w-4" />
-        {t('portfolio.import')}
-      </Button>
-      <Button onclick={() => (showCreate = true)}>
-        <Plus class="h-4 w-4" />
-        {t('portfolio.new')}
-      </Button>
+      <Button
+        variant="secondary"
+        onclick={() => showImport = true}
+      ><Upload class="h-4 w-4" />{t('portfolio.import')}</Button>
+
+      <Button onclick={() => showCreate = true}><Plus class="h-4 w-4" />{t('portfolio.new')}</Button>
     </div>
   </div>
 
@@ -95,7 +91,7 @@
               <p class="text-xs text-muted-foreground">{p.currency}</p>
             </div>
             <a
-              href={resolve(`/portfolios/${p.id}`)}
+              href={resolve(`portfolios/${p.id}`)}
               aria-label={t('portfolio.openNamed', { name: p.name })}
               class="text-accent-text hover:underline"
             >
@@ -125,7 +121,11 @@
   {/if}
 </div>
 
-<CreatePortfolioModal bind:open={showCreate} {currencies} onsuccess={reloadPortfolios} />
+<CreatePortfolioModal
+  bind:open={showCreate}
+  currencies={currencies}
+  onsuccess={reloadPortfolios}
+/>
 
 <ImportPortfolioModal
   bind:open={showImport}

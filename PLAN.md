@@ -209,7 +209,6 @@ peculium/
 │   │       ├── portfolios/   # list, [id], [id]/positions, [id]/activity, [id]/allocation
 │   │       ├── admin/        # users, settings, health, backup
 │   │       └── settings/     # preferences, currencies, password, backup
-│   ├── svelte.config.js
 │   ├── vite.config.ts
 │   ├── Dockerfile
 │   └── package.json

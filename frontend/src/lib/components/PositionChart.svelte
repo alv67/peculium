@@ -11,12 +11,12 @@
     TooltipComponent,
   } from 'echarts/components'
   import { CanvasRenderer } from 'echarts/renderers'
-  import { formatCurrency } from '$lib/format'
-  import type { PositionPoint, SplitInfo } from '$lib/services/api'
-  import { chartSemanticColors } from '$lib/chartPalette'
-  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import { t, type MessageKey } from '$lib/i18n/index.svelte'
+  import { formatCurrency } from '#lib/format.js'
+  import type { PositionPoint, SplitInfo } from '#lib/services/api.js'
+  import { chartSemanticColors } from '#lib/chartPalette.js'
+  import { PECULIUM_CHART_THEMES } from '#lib/chartTheme.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
+  import { t, type MessageKey } from '#lib/i18n/index.svelte.js'
 
   use([
     LineChart,

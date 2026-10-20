@@ -1,18 +1,18 @@
 <script lang="ts">
   import { Download, Upload } from 'lucide-svelte'
-  import { toast } from '$lib/stores/toast.svelte'
+  import { toast } from '#lib/stores/toast.svelte.js'
   import {
     backupApi,
     errorStatus,
     saveBlob,
     type BackupRestoreMode,
     type BackupRestoreSummary,
-  } from '$lib/services/api'
-  import { t } from '$lib/i18n/index.svelte'
-  import SettingsTabs from '$lib/components/domain/SettingsTabs.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
-  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+  } from '#lib/services/api.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import SettingsTabs from '#lib/components/domain/SettingsTabs.svelte'
+  import Button from '#lib/components/ui/Button.svelte'
+  import Card from '#lib/components/ui/Card.svelte'
+  import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte'
 
   /**
    * Settings → Backup & restore (issue #56): export the whole account as one

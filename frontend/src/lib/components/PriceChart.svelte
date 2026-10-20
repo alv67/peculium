@@ -10,12 +10,12 @@
     TooltipComponent,
   } from 'echarts/components'
   import { CanvasRenderer } from 'echarts/renderers'
-  import { formatCurrency } from '$lib/format'
-  import type { SplitInfo } from '$lib/services/api'
-  import { chartSemanticColors, resolvePalette } from '$lib/chartPalette'
-  import { PECULIUM_CHART_THEMES } from '$lib/chartTheme'
-  import { resolved } from '$lib/stores/theme.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { formatCurrency } from '#lib/format.js'
+  import type { SplitInfo } from '#lib/services/api.js'
+  import { chartSemanticColors, resolvePalette } from '#lib/chartPalette.js'
+  import { PECULIUM_CHART_THEMES } from '#lib/chartTheme.js'
+  import { resolved } from '#lib/stores/theme.svelte.js'
+  import { t } from '#lib/i18n/index.svelte.js'
 
   use([LineChart, DataZoomComponent, GridComponent, MarkLineComponent, TooltipComponent, CanvasRenderer])
 

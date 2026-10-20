@@ -1,20 +1,20 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { resolve } from '$app/paths'
-  import { formatCurrency, formatPercent } from '$lib/format'
-  import { t } from '$lib/i18n/index.svelte'
-  import { viewport } from '$lib/stores/viewport.svelte'
-  import type { AllocationDrill, AllocationDrillDim } from '$lib/services/api'
-  import AsyncCard from '$lib/components/ui/AsyncCard.svelte'
-  import Drawer from '$lib/components/ui/Drawer.svelte'
-  import EmptyState from '$lib/components/ui/EmptyState.svelte'
-  import Sheet from '$lib/components/ui/Sheet.svelte'
-  import Table from '$lib/components/ui/Table.svelte'
-  import THead from '$lib/components/ui/THead.svelte'
-  import TBody from '$lib/components/ui/TBody.svelte'
-  import Tr from '$lib/components/ui/Tr.svelte'
-  import Th from '$lib/components/ui/Th.svelte'
-  import Td from '$lib/components/ui/Td.svelte'
+  import { formatCurrency, formatPercent } from '#lib/format.js'
+  import { t } from '#lib/i18n/index.svelte.js'
+  import { viewport } from '#lib/stores/viewport.svelte.js'
+  import type { AllocationDrill, AllocationDrillDim } from '#lib/services/api.js'
+  import AsyncCard from '#lib/components/ui/AsyncCard.svelte'
+  import Drawer from '#lib/components/ui/Drawer.svelte'
+  import EmptyState from '#lib/components/ui/EmptyState.svelte'
+  import Sheet from '#lib/components/ui/Sheet.svelte'
+  import Table from '#lib/components/ui/Table.svelte'
+  import THead from '#lib/components/ui/THead.svelte'
+  import TBody from '#lib/components/ui/TBody.svelte'
+  import Tr from '#lib/components/ui/Tr.svelte'
+  import Th from '#lib/components/ui/Th.svelte'
+  import Td from '#lib/components/ui/Td.svelte'
 
   /**
    * Allocation drill-down panel (EPIC K.5, spec §6.5, decision D4): the
@@ -42,19 +42,20 @@
     dim,
     key,
     fetcher,
-    currencyHint = undefined,
-  }: {
-    open: boolean
+    currencyHint = undefined
+
     /** Called on Esc, backdrop click and the ✕ (forwarded to Drawer/Sheet). */
-    onClose: () => void
     /** Friendly label of the bucket, as the calling chart displays it. */
-    title: string
     /** Raw bucket dimension and identifier as the backend knows them. */
-    dim: AllocationDrillDim
-    key: string
     /** One bucket fetch: `portfolioApi.allocationDrill` / `dashboardAllocationDrill`. */
-    fetcher: (dim: AllocationDrillDim, key: string) => Promise<AllocationDrill>
     /** Fallback currency while the payload is absent/older than the backend. */
+  }: { 
+    open: boolean;
+    onClose: () => void;
+    title: string;
+    dim: AllocationDrillDim;
+    key: string;
+    fetcher: (dim: AllocationDrillDim, key: string) => Promise<AllocationDrill>;
     currencyHint?: string
   } = $props()
 
@@ -88,41 +89,50 @@
   // call itself out of the effect's dependency set; only `open`/`dim`/`key`
   // re-trigger it.
   $effect(() => {
-    void dim
-    void key
-    if (!open) return
-    untrack(() => void load())
-  })
+    void dim;
+    void key;
+
+    if (!open) return;
+
+    untrack(() => void load());
+  });
 
   // The drill payload carries its own currency (portfolio or base currency,
   // mirroring the allocation endpoint that produced the bucket); the hint is
   // only the fallback while loading or against an older backend.
-  const currency = $derived(data?.currency || currencyHint || 'USD')
-  const assets = $derived(data?.assets ?? [])
-  const total = $derived(Number(data?.total ?? 0))
+  const currency = $derived(data?.currency || currencyHint || 'USD');
+
+  const assets = $derived(data?.assets ?? []);
+  const total = $derived(Number(data?.total ?? 0));
 
   /** Asset's share of the slice: contribution ÷ bucket total. Guarded so a
    * zero/NaN total (empty bucket, legacy payload) never renders `NaN%`. */
   function shareOfSlice(contribution: string): string {
-    if (!(total > 0)) return '—'
-    return formatPercent((Number(contribution) / total) * 100)
+    if (!(total > 0)) return '—';
+    return formatPercent(Number(contribution) / total * 100);
   }
 </script>
 
 {#if viewport.isDesktop}
-  <Drawer {open} {onClose} {title} closeLabel={t('common.close')}>
-    {@render body()}
-  </Drawer>
+  <Drawer
+    open={open}
+    onClose={onClose}
+    title={title}
+    closeLabel={t('common.close')}
+  >{@render body()}</Drawer>
 {:else}
-  <Sheet {open} {onClose} {title} closeLabel={t('common.close')}>
-    {@render body()}
-  </Sheet>
+  <Sheet
+    open={open}
+    onClose={onClose}
+    title={title}
+    closeLabel={t('common.close')}
+  >{@render body()}</Sheet>
 {/if}
 
 {#snippet body()}
   <AsyncCard
-    {loading}
-    {error}
+    loading={loading}
+    error={error}
     empty={assets.length === 0}
     onRetry={() => void load()}
     retryLabel={t('drill.retry')}
@@ -152,7 +162,7 @@
           <Tr class="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:py-2">
             <Td class="max-sm:col-span-2 max-sm:py-0.5 font-medium min-w-0">
               <a
-                href={resolve(`/assets/${a.asset_id}`)}
+                href={resolve(`assets/${a.asset_id}`)}
                 class="text-accent-text hover:underline"
               >{a.ticker}</a>
               <span class="block truncate text-xs font-normal text-muted-foreground">{a.name}</span>
