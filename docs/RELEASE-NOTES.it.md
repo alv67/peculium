@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Correzioni
+- La distribuzione settoriale degli ETF importati da JustETF copre l'intero fondo: le etichette che prima mancavano nel grafico sono classificate correttamente o mostrate come quota "Other / Not Classified", e una distribuzione parziale non blocca più il salvataggio dell'esposizione
+
 ## v1.1.0 — 18 ott 2026
 
 ### Nuove funzionalità

@@ -1,4 +1,4 @@
-# Peculium — Project Status (18 Oct 2026)
+# Peculium — Project Status (20 Oct 2026)
 
 ## Infrastructure
 
@@ -166,20 +166,15 @@ podman container (from the macOS host it works) and the remaining mitigation is 
 If the worker stays blocked, consider an external macOS script (curl/cron) that POSTs prices to
 the backend, or an alternative API (Finnhub, Alpha Vantage with an API key).
 
-### ETF exposure partial coverage
+### JustETF legacy sector taxonomy (#250)
 
-JustETF does not always return weights that sum to 100 (some sector labels do not
-map into the app's GICS universe, see #236 below), and the exposure save rejects
-the set with `weights must sum to 100`, so a partial fetch currently blocks the
-whole save instead of persisting what was found. The API smoke test
-`tests/test-epic-b.sh` reports this as WARN on the affected assets. Needs a
-follow-up: accept and flag partial coverage, or map the missing labels.
-
-### Sector mapping labels lost (#236)
-
-Some JustETF sector labels (Consumer Cyclicals, Consumer Services, Business
-Services, Non Corporate) do not reach the app's sector allocation, so their
-weight falls outside the classified share ([#236](https://github.com/alv67/peculium/issues/236)).
+JustETF serves a legacy Morningstar sector taxonomy for many ETFs. The labels
+are now all mapped into the canonical sector list (with an "Other / Not
+Classified" residual bucket), but the feed's classification vintage still
+distorts the weights: pre-2018 holdings such as Alphabet/Meta count as
+Technology instead of Communication Services, and REITs are merged into
+Financials. The upgrade path (prefer the Morningstar source for sectors when
+available) is tracked in #250.
 
 ### European tickers
 
