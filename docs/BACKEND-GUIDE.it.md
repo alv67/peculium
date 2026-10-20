@@ -827,7 +827,7 @@ sessione a vita breve, vedi `meta.go`):
   `sector` GICS e l'`industry` di una singola azione.
 - **Esposizione settoriale (`FetchAssetExposure`)**: per un ETF, il modulo
   `topHoldings` espone `sectorWeightings` (una frazione per chiave di settore),
-  che il backend converte nei nostri 11 settori GICS canonici (in percentuale).
+  che il backend converte nei nostri settori GICS canonici (in percentuale).
   Il fetch è una **preview in sola lettura**: né i pesi di settore né i campi
   profilo (sector/industry/country) vengono persistiti — il salvataggio avviene
   solo con `PUT /assets/{id}/exposure`.
@@ -836,7 +836,12 @@ sessione a vita breve, vedi `meta.go`):
   microservizio `python-service` (`POST /assets/{id}/fetch-etf-exposure`). Il
   servizio Python legge JustETF (tabelle complete via AJAX "Show more"), il
   package Go `geo` mappa ogni paese a una macro-regione e normalizza i settori
-  al set GICS. Se l'asset non ha ISIN, questo viene **risolto automaticamente
+  al set GICS: le etichette Morningstar legacy che JustETF serve per molti fondi
+  (Finance, Consumer Cyclicals, Business Services, ...) sono aliassate ai
+  settori canonici, le righe bond `Non-Corporate` vengono scartate e le
+  etichette non mappate più il residuo confluiscono nel settore
+  `Other / Not Classified`, così i settori in preview sommano sempre a 100. Se
+  l'asset non ha ISIN, questo viene **risolto automaticamente
   dal ticker** (suffisso `.MI/.DE/.L...` rimosso, risultati ordinati per
   similarità di nome con l'asset) e persistito sull'asset — la scrittura
   dell'ISIN è l'unica cosa che il fetch memorizza. Per il resto il fetch è una
@@ -917,7 +922,12 @@ non mostra né modifica mai "Other / Not Classified", quindi quando il client
 invia regioni con somma sotto 100 senza riga Other, il backend **inietta il
 residuo in `Other / Not Classified` prima di persistere**, mantenendo
 l'invariante salvata «le regioni sommano a 100» su cui si basa l'aggregazione
-geografica del portafoglio. I settori conservano la regola esatta 100 ± 0,5.
+geografica del portafoglio. **Validazione al salvataggio dei settori**: funziona
+allo stesso modo: una copertura parziale sotto 100 è valida e, quando il client
+non invia una riga Other, il backend **inietta il residuo in
+`Other / Not Classified` prima di persistere**, mantenendo l'invariante salvata
+«i settori sommano a 100» su cui si basa l'aggregazione settoriale del
+portafoglio.
 **Provenienza dell'esposizione**: ogni dimensione salvata registra anche *da
 dove arriva*. `PUT /assets/{id}/exposure` accetta le stringhe opzionali
 `countries_source`, `regions_source` e `sectors_source` (es. `morningstar`,

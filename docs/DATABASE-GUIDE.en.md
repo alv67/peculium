@@ -577,5 +577,5 @@ In short, who writes and who reads:
 - **The portfolio-level allocation** is derived from the per-asset exposure
   weights: weighted by investment class (`GET /portfolios/{id}/allocation/class`),
   by geography and by sector (`GET /portfolios/{id}/allocation/geography` and
-  `/allocation/sector`, 10 macro-regions (Morningstar-aligned) / 11 GICS sectors
-  + `Other`, zero-filled).
+  `/allocation/sector`, 10 macro-regions (Morningstar-aligned) / 11 GICS sectors,
+  each ending with the `Other / Not Classified` residual bucket, zero-filled).

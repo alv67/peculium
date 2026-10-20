@@ -394,20 +394,58 @@ func AggregateRegions(rows []model.ExposureRow) []model.ExposureRow {
 }
 
 // AggregateSectors maps raw provider sector names to canonical GICS sectors,
-// summing the weights of names that normalize to the same sector.
+// summing the weights of names that normalize to the same sector. Names that
+// map to no canonical sector (e.g. JustETF's legacy "Other") land in the
+// "Other / Not Classified" sector, and "Non-Corporate" rows are dropped: they
+// are the bond side of the fund (government/municipal/securitized holdings),
+// not an equity sector. When the aggregated weights do not cover 100%, the
+// residual is added to "Other / Not Classified" so the sector dimension always
+// sums to 100.
+// shortcut: the JustETF legacy feed attributes Alphabet/Meta-class holdings to
+// Technology and merges REITs into Financials; label mapping cannot fix the
+// weights — upgrade path is a Morningstar-first sector source (#250)
 func AggregateSectors(rows []model.ExposureRow) []model.ExposureRow {
 	weights := map[string]decimal.Decimal{}
 	for _, row := range rows {
 		if row.Name == "" || !row.Weight.IsPositive() {
 			continue
 		}
+		switch strings.TrimSpace(row.Name) {
+		case "Non-Corporate", "Non Corporate":
+			continue
+		}
 		sector := geo.NormalizeSector(row.Name)
 		if sector == "" {
 			continue
 		}
+		if !isCanonicalSector(sector) {
+			sector = geo.OtherSector
+		}
 		weights[sector] = weights[sector].Add(row.Weight)
 	}
+	total := decimal.Zero
+	for _, w := range weights {
+		total = total.Add(w)
+	}
+	// If the mapped sectors leave more than a rounding gap (0.5%), the residual
+	// belongs to the "Other / Not Classified" bucket.
+	if total.Sub(decimal.NewFromInt(100)).Abs().GreaterThan(decimal.NewFromFloat(0.5)) {
+		residual := decimal.NewFromInt(100).Sub(total)
+		if residual.IsPositive() {
+			weights[geo.OtherSector] = weights[geo.OtherSector].Add(residual)
+		}
+	}
 	return sortedExposureRows(weights)
+}
+
+// isCanonicalSector reports whether name is one of the canonical GICS sectors.
+func isCanonicalSector(name string) bool {
+	for _, s := range geo.GICSSectors {
+		if s == name {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedExposureRows(weights map[string]decimal.Decimal) []model.ExposureRow {

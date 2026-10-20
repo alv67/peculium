@@ -109,6 +109,36 @@ func TestRegionsCanonical(t *testing.T) {
 	}
 }
 
+// TestSectorsCanonical asserts the canonical GICS sector list: 11 sectors
+// plus the residual bucket, in display order.
+func TestSectorsCanonical(t *testing.T) {
+	want := []string{
+		"Energy",
+		"Materials",
+		"Industrials",
+		"Consumer Discretionary",
+		"Consumer Staples",
+		"Health Care",
+		"Financials",
+		"Information Technology",
+		"Communication Services",
+		"Utilities",
+		"Real Estate",
+		"Other / Not Classified",
+	}
+	if len(GICSSectors) != len(want) {
+		t.Fatalf("GICSSectors len = %d, want %d", len(GICSSectors), len(want))
+	}
+	for i, name := range want {
+		if GICSSectors[i] != name {
+			t.Fatalf("GICSSectors[%d] = %q, want %q", i, GICSSectors[i], name)
+		}
+	}
+	if GICSSectors[len(GICSSectors)-1] != OtherSector {
+		t.Fatalf("last sector = %q, want %q", GICSSectors[len(GICSSectors)-1], OtherSector)
+	}
+}
+
 // TestChangedRegionMappings asserts the country-to-region mappings that moved
 // when aligning the taxonomy with Morningstar.
 func TestChangedRegionMappings(t *testing.T) {
@@ -199,6 +229,7 @@ func TestNormalizeSectorJustETF(t *testing.T) {
 		{"Consumer Non-Cyclicals", "Consumer Staples"},
 		{"Consumer Cyclicals", "Consumer Discretionary"},
 		{"Consumer Services", "Consumer Discretionary"},
+		{"Business Services", "Industrials"},
 		{"Telecommunication", "Communication Services"},
 		{"Healthcare", "Health Care"},
 		{"Industrials", "Industrials"},

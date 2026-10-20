@@ -721,11 +721,12 @@ func (s *Service) GetAssetExposure(ctx context.Context, id uuid.UUID) (*model.As
 
 // SaveAssetExposure validates and persists the weight distribution for an
 // asset. Each dimension is validated and saved independently: a dimension that
-// is absent from the body (nil slice) is left untouched. Sectors must sum to
-// ~100 (tolerance 0.5). Regions must not exceed 100 (same tolerance): the UI
-// hides the "Other / Not Classified" row, so a sum below 100 is accepted and
-// the residual is injected into that bucket before persisting, keeping the
-// stored regions summing to 100 for portfolio geography aggregation. Countries
+// is absent from the body (nil slice) is left untouched. Regions and sectors
+// must not exceed 100 (tolerance 0.5): the UI hides the
+// "Other / Not Classified" row in both dimensions, so a sum below 100 is
+// accepted and the residual is injected into that bucket before persisting,
+// keeping the stored regions and sectors summing to 100 for portfolio
+// geography and sector aggregation. Countries
 // must not exceed 100 (same tolerance) with no lower bound. Rows with an empty
 // name or a non-positive weight are ignored. Country rows must come from the
 // canonical geo.Countries list; non-canonical names are skipped. Saving
@@ -802,11 +803,11 @@ func saveExposureDimensions(ctx context.Context, rx *repository.Repository, id u
 		}
 	}
 	if exposure.Sectors != nil {
-		sectors := normalizeExposureRows(exposure.Sectors)
-		if err := validateExposureWeights(sectors, weightSumExact100); err != nil {
+		prepared, err := prepareSectors(exposure.Sectors)
+		if err != nil {
 			return err
 		}
-		if err := rx.Exposure.ReplaceSectors(ctx, id, sectors); err != nil {
+		if err := rx.Exposure.ReplaceSectors(ctx, id, prepared); err != nil {
 			return err
 		}
 		if err := rx.Exposure.SetProvenance(ctx, id, model.ExposureDimensionSectors, sourceOrDefault(exposure.SectorsSource)); err != nil {
@@ -1024,34 +1025,13 @@ func normalizeExposureRows(rows []model.ExposureRow) []model.ExposureRow {
 	return out
 }
 
-// weightSumRule selects how validateExposureWeights checks a dimension's total
-// against 100.
-type weightSumRule int
-
-const (
-	// weightSumExact100 requires the weights to sum to 100 ± 0.5 (sectors).
-	weightSumExact100 weightSumRule = iota
-	// weightSumMax100 enforces only the upper bound: sums up to 100.5 are
-	// accepted and sums below 100 are valid (regions and countries).
-	weightSumMax100
-)
-
-// validateExposureWeights checks a dimension's weights sum against 100 following
-// the given rule: exactly 100 ± 0.5 (weightSumExact100) or at most 100.5
-// (weightSumMax100). Rows are expected to be already normalized.
-func validateExposureWeights(rows []model.ExposureRow, rule weightSumRule) error {
-	sum := exposureWeightsSum(rows)
+// validateExposureWeights checks a dimension's weights sum against 100: sums up
+// to 100.5 are accepted and sums below 100 are valid (provider coverage is
+// often partial). Rows are expected to be already normalized.
+func validateExposureWeights(rows []model.ExposureRow) error {
 	tolerance := decimal.NewFromFloat(0.5)
-	delta := sum.Sub(decimal.NewFromInt(100))
-	switch rule {
-	case weightSumMax100:
-		if delta.GreaterThan(tolerance) {
-			return ErrInvalidWeights
-		}
-	default: // weightSumExact100
-		if delta.Abs().GreaterThan(tolerance) {
-			return ErrInvalidWeights
-		}
+	if exposureWeightsSum(rows).Sub(decimal.NewFromInt(100)).GreaterThan(tolerance) {
+		return ErrInvalidWeights
 	}
 	return nil
 }
@@ -1074,7 +1054,7 @@ func exposureWeightsSum(rows []model.ExposureRow) decimal.Decimal {
 // explicit Other row is kept as the client sent it.
 func prepareRegions(rows []model.ExposureRow) ([]model.ExposureRow, error) {
 	prepared := normalizeExposureRows(rows)
-	if err := validateExposureWeights(prepared, weightSumMax100); err != nil {
+	if err := validateExposureWeights(prepared); err != nil {
 		return nil, err
 	}
 	for _, row := range prepared {
@@ -1106,10 +1086,34 @@ func prepareCountries(rows []model.ExposureRow) ([]model.ExposureRow, error) {
 		row.Name = code
 		kept = append(kept, row)
 	}
-	if err := validateExposureWeights(kept, weightSumMax100); err != nil {
+	if err := validateExposureWeights(kept); err != nil {
 		return nil, err
 	}
 	return kept, nil
+}
+
+// prepareSectors normalizes and validates the sector dimension, mirroring
+// prepareRegions: the UI hides the "Other / Not Classified" sector row and a
+// partial sector coverage (weights summing below 100) is a valid save, so when
+// no explicit Other row is present and the residual exceeds the 0.5 rounding
+// tolerance it is injected into that bucket before persisting, keeping the
+// stored sectors summing to 100. An explicit Other row is kept as the client
+// sent it.
+func prepareSectors(rows []model.ExposureRow) ([]model.ExposureRow, error) {
+	prepared := normalizeExposureRows(rows)
+	if err := validateExposureWeights(prepared); err != nil {
+		return nil, err
+	}
+	for _, row := range prepared {
+		if row.Name == geo.OtherSector {
+			return prepared, nil
+		}
+	}
+	residual := decimal.NewFromInt(100).Sub(exposureWeightsSum(prepared))
+	if residual.GreaterThan(decimal.NewFromFloat(0.5)) {
+		prepared = append(prepared, model.ExposureRow{Name: geo.OtherSector, Weight: residual})
+	}
+	return prepared, nil
 }
 
 // isCanonicalCountry reports whether code is one of the canonical ISO codes.

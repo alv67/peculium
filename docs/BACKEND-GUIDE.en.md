@@ -811,7 +811,7 @@ see `meta.go`):
   `sector` and `industry` of a single stock.
 - **Sector exposure (`FetchAssetExposure`)**: for an ETF, the `topHoldings`
   module exposes `sectorWeightings` (a fraction per sector key), which the
-  backend converts to our canonical 11 GICS sectors (percentage). This fetch is
+  backend converts to our canonical GICS sectors (percentage). This fetch is
   a **read-only preview**: neither the sector weights nor the profile fields
   (sector/industry/country) are persisted — saving happens only through
   `PUT /assets/{id}/exposure`.
@@ -820,10 +820,15 @@ see `meta.go`):
   `python-service` microservice (`POST /assets/{id}/fetch-etf-exposure`). The
   python service reads JustETF (full tables via its "Show more" AJAX), and the
   Go `geo` package maps each country to a macro-region and normalizes sectors
-  to the GICS set. If the asset has no ISIN, it is **resolved automatically
-  from the ticker** (the `.MI/.DE/.L...` suffix is stripped, results are ranked
-  by name similarity against the asset) and persisted on the asset — that ISIN
-  write is the only thing the fetch stores. The fetch is otherwise a **read-only
+  to the GICS set: the legacy Morningstar labels JustETF serves for many funds
+  (Finance, Consumer Cyclicals, Business Services, ...) are aliased to the
+  canonical sectors, the `Non-Corporate` bond rows are dropped, and unmapped
+  labels plus any residual land in the `Other / Not Classified` sector, so the
+  previewed sectors always sum to 100. If the asset has no ISIN, it is
+  **resolved automatically from the ticker** (the `.MI/.DE/.L...` suffix is
+  stripped, results are ranked by name similarity against the asset) and
+  persisted on the asset — that ISIN write is the only thing the fetch stores.
+  The fetch is otherwise a **read-only
   preview**: the raw countries (normalized to ISO-3166 alpha-2 codes), the
   derived regions and the GICS sectors come back in the three dimensions —
   `countries`, `regions` and `sectors` — but are NOT persisted; they reach the
@@ -900,8 +905,11 @@ body **without persisting** (used by the "Calcola da paesi" button in the UI).
 edits "Other / Not Classified", so when the client sends regions summing below
 100 with no Other row, the backend **injects the residual into
 `Other / Not Classified` before persisting**, keeping the stored invariant
-"regions sum to 100" that portfolio geography aggregation relies on. Sectors
-keep the exact 100 ± 0.5 rule.
+"regions sum to 100" that portfolio geography aggregation relies on. **Sector
+save validation** works the same way: a partial coverage below 100 is valid and
+when the client sends no Other row the residual is injected into
+`Other / Not Classified` before persisting, keeping the stored sectors summing
+to 100 for portfolio sector aggregation.
 **Exposure provenance**: every saved dimension also records *where it came
 from*. `PUT /assets/{id}/exposure` accepts optional `countries_source`,
 `regions_source` and `sectors_source` strings (e.g. `morningstar`, `justetf`,
