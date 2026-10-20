@@ -1485,15 +1485,14 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       peso · elimina`, ordinata per peso **desc** (riordinata su add/remove/blur,
       mai mentre si digita — la barra si anima live così le righe non saltano).
       Il colore della barra segue la palette della card per rango; la barra è
-      nascosta sotto `sm` e l'input peso tiene il `w-24` della tabella regioni,
-      così su un telefono da 375px la riga mantiene codice, nome, peso ed
-      elimina con lo stesso ritmo delle righe regioni. Un select
+      nascosta sotto `sm` e l'input peso usa il `w-16` compatto della tabella
+      regioni, così su un telefono da 375px la riga mantiene codice, nome, peso
+      ed elimina con lo stesso ritmo delle righe regioni. Un select
       nativo + "Aggiungi" inserisce un codice canonico non ancora presente (il
-      focus passa al suo input peso). La lista è **flessibile**
-      (`min-h-0 flex-1 overflow-y-auto`): cresce fino a riempire il box così il
-      footer "Totale" e il pulsante Salva restano in fondo, allineati al box
-      regioni, e con molti paesi scorre dentro la sua area invece di allargare
-      la modale. Il footer mostra "Totale X%" + barra di
+      focus passa al suo input peso). La lista sta alla sua **altezza naturale**:
+      l'unico scroller è il corpo della modale, così nessuna barra ruba
+      larghezza alle righe e il box paesi cresce con la lista invece di
+      allinearsi in altezza al box regioni. Il footer mostra "Totale X%" + barra di
       progresso; **il salvataggio è disabilitato se la somma supera 100** (sotto
       100 è ammesso). Una nota segnala il residuo non attribuito e ricorda che
       le regioni **non** vengono ricalcolate al salvataggio: si aggiornano solo
