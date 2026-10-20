@@ -860,6 +860,7 @@
       return backfillingHistory
     },
     backfillHistory,
+    refetchAssetData,
     get dataSyncing() {
       return dataSyncing
     },

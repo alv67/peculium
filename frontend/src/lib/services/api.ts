@@ -153,6 +153,15 @@ export interface Price {
   created_at: string
 }
 
+/** One row of `GET /assets/{id}/prices/manual` (EPIC J.1): a hand-recorded
+ * close for an asset without an automatic feed. `close` is a decimal string,
+ * `volume` optional (null when never set). */
+export interface ManualPrice {
+  date: string
+  close: string
+  volume: number | null
+}
+
 export interface ExposureRow {
   name: string
   weight: string
@@ -928,6 +937,14 @@ export const assetApi = {
     }),
   backfillHistory: (id: string) =>
     request<JobEnqueued>(`/assets/${id}/backfill-history`, { method: 'POST' }),
+  // EPIC J.1 manual price history (newest date first). Only for
+  // `manual`/`none` price sources; the PUT upserts by date (same date =
+  // edit) and rejects future dates and non-positive closes with 400.
+  manualPrices: (id: string) => request<ManualPrice[]>(`/assets/${id}/prices/manual`),
+  saveManualPrice: (id: string, price: { date: string; close: string; volume?: number }) =>
+    request<ManualPrice>(`/assets/${id}/prices/manual`, { method: 'PUT', body: price }),
+  deleteManualPrice: (id: string, date: string) =>
+    request<void>(`/assets/${id}/prices/manual/${date}`, { method: 'DELETE' }),
   remove: (id: string) => request<void>(`/assets/${id}`, { method: 'DELETE' }),
   // Queues a global asset sync (splits + history for every Yahoo asset) as a
   // worker job; poll the returned job id, then invalidate caches.

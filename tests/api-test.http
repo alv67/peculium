@@ -402,3 +402,54 @@ Authorization: Bearer {{token}}
 ### read back through the job_id filter on the health events list.
 GET {{baseUrl}}/health/prices?job_id={{refreshPrices.response.body.job_id}}&limit=200
 Authorization: Bearer {{token}}
+
+### 23. Manual price entry: dated closes for assets Yahoo does not cover
+### (bonds, OTC certificates, pension funds). Manual bars are allowed only on
+### price_source manual/none assets, which is what keeps the Yahoo sync from
+### ever overwriting user input. PUT upserts on (asset, date): the same date
+### overwrites — the edit path — and returns the stored row. GET lists the
+### manual bars newest first; DELETE removes one bar (204, or 404 when the
+### bar or the asset does not exist).
+
+### 23a. Create the manual-priced asset (ignore 409 on reruns: the id
+### resolves from both responses, same trick as #3).
+# @name createManualAsset
+POST {{baseUrl}}/assets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "ticker": "BONDTEST", "name": "Test Fixed Bond", "type": "bond", "currency": "EUR", "price_source": "none" }
+
+@manualAssetId = {{createManualAsset.response.body.id}}
+
+### 23b. Record a dated close.
+PUT {{baseUrl}}/assets/{{manualAssetId}}/prices/manual
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "date": "2026-01-15", "close": "98.75", "volume": 0 }
+
+### 23c. Overwrite the same date — the edit path. close also accepts a JSON
+### number.
+PUT {{baseUrl}}/assets/{{manualAssetId}}/prices/manual
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "date": "2026-01-15", "close": 99.1 }
+
+### 23d. Read the manual history, newest first.
+GET {{baseUrl}}/assets/{{manualAssetId}}/prices/manual
+Authorization: Bearer {{token}}
+
+### 23e. Delete the bar: 204 when it exists, 404 on rerun.
+DELETE {{baseUrl}}/assets/{{manualAssetId}}/prices/manual/2026-01-15
+Authorization: Bearer {{token}}
+
+### 23f. Expected failure: a manual bar on a Yahoo-priced asset ({{assetId}}
+### is SMEA.MI) → 400 "manual prices are only allowed for assets with
+### price_source manual or none".
+PUT {{baseUrl}}/assets/{{assetId}}/prices/manual
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "date": "2026-01-15", "close": "1" }

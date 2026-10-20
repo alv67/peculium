@@ -1031,9 +1031,25 @@ export const en = {
     classOther: 'Other',
     /** Data tab danger zone (same actions as the header `⋯` menu). */
     dangerZone: 'Danger zone',
-    /** Reserved EPIC J placeholders (no behaviour yet). */
+    /** Data tab Manual prices section (EPIC J.1): form labels, column header,
+     *  row actions, toasts and the client-side validation messages mirroring
+     *  the backend 400s; the {date} placeholders carry the raw `YYYY-MM-DD`. */
     manualPrice: 'Manual price entry',
     manualPriceHint: 'Record dated prices by hand for assets without an automatic feed.',
+    manualColVolume: 'Volume',
+    manualAdd: 'Add price',
+    manualEditNamed: 'Edit the price of {date}',
+    manualDelete: 'Delete price',
+    manualDeleteNamed: 'Delete the price of {date}',
+    manualDeleteConfirm: 'Delete the price of {date}?',
+    manualEmpty: 'No manual prices yet',
+    manualSaved: 'Price saved',
+    manualDeleted: 'Price deleted',
+    manualLoadFailed: 'Failed to load manual prices',
+    manualDateRequired: 'Date is required',
+    manualDateFuture: 'The date cannot be in the future',
+    manualCloseInvalid: 'Close must be greater than 0',
+    /** Reserved EPIC J.2 placeholder (no behaviour yet). */
     fixedIncome: 'Fixed-income attributes',
     fixedIncomeHint: 'Issuer, maturity and coupon details for bonds.',
     /** Assets list page and its delete flows (the page title, the table
