@@ -171,6 +171,13 @@
   // Resolved chart palette: keeps the HTML bars/swatches in sync with the
   // donut colors and re-evaluates on theme flips.
   const palette = $derived(resolvePalette(resolved()))
+
+  // Height of the regions middle area, measured from its natural content via
+  // bind:clientHeight and mirrored onto the countries middle area only from lg
+  // up, where the two boxes sit side by side and their footer rows line up. On
+  // phones and tablets the boxes are stacked, so the countries list runs at its
+  // natural height and the modal body is the only scroller.
+  let regionsMidHeight = $state(0)
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -249,9 +256,15 @@
             </div>
           </div>
 
-          <!-- Middle area at natural height: the modal body is the only
-               scroller, so the list never steals width from the rows. -->
-          <div class="flex flex-col">
+          <!-- From lg up the middle area takes the regions box's measured
+               height (regionsMidHeight, via bind:clientHeight) so both boxes
+               and their footers stay aligned, and the list scrolls inside it.
+               Below lg the boxes are stacked: natural height, no scrollbar
+               column, the modal body scrolls. -->
+          <div
+            class="flex min-h-0 flex-col lg:h-[var(--regions-mid)]"
+            style="--regions-mid: {regionsMidHeight > 0 ? regionsMidHeight + 'px' : 'auto'}"
+          >
             <!-- Table-style header row, columns aligned with the rows below. -->
             <div
               class="flex items-center gap-1.5 border-b border-border pb-2 pl-2 pr-2 text-sm text-muted-foreground"
@@ -263,7 +276,7 @@
             </div>
 
             {#if visibleCountries.length === 0}
-              <div class="flex flex-col items-center justify-center py-10 text-center">
+              <div class="flex flex-col items-center justify-center py-10 text-center lg:min-h-0 lg:flex-1">
                 <Globe2 class="h-8 w-8 text-input" />
                 <p class="text-sm text-muted-foreground">{t('exposure.noCountries')}</p>
                 <p class="text-xs text-muted-foreground">
@@ -271,7 +284,7 @@
                 </p>
               </div>
             {:else}
-              <ul class="divide-y divide-border py-1">
+              <ul class="divide-y divide-border py-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {#each visibleCountries as row, i (row.name)}
                   {@const weight = Number(row.weight) || 0}
                   {@const displayName = countryDisplayName(row.name)}
@@ -436,9 +449,12 @@
             </div>
           </div>
 
-          <!-- Middle area at natural height (header row + 10 region rows and
-               the side donut fully visible, no fixed quota, no scrollbar). -->
-          <div class="flex flex-col gap-4 md:flex-row">
+          <!-- Middle area at NATURAL height (header row + 10 region rows and
+               the side donut fully visible, no fixed quota, no scrollbar): its
+               measured clientHeight (regionsMidHeight) is applied to the
+               countries middle area from lg up, where the two boxes sit side by
+               side. -->
+          <div class="flex flex-col gap-4 md:flex-row" bind:clientHeight={regionsMidHeight}>
             <div class="min-w-0 flex-1">
               <table class="w-full text-left text-sm">
                 <thead>

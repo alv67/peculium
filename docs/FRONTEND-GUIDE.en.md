@@ -1418,10 +1418,13 @@ TAB **Exposure** — the geo/sector distribution widgets:
       code, name, weight and delete with the same rhythm as the regions rows. An
       `add-country` native select + "Aggiungi"
       button lets the user add any canonical code not already present (focus
-      then moves to its weight input). The list runs at its **natural height**:
-      the modal body is the only scroller, so no scrollbar steals width from the
-      rows and the countries box grows with the list instead of matching the
-      regions box's height. A totals footer shows "Totale X%" plus a
+      then moves to its weight input). Below `lg` the list runs at its
+      **natural height**: the modal body is the only scroller, so no scrollbar
+      steals width from the rows and the countries box grows with the list.
+      From `lg` up, where the two boxes sit side by side, the list takes the
+      regions box's measured height (`regionsMidHeight`, bound with
+      `clientHeight`) and scrolls inside it, so both boxes and their footer
+      rows stay aligned. A totals footer shows "Totale X%" plus a
       progress meter; **save is disabled when the sum exceeds 100** (a sum
       below 100 is allowed). An info line reports the unattributed residual
       and reminds that regions are **not** re-derived on save — they update
