@@ -75,7 +75,8 @@ and personal finances.
 - [x] Dashboard & portfolio v2: user base currency, active/closed breakdown, time-weighted performance + capital charts, class/sector/country/macro-region allocations, consolidated invested-assets table, paginated transactions — **EPIC I (#83)**
 - [x] UX/UI redesign: adaptive shell, tabbed entity pages, command palette, chart table view, CVD palette, allocation drill-down — **EPIC K (PR #115)**, released in v0.6.0
 - [x] Admin area: user governance (approval, roles, enable/disable, password reset), server settings, per-user and server-wide backup & restore — **#57, #143, #145**
-- [ ] New asset classes: bonds, certificates, supplementary pensions, cash deposits — **EPIC J (#113)**: manual price entry (J.1 #105), fixed-income metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
+- [x] Manual price entry for non-Yahoo assets (endpoint + Data-tab UI) — **J.1 (#105)**
+- [ ] New asset classes: bonds, certificates, supplementary pensions, cash deposits — **EPIC J (#113)**: fixed-income metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
 
 ### Phase 3 — Multi-tenancy & family sharing
 
@@ -266,8 +267,7 @@ Phase 0, Phase 1 (including EPIC A) and EPIC B are complete and released. The
 dashboard/portfolio v2 (EPIC I) shipped in v0.5.0 and the UX/UI redesign
 (EPIC K) in v0.6.0.
 
-The next planned work, in order: **J.1 — manual price entry** (#105, the
-recommended first PR of **EPIC J — new asset classes** (#113)), **E.10 —
+The next planned work, in order: **E.10 —
 portfolios page full-width cards with summary info** (#104) and **C.1 — risk
 metrics endpoint** (#22, the entry point of **EPIC C** (#39)). The rest of
 EPIC J (fixed-income metadata (J.2 #106) through pension wrappers (J.8 #112)),

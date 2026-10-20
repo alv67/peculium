@@ -148,6 +148,17 @@ backend resolves from a single source across installations. The running build (v
 and build time) is visible in the sidebar, on the login page and in Settings → Preferences
 ("About this app").
 
+### Manual prices (EPIC J, first step)
+
+Assets whose `price_source` is `manual` or `none` (individual bonds, OTC
+certificates, pension funds, time deposits) accept dated close prices entered by
+the user: the asset's Data tab carries a Manual prices section with an insert
+form and the editable/deletable history, backed by
+`GET/PUT/DELETE /assets/{id}/prices/manual` (upsert per date, manual-source rows
+only, no future dates). Manual bars live in the same `prices` table as Yahoo
+bars, so they feed the chart, P/L and TWR like any other price, and the Yahoo
+sync paths never touch them.
+
 ### Website
 
 Astro static site on GitHub Pages (homepage, features, install guide, release notes), deployed
@@ -184,7 +195,7 @@ exchange selector.
 
 ## Not yet implemented
 
-- **EPIC J — new asset classes** (#113): manual price entry (J.1 #105), fixed-income
+- **EPIC J — new asset classes** (#113): fixed-income
   metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure
   (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit
   allocation (J.7 #111), pension wrappers (J.8 #112).

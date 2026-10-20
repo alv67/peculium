@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Assets that Yahoo does not cover (individual bonds, OTC certificates, pension funds, time deposits with a manual or disabled price source) accept manual prices: the asset's Data tab gains a Manual prices section to insert, edit and delete dated closing prices, which feed the chart, P/L and performance like any other price
+
 ### Fixes
 - The sector breakdown of ETFs imported from JustETF covers the whole fund: labels that used to be missing from the chart are classified correctly or shown as an "Other / Not Classified" share, and a partial breakdown no longer blocks saving the exposure
 
