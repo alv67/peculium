@@ -171,14 +171,6 @@
   // Resolved chart palette: keeps the HTML bars/swatches in sync with the
   // donut colors and re-evaluates on theme flips.
   const palette = $derived(resolvePalette(resolved()))
-
-  // Height of the regions middle area, measured from its NATURAL content via
-  // bind:clientHeight (region table + side donut fully visible, no quota) and
-  // mirrored onto the countries middle area so both boxes — and their identical
-  // footer rows — stay aligned. When the modal is closed the content is not
-  // rendered and the binding does not measure; the last value is kept and the
-  // regions box is re-measured on every reopen.
-  let regionsMidHeight = $state(0)
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -197,7 +189,7 @@
          of width, so the regions table (~264px after the 224px donut) has room
          for long region names like "Africa / Middle East" on one line. -->
     <div
-      class="relative mx-4 max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-card border-border bg-surface p-6 shadow-raised"
+      class="relative mx-2 max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-card border-border bg-surface p-3 shadow-raised sm:mx-4 sm:p-6"
     >
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{t('exposure.editGeo')}</h2>
@@ -213,7 +205,7 @@
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <!-- Countries (regions update only manually, via the derive button,
              `exposure.deriveTitle`) -->
-        <div class="flex flex-col rounded-card border border-border bg-muted p-4">
+        <div class="flex flex-col rounded-card border border-border bg-muted p-3 sm:p-4">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <h3 class="font-medium">{t('exposure.countries')}</h3>
@@ -257,30 +249,21 @@
             </div>
           </div>
 
-          <!-- Middle area height = the regions middle area's measured natural
-               height (regionsMidHeight, via bind:clientHeight on the regions
-               box), so both boxes and their footers (hr / total / messages /
-               Save) stay aligned without any fixed quota. Before the first
-               measurement the height is auto. The countries list scrolls
-               INSIDE this height only as a last resort (min-h-0 flex-1 on the
-               ul): few countries leave empty space below, many never widen or
-               lengthen the box. -->
-          <div
-            class="flex min-h-0 flex-col"
-            style="height: {regionsMidHeight > 0 ? regionsMidHeight + 'px' : 'auto'}"
-          >
+          <!-- Middle area at natural height: the modal body is the only
+               scroller, so the list never steals width from the rows. -->
+          <div class="flex flex-col">
             <!-- Table-style header row, columns aligned with the rows below. -->
             <div
-              class="flex items-center gap-3 border-b border-border pb-2 pl-2 pr-3 text-sm text-muted-foreground"
+              class="flex items-center gap-1.5 border-b border-border pb-2 pl-2 pr-2 text-sm text-muted-foreground"
             >
               <span class="min-w-0 flex-1 truncate">{t('exposure.colCountry')}</span>
-              <span class="w-20 shrink-0 text-right">{t('exposure.colWeightPct')}</span>
+              <span class="w-16 shrink-0 text-right">{t('exposure.colWeightPct')}</span>
               <!-- Spacer matching the remove-button column of the rows. -->
               <span class="w-[22px] shrink-0" aria-hidden="true"></span>
             </div>
 
             {#if visibleCountries.length === 0}
-              <div class="flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center">
+              <div class="flex flex-col items-center justify-center py-10 text-center">
                 <Globe2 class="h-8 w-8 text-input" />
                 <p class="text-sm text-muted-foreground">{t('exposure.noCountries')}</p>
                 <p class="text-xs text-muted-foreground">
@@ -288,9 +271,7 @@
                 </p>
               </div>
             {:else}
-              <ul
-                class="min-h-0 flex-1 divide-y divide-border overflow-y-auto py-1 pr-1"
-              >
+              <ul class="divide-y divide-border py-1">
                 {#each visibleCountries as row, i (row.name)}
                   {@const weight = Number(row.weight) || 0}
                   {@const displayName = countryDisplayName(row.name)}
@@ -298,9 +279,9 @@
                     maxCountryWeight > 0 ? ((weight / maxCountryWeight) * 100).toFixed(1) : '0'}
                   <li
                     data-code={row.name}
-                    class="group flex items-center gap-2 rounded-control px-2 py-2 transition-colors hover:bg-foreground/5 motion-reduce:transition-none"
+                    class="group flex items-center gap-1.5 rounded-control px-2 py-2 transition-colors hover:bg-foreground/5 motion-reduce:transition-none"
                   >
-                    <span class="w-7 shrink-0 text-xs font-medium text-muted-foreground">{row.name}</span>
+                    <span class="w-6 shrink-0 text-xs font-medium text-muted-foreground">{row.name}</span>
                     <span
                       class="min-w-0 flex-1 truncate text-sm text-foreground"
                       title="{row.name} — {displayName}"
@@ -327,7 +308,7 @@
                         onCountriesDirty()
                       }}
                       onchange={resort}
-                      class="no-spinner focus-ring w-24 shrink-0 rounded-control border border-input bg-surface px-2.5 py-1.5 text-right text-sm tabular-nums"
+                      class="no-spinner focus-ring w-16 shrink-0 rounded-control border border-input bg-surface px-2 py-1.5 text-right text-sm tabular-nums"
                     />
                     <button
                       onclick={() => removeCountry(row.name)}
@@ -415,7 +396,7 @@
         </div>
 
         <!-- Regions -->
-        <div class="flex flex-col rounded-card border border-border bg-muted p-4">
+        <div class="flex flex-col rounded-card border border-border bg-muted p-3 sm:p-4">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <h3 class="font-medium">{t('exposure.regions')}</h3>
@@ -455,12 +436,9 @@
             </div>
           </div>
 
-          <!-- Middle area at NATURAL height (header row + 10 region rows and
-               the side donut fully visible, no fixed quota, no scrollbar): its
-               measured clientHeight (regionsMidHeight) is applied to the
-               countries middle area so both boxes match. Stacked on small
-               screens the countries box inherits this same height. -->
-          <div class="flex flex-col gap-4 md:flex-row" bind:clientHeight={regionsMidHeight}>
+          <!-- Middle area at natural height (header row + 10 region rows and
+               the side donut fully visible, no fixed quota, no scrollbar). -->
+          <div class="flex flex-col gap-4 md:flex-row">
             <div class="min-w-0 flex-1">
               <table class="w-full text-left text-sm">
                 <thead>
@@ -498,7 +476,7 @@
                             r.weight = e.currentTarget.value
                             onRegionsDirty()
                           }}
-                          class="no-spinner focus-ring w-24 shrink-0 rounded-control border border-input bg-surface px-2.5 py-1.5 text-right text-sm tabular-nums"
+                          class="no-spinner focus-ring w-16 shrink-0 rounded-control border border-input bg-surface px-2 py-1.5 text-right text-sm tabular-nums"
                         />
                       </td>
                     </tr>

@@ -1414,15 +1414,14 @@ TAB **Exposure** — the geo/sector distribution widgets:
       add/remove/blur, never while typing — the bar animates live so rows do
       not jump). The bar colour matches the page-card palette by rank, so the
       modal previews the card; the bar is hidden below `sm` and the weight input
-      keeps the regions table's `w-24`, so on a 375px phone the row keeps code,
-      name, weight and delete with the same rhythm as the regions rows. An
+      uses the regions table's compact `w-16`, so on a 375px phone the row keeps
+      code, name, weight and delete with the same rhythm as the regions rows. An
       `add-country` native select + "Aggiungi"
       button lets the user add any canonical code not already present (focus
-      then moves to its weight input). The list is **flexible**
-      (`min-h-0 flex-1 overflow-y-auto`): it grows to fill the box so the
-      "Totale" footer and the Save button sit at the bottom, aligned with the
-      regions box, and long lists scroll inside the list area instead of
-      growing the modal. A totals footer shows "Totale X%" plus a
+      then moves to its weight input). The list runs at its **natural height**:
+      the modal body is the only scroller, so no scrollbar steals width from the
+      rows and the countries box grows with the list instead of matching the
+      regions box's height. A totals footer shows "Totale X%" plus a
       progress meter; **save is disabled when the sum exceeds 100** (a sum
       below 100 is allowed). An info line reports the unattributed residual
       and reminds that regions are **not** re-derived on save — they update
