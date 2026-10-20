@@ -1413,7 +1413,9 @@ TAB **Exposure** — the geo/sector distribution widgets:
       bar · weight input · delete`, sorted by weight **desc** (re-sorted on
       add/remove/blur, never while typing — the bar animates live so rows do
       not jump). The bar colour matches the page-card palette by rank, so the
-      modal previews the card. An `add-country` native select + "Aggiungi"
+      modal previews the card; the bar is hidden below `sm`, where the row
+      keeps code, name, weight and delete so it fits a 375px phone. An
+      `add-country` native select + "Aggiungi"
       button lets the user add any canonical code not already present (focus
       then moves to its weight input). The list is **flexible**
       (`min-h-0 flex-1 overflow-y-auto`): it grows to fill the box so the
