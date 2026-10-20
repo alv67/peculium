@@ -1484,7 +1484,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       ~89 righe). Ogni riga è `codice ISO · nome · barra orizzontale · input
       peso · elimina`, ordinata per peso **desc** (riordinata su add/remove/blur,
       mai mentre si digita — la barra si anima live così le righe non saltano).
-      Il colore della barra segue la palette della card per rango. Un select
+      Il colore della barra segue la palette della card per rango; la barra è
+      nascosta sotto `sm`, dove la riga tiene codice, nome, peso ed elimina per
+      stare in un telefono da 375px. Un select
       nativo + "Aggiungi" inserisce un codice canonico non ancora presente (il
       focus passa al suo input peso). La lista è **flessibile**
       (`min-h-0 flex-1 overflow-y-auto`): cresce fino a riempire il box così il
