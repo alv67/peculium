@@ -1489,10 +1489,12 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       regioni, così su un telefono da 375px la riga mantiene codice, nome, peso
       ed elimina con lo stesso ritmo delle righe regioni. Un select
       nativo + "Aggiungi" inserisce un codice canonico non ancora presente (il
-      focus passa al suo input peso). La lista sta alla sua **altezza naturale**:
-      l'unico scroller è il corpo della modale, così nessuna barra ruba
-      larghezza alle righe e il box paesi cresce con la lista invece di
-      allinearsi in altezza al box regioni. Il footer mostra "Totale X%" + barra di
+      focus passa al suo input peso). Sotto `lg` la lista sta alla sua **altezza
+      naturale**: l'unico scroller è il corpo della modale, così nessuna barra
+      ruba larghezza alle righe e il box paesi cresce con la lista. Da `lg` in
+      su, con i due box affiancati, la lista prende l'altezza misurata del box
+      regioni (`regionsMidHeight`, via `clientHeight`) e scorre al suo interno,
+      così i due box e i rispettivi footer restano allineati. Il footer mostra "Totale X%" + barra di
       progresso; **il salvataggio è disabilitato se la somma supera 100** (sotto
       100 è ammesso). Una nota segnala il residuo non attribuito e ricorda che
       le regioni **non** vengono ricalcolate al salvataggio: si aggiornano solo
@@ -1519,8 +1521,9 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
       non sono persistite): subito dopo un prefill o una modifica manuale il
       badge mostra **solo l'etichetta**, e la data compare quando la
       dimensione viene di nuovo salvata.
-  - **`ExposureSectorModal`** ha la tabella dei settori, validata a 100 ± 0,5
-    (i settori richiedono il totale esatto). Nell'header
+  - **`ExposureSectorModal`** ha la tabella dei settori; solo una somma sopra
+    100 blocca il salvataggio — un totale più basso è ammesso e il server fonde
+    il residuo in «Other / Not Classified» al salvataggio. Nell'header
     mostra la stessa pillola `ProvenanceBadge` dei box geografici, guidata da
     `sectorsSource` + `sectorsUpdatedAt` della shell (`da JustETF`, `da Yahoo`,
     `da Morningstar`, `manuale`): ogni prefill dei settori imposta il badge
@@ -1620,7 +1623,7 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
    prefill del provider e reload canonico dopo il salvataggio) passa da
    `sectorsList`, che prima arrotonda ogni peso a 2 decimali e poi applica
    `capAtHundred`; le modifiche manuali sui settori bypassano l'helper e
-   restano governate dal guard settori (100 ± 0,5).
+   restano governate dal guard settori (blocca solo una somma sopra 100).
 
 ### `/settings` — Impostazioni (`routes/settings/+page.svelte`)
 

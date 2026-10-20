@@ -1418,10 +1418,13 @@ TAB **Exposure** — the geo/sector distribution widgets:
       code, name, weight and delete with the same rhythm as the regions rows. An
       `add-country` native select + "Aggiungi"
       button lets the user add any canonical code not already present (focus
-      then moves to its weight input). The list runs at its **natural height**:
-      the modal body is the only scroller, so no scrollbar steals width from the
-      rows and the countries box grows with the list instead of matching the
-      regions box's height. A totals footer shows "Totale X%" plus a
+      then moves to its weight input). Below `lg` the list runs at its
+      **natural height**: the modal body is the only scroller, so no scrollbar
+      steals width from the rows and the countries box grows with the list.
+      From `lg` up, where the two boxes sit side by side, the list takes the
+      regions box's measured height (`regionsMidHeight`, bound with
+      `clientHeight`) and scrolls inside it, so both boxes and their footer
+      rows stay aligned. A totals footer shows "Totale X%" plus a
       progress meter; **save is disabled when the sum exceeds 100** (a sum
       below 100 is allowed). An info line reports the unattributed residual
       and reminds that regions are **not** re-derived on save — they update
@@ -1447,8 +1450,9 @@ TAB **Exposure** — the geo/sector distribution widgets:
       responses carry no provenance (previews are not persisted): right after
       a prefill or a manual edit the badge shows the **label only**, and the
       date appears once the dimension is saved again.
-  - **`ExposureSectorModal`** has the sector table, validated to 100 ± 0.5
-     (sectors require an exact total). Its header shows the
+  - **`ExposureSectorModal`** has the sector table; only a sum above 100
+    blocks the save — a lower total is allowed and the server folds the
+    residual into «Other / Not Classified» at persist time. Its header shows the
     same `ProvenanceBadge` pill as the geo boxes, driven by the shell-owned
     `sectorsSource` + `sectorsUpdatedAt` (`da JustETF`, `da Yahoo`,
     `da Morningstar`, `manuale`): each sector prefill sets the badge (label
@@ -1545,7 +1549,7 @@ TAB **Exposure** — the geo/sector distribution widgets:
    (page load, provider prefill and the canonical reload after a save) runs
    through `sectorsList`, which first rounds each weight to 2 decimals and
    then applies `capAtHundred`; manual sector edits bypass it and stay
-   governed by the sector guard (100 ± 0.5).
+   governed by the sector guard (only a sum above 100 blocks the save).
 
 ### `/settings` — Settings (`routes/settings/+page.svelte`)
 

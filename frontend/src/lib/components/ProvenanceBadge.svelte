@@ -87,7 +87,7 @@
 {#if info}
   <Badge
     variant="outline"
-    class="bg-surface px-2 text-muted-foreground"
+    class="bg-surface px-2 whitespace-nowrap text-muted-foreground"
     title={hint}
     aria-label={`${label}: ${hint}`}
   >

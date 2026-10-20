@@ -6,7 +6,7 @@
 - Gli asset non coperti da Yahoo (obbligazioni singole, certificati OTC, fondi pensione, conti deposito con fonte prezzi manuale o disattivata) accettano prezzi manuali: la scheda Dati dell'asset guadagna una sezione Prezzi manuali per inserire, modificare ed eliminare chiusure datate, che alimentano grafico, P/L e performance come qualsiasi altro prezzo
 
 ### Correzioni
-- Su telefono la lista dei paesi nell'editor dell'esposizione resta dentro la modale invece di sbordare, con la stessa larghezza della tabella delle regioni
+- Su telefono l'editor dell'esposizione sta nella schermata: la lista dei paesi non sborda più dalla modale e i pulsanti di prefill dell'editor settori restano visibili
 - Lasciare vuoto un peso mentre si modificano paesi, regioni o settori di un asset ora conta come zero invece di far fallire il salvataggio con un errore generico: puoi compilare solo le righe che ti servono
 - La distribuzione settoriale degli ETF importati da JustETF copre l'intero fondo: le etichette che prima mancavano nel grafico sono classificate correttamente o mostrate come quota "Other / Not Classified", e una distribuzione parziale non blocca più il salvataggio dell'esposizione
 
