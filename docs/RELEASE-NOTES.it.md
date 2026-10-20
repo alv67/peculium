@@ -6,6 +6,7 @@
 - Gli asset non coperti da Yahoo (obbligazioni singole, certificati OTC, fondi pensione, conti deposito con fonte prezzi manuale o disattivata) accettano prezzi manuali: la scheda Dati dell'asset guadagna una sezione Prezzi manuali per inserire, modificare ed eliminare chiusure datate, che alimentano grafico, P/L e performance come qualsiasi altro prezzo
 
 ### Correzioni
+- Lasciare vuoto un peso mentre si modificano paesi, regioni o settori di un asset ora conta come zero invece di far fallire il salvataggio con un errore generico: puoi compilare solo le righe che ti servono
 - La distribuzione settoriale degli ETF importati da JustETF copre l'intero fondo: le etichette che prima mancavano nel grafico sono classificate correttamente o mostrate come quota "Other / Not Classified", e una distribuzione parziale non blocca più il salvataggio dell'esposizione
 
 ## v1.1.0 — 18 ott 2026

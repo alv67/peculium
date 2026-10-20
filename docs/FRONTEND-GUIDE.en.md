@@ -1386,7 +1386,8 @@ TAB **Exposure** — the geo/sector distribution widgets:
 
 - **Distribuzione geografica** and **Distribuzione settoriale** are **two
   separate cards**. Editing
-  happens **only inside the modals**; the tab keeps the presentation. The
+  happens **only inside the modals**; the tab keeps the presentation. An empty
+  weight field counts as zero, so only the rows that apply need a value. The
   cards always render the **stored exposure** (`displayCountries` /
   `displayRegions` / `displaySectors`, derived from the shell's `exposure`
   state loaded/saved via the API) — unsaved modal edits and prefill previews never
