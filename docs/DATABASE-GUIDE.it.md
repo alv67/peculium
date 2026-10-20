@@ -583,4 +583,5 @@ In sintesi, chi scrive e chi legge:
   per-asset: ponderata per classe di investimento
   (`GET /portfolios/{id}/allocation/class`), per geografia e per settore
   (`GET /portfolios/{id}/allocation/geography` e `/allocation/sector`,
-  10 macro-regioni (allineate a Morningstar) / 11 settori GICS + `Other`, zero-filled).
+  10 macro-regioni (allineate a Morningstar) / 11 settori GICS, con in coda il
+  bucket residuo `Other / Not Classified`, zero-filled).

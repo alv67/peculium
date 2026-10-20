@@ -111,8 +111,6 @@ and personal finances.
 - [ ] Slim the python-service image (Chromium headless-shell) — **#205**
 - [ ] Audit log for shared data, admin-only view — **#207**
 - [ ] Real per-bar/per-asset backfill progress — **#219**
-- [ ] Sector mapping: JustETF labels that do not reach the app sectors (their weight falls outside the classified share) — **#236**
-- [ ] ETF exposure partial coverage: accept and flag weights that do not sum to 100 (unmapped JustETF labels, #236) instead of rejecting the whole save (`weights must sum to 100`, WARN in `tests/test-epic-b.sh`)
 
 ---
 

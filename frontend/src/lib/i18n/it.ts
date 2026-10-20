@@ -407,7 +407,6 @@ export const it = {
     over100Title: 'La somma dei pesi supera il 100%: riduci i pesi per poter salvare',
     residualCountries: 'Residuo non attribuito: {pct}%.',
     residualRegions: 'Residuo non classificato: {pct}% — escluso dal grafico.',
-    sumMustBe100: 'La somma dei pesi deve essere 100 (±0.5) — attuale: {pct}%',
   },
   /**
    * Badge di provenienza (bug-fix EPIC K): etichetta della pill, spiegazione

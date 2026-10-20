@@ -360,6 +360,63 @@ func TestAggregateSectors(t *testing.T) {
 				{Name: "Energy", Weight: decimal.NewFromInt(100)},
 			},
 		},
+		{
+			name: "justetf legacy label set maps to canonical sectors",
+			in: []model.ExposureRow{
+				{Name: "Finance", Weight: decimal.RequireFromString("26.02")},
+				{Name: "Industrials", Weight: decimal.RequireFromString("16.59")},
+				{Name: "Healthcare", Weight: decimal.RequireFromString("12.11")},
+				{Name: "Technology", Weight: decimal.RequireFromString("10.48")},
+				{Name: "Consumer Non-Cyclicals", Weight: decimal.RequireFromString("8.64")},
+				{Name: "Non-Energy Materials", Weight: decimal.RequireFromString("6.22")},
+				{Name: "Energy", Weight: decimal.RequireFromString("5.53")},
+				{Name: "Consumer Cyclicals", Weight: decimal.RequireFromString("5.12")},
+				{Name: "Utilities", Weight: decimal.RequireFromString("4.41")},
+				{Name: "Telecommunication", Weight: decimal.RequireFromString("2.23")},
+				{Name: "Business Services", Weight: decimal.RequireFromString("1.2")},
+				{Name: "Consumer Services", Weight: decimal.RequireFromString("0.86")},
+				{Name: "Non-Corporate", Weight: decimal.RequireFromString("0")},
+				{Name: "Other", Weight: decimal.RequireFromString("0.59")},
+			},
+			want: []model.ExposureRow{
+				{Name: "Communication Services", Weight: decimal.RequireFromString("2.23")},
+				{Name: "Consumer Discretionary", Weight: decimal.RequireFromString("5.98")},
+				{Name: "Consumer Staples", Weight: decimal.RequireFromString("8.64")},
+				{Name: "Energy", Weight: decimal.RequireFromString("5.53")},
+				{Name: "Financials", Weight: decimal.RequireFromString("26.02")},
+				{Name: "Health Care", Weight: decimal.RequireFromString("12.11")},
+				{Name: "Industrials", Weight: decimal.RequireFromString("17.79")},
+				{Name: "Information Technology", Weight: decimal.RequireFromString("10.48")},
+				{Name: "Materials", Weight: decimal.RequireFromString("6.22")},
+				{Name: "Other / Not Classified", Weight: decimal.RequireFromString("0.59")},
+				{Name: "Utilities", Weight: decimal.RequireFromString("4.41")},
+			},
+		},
+		{
+			name: "unknown label lands in Other / Not Classified with the residual",
+			in: []model.ExposureRow{
+				{Name: "Information Technology", Weight: decimal.NewFromInt(40)},
+				{Name: "Financials", Weight: decimal.NewFromInt(45)},
+				{Name: "Other", Weight: decimal.NewFromInt(10)},
+			},
+			want: []model.ExposureRow{
+				{Name: "Financials", Weight: decimal.NewFromInt(45)},
+				{Name: "Information Technology", Weight: decimal.NewFromInt(40)},
+				{Name: "Other / Not Classified", Weight: decimal.NewFromInt(15)},
+			},
+		},
+		{
+			name: "Non-Corporate bond rows are dropped without a residual",
+			in: []model.ExposureRow{
+				{Name: "Energy", Weight: decimal.NewFromInt(60)},
+				{Name: "Utilities", Weight: decimal.NewFromInt(40)},
+				{Name: "Non-Corporate", Weight: decimal.NewFromInt(25)},
+			},
+			want: []model.ExposureRow{
+				{Name: "Energy", Weight: decimal.NewFromInt(60)},
+				{Name: "Utilities", Weight: decimal.NewFromInt(40)},
+			},
+		},
 	}
 
 	for _, tt := range tests {

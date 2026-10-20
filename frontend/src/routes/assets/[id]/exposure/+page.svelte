@@ -53,7 +53,9 @@
   // Stored regions without the «Other / Not Classified» residual (same filter
   // the edit list applies at assignment time, here re-used for display).
   const displayRegions = $derived(ctx.exposure ? withoutOther(ctx.exposure.regions) : [])
-  const displaySectors = $derived(ctx.exposure?.sectors ?? [])
+  // Sectors behave exactly like regions: the stored «Other / Not Classified»
+  // residual is filtered out of the display too.
+  const displaySectors = $derived(ctx.exposure ? withoutOther(ctx.exposure.sectors) : [])
 
   // Top 15 stored countries by weight (desc, > 0) for the geographic card bar
   // list. The copy-then-sort keeps the derived displayCountries array pristine.
@@ -156,9 +158,16 @@
     </div>
     <div class="rounded-card border border-border bg-muted p-4">
       <h3 class="mb-2 font-medium">{t('exposure.sectors')}</h3>
-      <!-- Same as regions: the legend below already lists every sector with
-           its weight, so no K.5b table toggle here. -->
-      <ExposurePie data={displaySectors} title={t('exposure.sectorTitle')} showTableToggle={false} />
+      <!-- Same as regions: the residual row is filtered out of displaySectors,
+           so the donut renders open (complete={false} adds the transparent
+           gap) and the legend below already lists every sector with its
+           weight — no K.5b table toggle here. -->
+      <ExposurePie
+        data={displaySectors}
+        title={t('exposure.sectorTitle')}
+        complete={false}
+        showTableToggle={false}
+      />
       <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
         {#each displaySectors.filter((r) => Number(r.weight) > 0) as s, i (s.name)}
           <div class="flex items-center gap-1.5 text-xs">

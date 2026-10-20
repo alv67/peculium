@@ -52,7 +52,8 @@ var Countries = []string{
 	"BD", "CN", "ID", "IN", "LK", "MY", "PH", "PK", "TH", "VN",
 }
 
-// GICSSectors is the canonical list of GICS sectors.
+// GICSSectors is the canonical list of GICS sectors in display order, ending
+// with the residual bucket so a provider prefill can map 1:1.
 var GICSSectors = []string{
 	"Energy",
 	"Materials",
@@ -65,7 +66,13 @@ var GICSSectors = []string{
 	"Communication Services",
 	"Utilities",
 	"Real Estate",
+	"Other / Not Classified",
 }
+
+// OtherSector is the canonical name of the fallback sector that absorbs
+// provider sector labels that map to no GICS sector (or the residual when the
+// sector weights of a provider do not cover 100%).
+const OtherSector = "Other / Not Classified"
 
 var regionByCountry = map[string]string{
 	// North America
@@ -301,6 +308,7 @@ var sectorAliases = map[string]string{
 	"Communication Services": "Communication Services",
 	"Telecommunication":      "Communication Services",
 	"Telecommunications":     "Communication Services",
+	"Business Services":      "Industrials",
 }
 
 // NormalizeSector maps a provider sector name to the canonical GICS name.

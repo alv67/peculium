@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Fixes
+- The sector breakdown of ETFs imported from JustETF covers the whole fund: labels that used to be missing from the chart are classified correctly or shown as an "Other / Not Classified" share, and a partial breakdown no longer blocks saving the exposure
+
 ## v1.1.0 — 18 Oct 2026
 
 ### Features

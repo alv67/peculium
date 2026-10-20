@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { Loader2, X } from 'lucide-svelte'
+  import { Info, Loader2, X } from 'lucide-svelte'
   import type { ExposureRow } from '$lib/services/api'
   import { t } from '$lib/i18n/index.svelte'
   import ExposurePie from './ExposurePie.svelte'
   import ProvenanceBadge from './ProvenanceBadge.svelte'
   import { colorForRow, resolvePalette } from '$lib/chartPalette'
   import { resolved } from '$lib/stores/theme.svelte'
+  import { totalColorClass } from '$lib/ui-colors'
 
   let {
     open = $bindable(false),
@@ -188,26 +189,37 @@
                 {/each}
                 <tr class="border-t border-border font-semibold">
                   <td class="py-2">{t('common.colTotal')}</td>
-                  <td class="py-2 text-right tabular-nums {sectorsValid ? 'text-positive' : 'text-negative'}">
+                  <td class="py-2 text-right tabular-nums {totalColorClass(sumSectors, !sectorsValid)}">
                     {sumSectors.toFixed(2)}%
                   </td>
                 </tr>
               </tbody>
             </table>
+            <!-- Same rule as regions: only a sum above 100 blocks the save;
+                 below 100 the backend folds the residual into «Other / Not
+                 Classified» at persist time. -->
             {#if !sectorsValid}
-              <p class="mt-2 text-sm text-negative">
-                {t('exposure.sumMustBe100', { pct: sumSectors.toFixed(2) })}
+              <p role="alert" class="mt-2 text-sm text-negative">
+                {t('exposure.overSum', { pct: sumSectors.toFixed(2) })}
+              </p>
+            {:else if sumSectors < 99.5}
+              <p class="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Info class="h-3.5 w-3.5 shrink-0" />
+                {t('exposure.residualRegions', { pct: (100 - sumSectors).toFixed(2) })}
               </p>
             {/if}
           </div>
           <div class="w-48 shrink-0 md:w-56">
             <!-- Muted live preview next to the weight grid: the grid already
                  lists (and edits) the same rows, so the K.5b table toggle
-                 would only duplicate it. -->
+                 would only duplicate it. Open donut (complete={false}): the
+                 residual row is filtered out of the edit list, the gap shows
+                 what the backend will fold into «Other / Not Classified». -->
             <ExposurePie
               data={sectorsEdit}
               title={t('exposure.sectorTitle')}
               mute
+              complete={false}
               showTableToggle={false}
             />
           </div>
@@ -216,6 +228,7 @@
           <button
             onclick={saveSectors}
             disabled={!sectorsValid || savingSectors}
+            title={!sectorsValid ? t('exposure.over100Title') : undefined}
             class="rounded-control bg-accent px-4 py-2 text-sm text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
             {savingSectors ? t('common.saving') : t('common.save')}
