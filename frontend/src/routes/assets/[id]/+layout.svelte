@@ -187,6 +187,17 @@
   const sectorsValid = $derived(sumSectors <= 100 + 1e-9);
   const countriesValid = $derived(sumCountries <= 100 + 1e-9);
 
+  // Empty weight fields mean zero: the canonical grids list every sector,
+  // region and country, and most users only fill the few that apply. A blank
+  // input reads as '' from <input type="number"> and the API decodes weights
+  // as numbers, so it must be sent as '0' instead of failing the save.
+  function weightedRows(rows: ExposureRow[]): ExposureRow[] {
+    return rows.map((r) => ({
+      name: r.name,
+      weight: String(r.weight).trim() === '' ? '0' : r.weight,
+    }))
+  }
+
   // 1D/1W/1M/1Y/YTD quote deltas of `AssetQuote`, as compact chips in the
   // sticky header (spec §6.3; the old body-level "Metriche quote" card's
   // five metrics — same values, same zero-muted coloring via `PnlValue`).
@@ -648,7 +659,7 @@
     const sentSource = regionsSource ?? 'manual'
     try {
       const saved = await assetApi.saveExposure(id, {
-        regions: regionsEdit,
+        regions: weightedRows(regionsEdit),
         regions_source: sentSource,
       })
       exposure = saved
@@ -673,7 +684,7 @@
     const sentSource = sectorsSource ?? 'manual'
     try {
       const saved = await assetApi.saveExposure(id, {
-        sectors: sectorsEdit,
+        sectors: weightedRows(sectorsEdit),
         sectors_source: sentSource,
       })
       exposure = saved
@@ -719,7 +730,7 @@
     const sentSource = countriesSource ?? 'manual'
     try {
       const saved = await assetApi.saveExposure(id, {
-        countries: countriesEdit,
+        countries: weightedRows(countriesEdit),
         countries_source: sentSource,
       })
       exposure = saved

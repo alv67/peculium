@@ -1458,7 +1458,8 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 
 - **Distribuzione geografica** e **Distribuzione settoriale** sono **due card
   separate**. L'editing avviene
-  **solo nelle modali**; la tab mantiene la presentazione. Le card renderizzano
+  **solo nelle modali**; la tab mantiene la presentazione. Un campo peso
+  vuoto vale zero: basta compilare le righe che servono. Le card renderizzano
   sempre l'**esposizione salvata** (`displayCountries` / `displayRegions` /
   `displaySectors`, derivati dallo stato `exposure` della shell caricato/salvato via API) —
   modifiche non salvate e anteprime di prefill non compaiono mai sulle card e non
