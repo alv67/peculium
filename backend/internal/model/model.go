@@ -247,6 +247,24 @@ type Price struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
+// ManualPriceInput is one user-entered price bar accepted by
+// PUT /assets/{id}/prices/manual. Date is "YYYY-MM-DD"; Close decodes from a
+// JSON number or string.
+type ManualPriceInput struct {
+	Date   string          `json:"date"`
+	Close  decimal.Decimal `json:"close"`
+	Volume int64           `json:"volume"`
+}
+
+// ManualPrice is one stored manual bar in the API response shape: the
+// calendar date as "YYYY-MM-DD" and the close as the quoted decimal string
+// the rest of the API uses.
+type ManualPrice struct {
+	Date   string          `json:"date"`
+	Close  decimal.Decimal `json:"close"`
+	Volume int64           `json:"volume"`
+}
+
 // FXRatePoint is one daily base->quote rate in the stored FX history series.
 type FXRatePoint struct {
 	Date time.Time       `json:"date"`

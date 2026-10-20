@@ -508,6 +508,19 @@ func (r *backupPriceRepo) FindManualByAssets(ctx context.Context, assetIDs []uui
 	})
 	return out, nil
 }
+func (r *backupPriceRepo) DeleteManual(ctx context.Context, assetID uuid.UUID, date time.Time) (int64, error) {
+	var kept []*model.Price
+	deleted := int64(0)
+	for _, p := range r.prices {
+		if p.AssetID == assetID && p.Date.Equal(date) && p.Source == "manual" {
+			deleted++
+			continue
+		}
+		kept = append(kept, p)
+	}
+	r.prices = kept
+	return deleted, nil
+}
 func (r *backupPriceRepo) FindForPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Price, error) {
 	return nil, nil
 }

@@ -817,6 +817,31 @@ risponde `{"deleted": N}` (il numero di eventi rimossi).
   riferimento dei valori dell'asset (diverso per borsa, perché i mercati
   chiudono in orari diversi).
 
+### Prezzi manuali (asset fuori da Yahoo)
+
+Gli asset che Yahoo non copre (obbligazioni, certificati OTC, fondi
+pensione, depositi vincolati) registrano i prezzi di chiusura datati
+direttamente, tramite tre endpoint:
+
+- `GET /assets/{id}/prices/manual`: le barre manuali salvate, dalla data più
+  recente, con forma `{"date": "YYYY-MM-DD", "close": "103.2", "volume": 0}`;
+  vengono elencate solo le righe con `source = 'manual'`.
+- `PUT /assets/{id}/prices/manual` con corpo `{date, close, volume?}`: un
+  upsert su (asset, data) — la stessa data sovrascrive la riga, ed è il
+  percorso di modifica — e restituisce la riga salvata.
+- `DELETE /assets/{id}/prices/manual/{date}`: rimuove una barra manuale; 404
+  se l'asset o la barra non esiste.
+
+Le scritture sono rifiutate con 400 per gli asset il cui `price_source` è
+`yahoo` (o il default vuoto legacy): le barre manuali esistono solo su asset
+`manual`/`none`, ed è questo che garantisce strutturalmente che il sync Yahoo
+non sovrascriva mai i prezzi inseriti dall'utente — i percorsi di sync
+saltano completamente quegli asset. Validazione: la data non è futura (oggi
+UTC), il close è in `(0, 1e12]`, il volume non è negativo; corpo o data
+malformati danno 400. La barra memorizza il close anche in open/high/low,
+così resta coerente. Le barre manuali sono righe normali della tabella
+`prices`, quindi serie, P&L e grafici le leggono senza trattamenti speciali.
+
 ### Profilo ed esposizione dell'asset
 
 Per la pagina di dettaglio asset il backend dialoga anche con l'endpoint

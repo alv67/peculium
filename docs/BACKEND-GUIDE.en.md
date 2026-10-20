@@ -801,6 +801,30 @@ every price-refresh tick. An admin can also wipe everything on demand with
   the reference date of the asset's values (different per exchange, since
   markets close at different times).
 
+### Manual prices (assets outside Yahoo)
+
+Assets Yahoo does not cover (bonds, OTC certificates, pension funds, time
+deposits) record their dated close prices directly, through three endpoints:
+
+- `GET /assets/{id}/prices/manual`: the stored manual bars, newest date
+  first, shaped `{"date": "YYYY-MM-DD", "close": "103.2", "volume": 0}`;
+  only rows with `source = 'manual'` are ever listed.
+- `PUT /assets/{id}/prices/manual` with a `{date, close, volume?}` body: an
+  upsert on (asset, date) — the same date overwrites the row, which is the
+  edit path — and returns the stored row.
+- `DELETE /assets/{id}/prices/manual/{date}`: removes one manual bar; 404
+  when the asset or the bar does not exist.
+
+Writes are rejected with 400 for assets whose `price_source` is `yahoo` (or
+the empty legacy default): manual bars exist only on `manual`/`none` assets,
+and this is what structurally guarantees the Yahoo sync never overwrites
+user-entered prices — the sync paths skip those assets entirely. Validation:
+the date is today (UTC) or earlier, the close lies in `(0, 1e12]`, the
+volume is not negative; a malformed body or date yields 400. The bar stores
+the close in open/high/low too, so it stays self-consistent. Manual bars are
+plain rows of the `prices` table, so the series, the P&L and the charts read
+them with no special handling.
+
 ### Asset profile and exposure
 
 For the asset detail page the backend also talks to Yahoo's `quoteSummary`

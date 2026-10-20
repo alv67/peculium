@@ -27,6 +27,10 @@ type PriceRepository interface {
 	FindLatest(ctx context.Context, assetID uuid.UUID) (*model.Price, error)
 	FindLatestForAssets(ctx context.Context, assetIDs []uuid.UUID) (map[uuid.UUID]*model.Price, error)
 	FindManualByAssets(ctx context.Context, assetIDs []uuid.UUID) ([]*model.Price, error)
+	// DeleteManual removes the manual price bar stored for (assetID, date)
+	// and returns how many rows were deleted (0 = no manual bar on that
+	// date). Yahoo rows are never matched, whatever the asset's price_source.
+	DeleteManual(ctx context.Context, assetID uuid.UUID, date time.Time) (int64, error)
 	FindForPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Price, error)
 	MinMaxDate(ctx context.Context, assetID uuid.UUID) (earliest, latest *time.Time, err error)
 	ReferenceCloses(ctx context.Context, assetID uuid.UUID, dates []time.Time) (map[time.Time]decimal.Decimal, error)
@@ -179,6 +183,17 @@ func (r *priceRepo) FindManualByAssets(ctx context.Context, assetIDs []uuid.UUID
 		prices = append(prices, p)
 	}
 	return prices, rows.Err()
+}
+
+func (r *priceRepo) DeleteManual(ctx context.Context, assetID uuid.UUID, date time.Time) (int64, error) {
+	tag, err := r.db.Exec(ctx,
+		`DELETE FROM prices WHERE asset_id = $1 AND date = $2 AND source = 'manual'`,
+		assetID, date,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (r *priceRepo) FindForPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Price, error) {

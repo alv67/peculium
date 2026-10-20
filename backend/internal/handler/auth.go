@@ -579,6 +579,89 @@ func (h *Handler) DeriveAssetRegions(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string][]model.ExposureRow{"regions": regions})
 }
 
+// ListManualPrices returns the manual price bars of an asset, newest first.
+// Only source="manual" rows are ever listed.
+func (h *Handler) ListManualPrices(w http.ResponseWriter, r *http.Request) {
+	uid, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid asset id")
+		return
+	}
+
+	prices, err := h.svc.ManualPrices(r.Context(), uid)
+	if err != nil {
+		if err == service.ErrAssetNotFound {
+			respondError(w, http.StatusNotFound, "asset not found")
+			return
+		}
+		log.Error().Err(err).Msg("list manual prices failed")
+		respondError(w, http.StatusInternalServerError, "manual prices failed")
+		return
+	}
+
+	respond(w, http.StatusOK, prices)
+}
+
+// UpsertManualPrice stores (or overwrites, same date) one manual price bar.
+// Manual entry is rejected for Yahoo-priced assets, which is what keeps the
+// Yahoo sync from ever overwriting user-entered prices.
+func (h *Handler) UpsertManualPrice(w http.ResponseWriter, r *http.Request) {
+	uid, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid asset id")
+		return
+	}
+
+	var in model.ManualPriceInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	saved, err := h.svc.PutManualPrice(r.Context(), uid, &in)
+	if err != nil {
+		switch {
+		case err == service.ErrAssetNotFound:
+			respondError(w, http.StatusNotFound, "asset not found")
+		case errors.Is(err, service.ErrInvalidInput):
+			respondError(w, http.StatusBadRequest, err.Error())
+		default:
+			log.Error().Err(err).Msg("put manual price failed")
+			respondError(w, http.StatusInternalServerError, "save failed")
+		}
+		return
+	}
+
+	respond(w, http.StatusOK, saved)
+}
+
+// DeleteManualPrice removes one manual price bar by date. 404 when the asset
+// or the bar does not exist; Yahoo bars are never matched.
+func (h *Handler) DeleteManualPrice(w http.ResponseWriter, r *http.Request) {
+	uid, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid asset id")
+		return
+	}
+
+	if err := h.svc.DeleteManualPrice(r.Context(), uid, chi.URLParam(r, "date")); err != nil {
+		switch {
+		case err == service.ErrAssetNotFound:
+			respondError(w, http.StatusNotFound, "asset not found")
+		case err == service.ErrNotFound:
+			respondError(w, http.StatusNotFound, "price not found")
+		case errors.Is(err, service.ErrInvalidInput):
+			respondError(w, http.StatusBadRequest, err.Error())
+		default:
+			log.Error().Err(err).Msg("delete manual price failed")
+			respondError(w, http.StatusInternalServerError, "delete failed")
+		}
+		return
+	}
+
+	respond(w, http.StatusNoContent, nil)
+}
+
 // BackfillAssetHistory queues the full price-history (+ split metadata)
 // backfill for one asset; the asset existence is validated by the executor,
 // which fails the job on an unknown id.
