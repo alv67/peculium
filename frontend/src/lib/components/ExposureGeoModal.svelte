@@ -298,7 +298,7 @@
                     maxCountryWeight > 0 ? ((weight / maxCountryWeight) * 100).toFixed(1) : '0'}
                   <li
                     data-code={row.name}
-                    class="group flex items-center gap-2 rounded-control px-2 py-2 transition-colors hover:bg-foreground/5 motion-reduce:transition-none sm:gap-3"
+                    class="group flex items-center gap-2 rounded-control px-2 py-2 transition-colors hover:bg-foreground/5 motion-reduce:transition-none"
                   >
                     <span class="w-7 shrink-0 text-xs font-medium text-muted-foreground">{row.name}</span>
                     <span
@@ -327,7 +327,7 @@
                         onCountriesDirty()
                       }}
                       onchange={resort}
-                      class="no-spinner focus-ring w-16 shrink-0 rounded-control border border-input bg-surface px-2.5 py-1.5 text-right text-sm tabular-nums sm:w-20"
+                      class="no-spinner focus-ring w-24 shrink-0 rounded-control border border-input bg-surface px-2.5 py-1.5 text-right text-sm tabular-nums"
                     />
                     <button
                       onclick={() => removeCountry(row.name)}
