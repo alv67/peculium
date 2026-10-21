@@ -76,7 +76,9 @@ and personal finances.
 - [x] UX/UI redesign: adaptive shell, tabbed entity pages, command palette, chart table view, CVD palette, allocation drill-down — **EPIC K (PR #115)**, released in v0.6.0
 - [x] Admin area: user governance (approval, roles, enable/disable, password reset), server settings, per-user and server-wide backup & restore — **#57, #143, #145**
 - [x] Manual price entry for non-Yahoo assets (endpoint + Data-tab UI) — **J.1 (#105)**
-- [ ] New asset classes: bonds, certificates, supplementary pensions, cash deposits — **EPIC J (#113)**: fixed-income metadata (J.2 #106), `cash`/`certificate` types (J.3 #107), fixed-income exposure (J.4 #108), deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
+- [x] Fixed-income metadata and selectable `cash`/`certificate` types — **J.2/J.3 (#106, #107)**
+- [ ] Fixed-income geography and sector exposure — **J.4 (#108)**
+- [ ] Remaining **EPIC J (#113)**: deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
 
 ### Phase 3 — Multi-tenancy & family sharing
 

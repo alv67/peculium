@@ -81,8 +81,22 @@ func defaultAssetClassForType(t model.AssetType) string {
 		return "crypto"
 	case model.AssetTypeCash:
 		return "currency"
+	case model.AssetTypeCertificate:
+		return "other"
 	default:
 		return "other"
+	}
+}
+
+// fixedIncomeType reports whether an asset's geography comes from its issuer
+// country instead of a provider breakdown (EPIC J.2): a bond, an investment
+// certificate or a deposit is 100% the country of whoever owes the money.
+func fixedIncomeType(t model.AssetType) bool {
+	switch t {
+	case model.AssetTypeBond, model.AssetTypeCertificate, model.AssetTypeCash:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -404,6 +418,12 @@ func (s *Service) CreateAsset(ctx context.Context, asset *model.Asset) (*model.A
 			return nil, fmt.Errorf("%w: invalid country", ErrInvalidInput)
 		}
 	}
+	if asset.IssuerCountry != "" {
+		asset.IssuerCountry = geo.NormalizeCountry(asset.IssuerCountry)
+		if asset.IssuerCountry == "" {
+			return nil, fmt.Errorf("%w: invalid issuer country", ErrInvalidInput)
+		}
+	}
 	existing, err := s.repos.Asset.FindByTicker(ctx, asset.Ticker)
 	if err != nil {
 		return nil, err
@@ -412,7 +432,15 @@ func (s *Service) CreateAsset(ctx context.Context, asset *model.Asset) (*model.A
 		return nil, &AssetExistsError{Existing: existing}
 	}
 
-	created, err := s.repos.Asset.Create(ctx, asset)
+	var created *model.Asset
+	err = s.withTx(ctx, func(tx *repository.Repository) error {
+		var err error
+		created, err = tx.Asset.Create(ctx, asset)
+		if err != nil {
+			return err
+		}
+		return seedIssuerCountry(ctx, tx.Exposure, created)
+	})
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -581,13 +609,83 @@ func (s *Service) UpdateAsset(ctx context.Context, id uuid.UUID, patch *model.As
 	if patch.Industry != nil {
 		existing.Industry = *patch.Industry
 	}
+	if patch.Issuer != nil {
+		existing.Issuer = *patch.Issuer
+	}
+	if patch.IssuerCountry != nil {
+		existing.IssuerCountry = geo.NormalizeCountry(*patch.IssuerCountry)
+		// A non-empty value must resolve to an ISO alpha-2 code; an explicit
+		// empty string clears the field (and with it the seeded geography).
+		if *patch.IssuerCountry != "" && existing.IssuerCountry == "" {
+			return nil, fmt.Errorf("%w: invalid issuer country", ErrInvalidInput)
+		}
+	}
+	if patch.MaturityDate != nil {
+		if *patch.MaturityDate == "" {
+			existing.MaturityDate = nil
+		} else {
+			day, err := time.Parse(manualPriceLayout, *patch.MaturityDate)
+			if err != nil {
+				return nil, fmt.Errorf("%w: invalid maturity date", ErrInvalidInput)
+			}
+			existing.MaturityDate = &day
+		}
+	}
+	if patch.Attributes != nil {
+		existing.Attributes = *patch.Attributes
+	}
 
-	updated, err := s.repos.Asset.Update(ctx, existing)
+	var updated *model.Asset
+	err = s.withTx(ctx, func(tx *repository.Repository) error {
+		var err error
+		updated, err = tx.Asset.Update(ctx, existing)
+		if err != nil {
+			return err
+		}
+		return seedIssuerCountry(ctx, tx.Exposure, updated)
+	})
 	if err != nil {
 		return nil, err
 	}
 	s.bumpRev(ctx)
 	return updated, nil
+}
+
+// seedIssuerCountry gives a fixed-income asset its geography: when the issuer
+// country is known and the asset has no country weights yet, the whole asset
+// sits in that one country. Provider breakdowns and manual splits are never
+// touched. Best-effort — the asset write already succeeded, so a failure here
+// must not fail the request.
+func seedIssuerCountry(ctx context.Context, exposure repository.ExposureRepository, a *model.Asset) error {
+	if exposure == nil {
+		return nil
+	}
+	rows, err := exposure.FindCountries(ctx, a.ID)
+	if err != nil {
+		return err
+	}
+	provenance, err := exposure.FindProvenance(ctx, a.ID)
+	if err != nil {
+		return err
+	}
+	derived := provenance[model.ExposureDimensionCountries].Source == "issuer_country"
+	if !fixedIncomeType(a.Type) || a.IssuerCountry == "" {
+		if derived {
+			if err := exposure.ReplaceCountries(ctx, a.ID, nil); err != nil {
+				return err
+			}
+			return exposure.SetProvenance(ctx, a.ID, model.ExposureDimensionCountries, "manual")
+		}
+		return nil
+	}
+	if len(rows) > 0 && !derived {
+		return nil // preserve provider and user-edited distributions
+	}
+	if err := exposure.ReplaceCountries(ctx, a.ID,
+		[]model.ExposureRow{{Name: a.IssuerCountry, Weight: decimal.NewFromInt(100)}}); err != nil {
+		return err
+	}
+	return exposure.SetProvenance(ctx, a.ID, model.ExposureDimensionCountries, "issuer_country")
 }
 
 // GetAssetQuote returns the headline metrics for the asset detail page: latest
@@ -2473,15 +2571,7 @@ func (s *Service) ExportPortfolio(ctx context.Context, portfolioID uuid.UUID, us
 	}
 	sort.Slice(assets, func(i, j int) bool { return assets[i].Ticker < assets[j].Ticker })
 	for _, a := range assets {
-		doc.Assets = append(doc.Assets, model.ExportAsset{
-			Ticker:      a.Ticker,
-			Name:        a.Name,
-			Type:        a.Type,
-			Currency:    a.Currency,
-			ISIN:        a.ISIN,
-			PriceSource: a.PriceSource,
-			AssetClass:  a.AssetClass,
-		})
+		doc.Assets = append(doc.Assets, toExportAsset(a))
 	}
 	for _, tx := range txs {
 		a := assetByID[tx.AssetID]

@@ -4,6 +4,7 @@
 
 ### Nuove funzionalità
 - Gli asset non coperti da Yahoo (obbligazioni singole, certificati OTC, fondi pensione, conti deposito con fonte prezzi manuale o disattivata) accettano prezzi manuali: la scheda Dati dell'asset guadagna una sezione Prezzi manuali per inserire, modificare ed eliminare chiusure datate, che alimentano grafico, P/L e performance come qualsiasi altro prezzo
+- Puoi creare depositi e certificati d'investimento e registrare per gli asset fixed income emittente, paese, scadenza e dettagli come cedola, rating, sottostante o tasso del deposito
 
 ### Correzioni
 - Su telefono l'editor dell'esposizione sta nella schermata: la lista dei paesi non sborda più dalla modale e i pulsanti di prefill dell'editor settori restano visibili

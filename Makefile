@@ -56,6 +56,7 @@ test-e2e: ## Run end-to-end API tests on an isolated stack (EPIC A, portfolio im
 	./tests/test-portfolio-io.sh http://localhost:8081 && \
 	./tests/test-epic-k.sh http://localhost:8081 && \
 	./tests/test-epic-b.sh http://localhost:8081 && \
+	./tests/test-epic-j.sh http://localhost:8081 && \
 	./tests/test-fx-history.sh http://localhost:8081 || rc=$$?; \
 	$(COMPOSE) -p peculium-test -f docker-compose.test.yml down -v; \
 	exit $$rc

@@ -85,7 +85,9 @@ microservice with market-aware ticker→ISIN auto-resolve, three exposure dimens
 with a class allocation endpoint, geographic/sector/class allocation endpoints at portfolio
 and dashboard level (equity-only universe with coverage metadata), per-date FX history in
 the series engine, and `price_source` (yahoo/manual/none) for non-Yahoo assets. Full
-Italian/English localisation (EPIC F).
+Italian/English localisation (EPIC F). Fixed-income assets support editable issuer,
+issuer country, maturity and type-specific attributes; `cash` and `certificate` are
+selectable asset types, with certificates assigned to the `other` investment class.
 
 ### Design system (EPIC D/E)
 

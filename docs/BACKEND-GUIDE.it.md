@@ -842,6 +842,24 @@ malformati danno 400. La barra memorizza il close anche in open/high/low,
 così resta coerente. Le barre manuali sono righe normali della tabella
 `prices`, quindi serie, P&L e grafici le leggono senza trattamenti speciali.
 
+### Metadati degli asset fixed income
+
+`Asset` memorizza i campi fixed income comuni `maturity_date`, `issuer` e
+`issuer_country`; l'oggetto JSONB `attributes` conserva valori testuali
+specifici del tipo, come tasso cedolare, rating, sottostante/barriera del
+certificato o tasso/frequenza del deposito. `PATCH /assets/{id}` accetta questi
+campi; la scadenza usa `YYYY-MM-DD` e una stringa vuota cancella la data o il
+paese dell'emittente. Data o paese non validi restituiscono 400. Il vincolo sul
+tipo asset accetta anche `certificate`, con classe predefinita `other`; `cash`
+usa la classe predefinita `currency`.
+
+Per obbligazioni, certificati e depositi, impostare `issuer_country` crea una
+riga paese al 100% solo se non esiste già una distribuzione geografica. La riga
+porta la provenienza `issuer_country` e segue le successive modifiche al paese
+dell'emittente; le distribuzioni del provider o modificate dall'utente restano
+inalterate. Le obbligazioni e i depositi esistenti ereditano il paese
+dell'emittente dal campo `country` durante la migrazione additiva dello schema.
+
 ### Profilo ed esposizione dell'asset
 
 Per la pagina di dettaglio asset il backend dialoga anche con l'endpoint
@@ -1172,9 +1190,9 @@ il vecchio portafoglio resta intatto.
 
 `GET /portfolios/{id}/export` produce un documento JSON con un campo
 `version` (la versione del formato, attualmente `1`); `POST /portfolios/import`
-lo consuma. Il formato è deliberatamente **additivo**: i campi `price_source`
-e `asset_class` per asset che l'export scrive sono opzionali (`omitempty`),
-quindi i documenti che non li contengono restano validi e recuperabili.
+lo consuma. Il formato è deliberatamente **additivo**: i campi per asset
+`price_source`, `asset_class` e i metadati fixed income sono opzionali, quindi
+i documenti precedenti restano validi e recuperabili.
 
 Quando l'importer crea un asset il cui ticker non esiste ancora, ogni
 informazione mancante viene riempita con un default che soddisfa i vincoli del
@@ -1203,9 +1221,9 @@ un 400 (`unsupported backup version N`). Il bundle contiene:
   ciascun portafoglio **posseduto** dall'utente (i portafogli condivisi in
   ingresso non vengono duplicati); ogni voce è autonoma e importabile anche
   da sola attraverso l'endpoint di import del portafoglio;
-- `assets` — i dati per-asset che nessun provider può rifornire, indicizzati
-  per ticker: i metadati identificativi, l'**esposizione** (righe paesi,
-  regioni e settori con, nei campi `*_source`, la provenienza di ogni
+ - `assets` — i dati per-asset che nessun provider può rifornire, indicizzati
+   per ticker: i metadati identificativi e fixed income, l'**esposizione**
+   (righe paesi, regioni e settori con, nei campi `*_source`, la provenienza di ogni
   dimensione salvata) e le **righe dei prezzi manuali**.
 
 I prezzi Yahoo, la cronologia FX e gli eventi health sono esclusi di

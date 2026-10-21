@@ -345,6 +345,10 @@ func (h *Handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if errors.Is(err, service.ErrInvalidInput) {
+			respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		log.Error().Err(err).Msg("update asset failed")
 		respondError(w, http.StatusInternalServerError, "update failed")
 		return
@@ -700,6 +704,10 @@ func (h *Handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 				// response body id keep working on reruns (201 vs 409).
 				"id": dup.Existing.ID,
 			})
+			return
+		}
+		if errors.Is(err, service.ErrInvalidInput) || errors.Is(err, service.ErrInvalidPriceSource) {
+			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		log.Error().Err(err).Msg("create asset failed")

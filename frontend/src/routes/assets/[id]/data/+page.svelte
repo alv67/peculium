@@ -1,8 +1,8 @@
 <script lang="ts">
   import { t } from '#lib/i18n/index.svelte.js'
+  import type { MessageKey } from '#lib/i18n/index.svelte.js'
   import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel } from '#lib/format.js'
   import { History, RefreshCw, Trash2 } from 'lucide-svelte'
-  import Badge from '#lib/components/ui/Badge.svelte'
   import Button from '#lib/components/ui/Button.svelte'
   import Spinner from '#lib/components/ui/Spinner.svelte'
   import ManualPricesCard from '#lib/components/domain/ManualPricesCard.svelte'
@@ -17,10 +17,27 @@
    * history backfill / delete asset — the same layout-owned actions as the
    * header `⋯` menu, sharing their busy spinners), the EPIC J.1 Manual
    * prices section (live only for `manual`/`none` price sources) and the
-   * J.2 fixed-income slot still a muted "coming soon" placeholder with no
-   * behaviour yet.
+   * J.2 fixed-income metadata form.
    */
   const ctx = getAssetPage()
+
+  const fixedIncomeFields: Record<string, { key: string; label: MessageKey }[]> = {
+    bond: [
+      { key: 'coupon_rate', label: 'asset.attrCouponRate' },
+      { key: 'rating', label: 'asset.attrRating' },
+    ],
+    certificate: [
+      { key: 'certificate_type', label: 'asset.attrCertificateType' },
+      { key: 'underlying', label: 'asset.attrUnderlying' },
+      { key: 'strike', label: 'asset.attrStrike' },
+      { key: 'barrier', label: 'asset.attrBarrier' },
+      { key: 'coupon_rate', label: 'asset.attrCouponRate' },
+    ],
+    cash: [
+      { key: 'deposit_rate', label: 'asset.attrDepositRate' },
+      { key: 'deposit_frequency', label: 'asset.attrDepositFrequency' },
+    ],
+  }
 </script>
 
 {#if ctx.asset}
@@ -114,6 +131,32 @@
         </select>
       </div>
     </div>
+
+    {#if ctx.form.type === 'bond' || ctx.form.type === 'certificate' || ctx.form.type === 'cash'}
+      <div class="mt-5 border-t border-border pt-4">
+        <h3 class="mb-3 text-sm font-semibold">{t('asset.fixedIncome')}</h3>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div>
+            <label for="asset-issuer" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factIssuer')}</label>
+            <input id="asset-issuer" type="text" bind:value={ctx.form.issuer} class="w-full rounded-control border border-input px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label for="asset-issuer-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factIssuerCountry')}</label>
+            <input id="asset-issuer-country" type="text" maxlength="2" bind:value={ctx.form.issuer_country} class="w-full rounded-control border border-input px-3 py-2 text-sm uppercase" />
+          </div>
+          <div>
+            <label for="asset-maturity" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factMaturity')}</label>
+            <input id="asset-maturity" type="date" bind:value={ctx.form.maturity_date} class="w-full rounded-control border border-input px-3 py-2 text-sm" />
+          </div>
+          {#each fixedIncomeFields[ctx.form.type] ?? [] as field (field.key)}
+            <div>
+              <label for="asset-attribute-{field.key}" class="mb-1 block text-xs font-medium text-muted-foreground">{t(field.label)}</label>
+              <input id="asset-attribute-{field.key}" type="text" bind:value={ctx.form.attributes[field.key]} class="w-full rounded-control border border-input px-3 py-2 text-sm" />
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Danger zone (spec §6.3): the three layout-owned actions the old
@@ -157,14 +200,4 @@
     />
   {/if}
 
-  <!-- EPIC J reserved slot (J.2): placeholder only — no behaviour, no
-       endpoint, nothing to ship yet; it makes the future surface
-       discoverable. -->
-  <div class="rounded-card border border-dashed border-border p-4">
-    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-      <h2 class="font-semibold text-muted-foreground">{t('asset.fixedIncome')}</h2>
-      <Badge>{t('quickActions.comingSoon')}</Badge>
-    </div>
-    <p class="text-sm text-muted-foreground">{t('asset.fixedIncomeHint')}</p>
-  </div>
 {/if}

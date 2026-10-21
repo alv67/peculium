@@ -18,6 +18,10 @@ export interface AssetForm {
   exchange: string
   asset_class: string
   price_source: string
+  maturity_date: string
+  issuer: string
+  issuer_country: string
+  attributes: Record<string, string>
 }
 
 /**

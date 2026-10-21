@@ -4,6 +4,7 @@
 
 ### Features
 - Assets that Yahoo does not cover (individual bonds, OTC certificates, pension funds, time deposits with a manual or disabled price source) accept manual prices: the asset's Data tab gains a Manual prices section to insert, edit and delete dated closing prices, which feed the chart, P/L and performance like any other price
+- You can create cash deposits and investment certificates, and record an issuer, issuer country, maturity and details such as coupon, rating, underlying or deposit rate on fixed-income assets
 
 ### Fixes
 - On phones the exposure editor fits the screen: the countries list no longer overflows the modal and the sector editor's prefill buttons stay visible

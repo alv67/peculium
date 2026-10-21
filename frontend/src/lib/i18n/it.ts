@@ -431,6 +431,8 @@ export const it = {
     derivedDesc: 'Regioni calcolate a partire dai pesi dei paesi',
     derivedEtfLabel: 'da JustETF via paesi',
     derivedEtfDesc: 'Regioni calcolate dai paesi importati da JustETF',
+    issuerCountryLabel: 'dal paese dell’emittente',
+    issuerCountryDesc: 'Esposizione geografica derivata dal paese dell’emittente fixed income',
   },
   hero: {
     netValue: 'Valore netto',
@@ -924,6 +926,19 @@ export const it = {
     factCurrency: 'Valuta',
     factExchange: 'Mercato',
     factPriceSource: 'Fonte prezzo',
+    /** Metadati fixed income (EPIC J.2): i campi del tab Dati mostrati per
+     *  obbligazioni, certificati e depositi, con i relativi dati principali. */
+    factIssuer: 'Emittente',
+    factIssuerCountry: 'Paese emittente',
+    factMaturity: 'Scadenza',
+    attrCouponRate: 'Cedola (%)',
+    attrRating: 'Rating',
+    attrCertificateType: 'Tipo di certificato',
+    attrUnderlying: 'Sottostante',
+    attrStrike: 'Strike',
+    attrBarrier: 'Barriera',
+    attrDepositRate: 'Tasso deposito (%)',
+    attrDepositFrequency: 'Frequenza interessi',
     /** Opzioni del selettore fonte prezzo nel tab Dati (brand name tenuto). */
     priceSourceYahoo: 'Yahoo Finance',
     priceSourceManual: 'Prezzo manuale',
@@ -937,6 +952,7 @@ export const it = {
     typeCrypto: 'Cripto',
     typeCommodity: 'Materie prime',
     typeCash: 'Liquidità',
+    typeCertificate: 'Certificato',
     /** Etichette delle classi di asset (chip d'identità, dati principali,
      *  selettori Classe, nomi delle fette e titoli del drill della donut
      *  classi). */
@@ -964,8 +980,8 @@ export const it = {
     manualDateRequired: 'Data obbligatoria',
     manualDateFuture: 'La data non può essere futura',
     manualCloseInvalid: 'Il prezzo deve essere maggiore di 0',
-    fixedIncome: 'Attributi obbligazionari',
-    fixedIncomeHint: 'Dettagli di emittente, scadenza e cedola per le obbligazioni.',
+    /** Sottotitolo dei campi fixed income nel form dei metadati del tab Dati. */
+    fixedIncome: 'Reddito fisso',
     /** Pagina lista asset e relativa eliminazione (titolo della pagina,
      *  aria-label della tabella e collegamento di ritorno riusano
      *  `nav.assets`; le intestazioni riusano `positions.colTicker`,

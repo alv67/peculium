@@ -68,6 +68,11 @@
       dot: 'bg-chart-5',
       descKey: 'provenance.derivedEtfDesc',
     },
+    issuer_country: {
+      labelKey: 'provenance.issuerCountryLabel',
+      dot: 'bg-chart-5',
+      descKey: 'provenance.issuerCountryDesc',
+    },
   }
 
   const info = $derived(source ? PROVENANCE[source] ?? null : null)

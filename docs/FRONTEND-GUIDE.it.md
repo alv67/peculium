@@ -1431,7 +1431,8 @@ TAB **Panoramica**:
   lo degrada a una nota muted "non disponibile"; un risultato vuoto mostra
   la riga "Non è detenuto in nessun portafoglio".
 - **Dati principali**: griglia di identità sola lettura (ISIN in mono, tipo,
-  classe, valuta, exchange, fonte prezzo); la modifica vive nel tab Dati.
+  classe, valuta, exchange, fonte prezzo; gli asset fixed income mostrano anche
+  emittente, paese emittente e scadenza); la modifica vive nel tab Dati.
 
 TAB **Dati**: il form dei metadati —
 stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, selettore
@@ -1452,7 +1453,12 @@ backend (niente date future — il campo data porta anche `max` a oggi — e
 close > 0) come errori inline dei campi, i 400 del backend emergono tramite
 il toast di errore, e dopo ogni scrittura riuscita la tabella si ricarica
 più `refetchAssetData` della shell aggiorna la fascia quote e il grafico
-Overview; e un segnaposto muto e disabilitato — attributi obbligazionari.
+Overview. Per obbligazioni, certificati e depositi lo stesso form modifica
+anche emittente, paese emittente e scadenza, più gli attributi JSON specifici:
+cedola/rating per le obbligazioni, tipo/sottostante/strike/barriera/cedola per
+i certificati, tasso/frequenza per i depositi. Il selettore Tipo del modale
+di creazione offre `cash` e `certificate`; i certificati usano la classe
+d'investimento `other` come default.
 
 TAB **Esposizione** — i widget della distribuzione geo/settoriale:
 
