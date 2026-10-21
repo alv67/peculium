@@ -95,7 +95,7 @@
   const facts = $derived.by(() => {
     const a = ctx.asset
     if (!a) return []
-    return [
+    const items = [
       { label: t('asset.factIsin'), value: a.isin || '—', mono: true },
       {
         label: t('asset.factType'),
@@ -127,6 +127,14 @@
         mono: false,
       },
     ]
+    if (['bond', 'certificate', 'cash'].includes(a.type)) {
+      items.push(
+        { label: t('asset.factIssuer'), value: a.issuer || '—', mono: false },
+        { label: t('asset.factIssuerCountry'), value: a.issuer_country || '—', mono: true },
+        { label: t('asset.factMaturity'), value: a.maturity_date?.slice(0, 10) || '—', mono: true },
+      )
+    }
+    return items
   })
 </script>
 

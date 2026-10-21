@@ -1360,7 +1360,8 @@ TAB **Overview**:
   nothing; a failure degrades it to a muted "unavailable" note; an empty
   result shows the "Non è detenuto in nessun portafoglio" line.
 - **Quick facts**: read-only identity grid (ISIN in mono, type, class,
-  currency, exchange, price source); editing lives in the Data tab.
+  currency, exchange, price source; fixed-income assets also show issuer,
+  issuer country and maturity); editing lives in the Data tab.
 
 TAB **Data**: the metadata form — same
 fields (Ticker, ISIN, Name, Type, Currency, Exchange, Classe, **Fonte
@@ -1379,8 +1380,12 @@ through the standard `ConfirmDialog`; client validation mirrors the backend
 guards (no future dates — the date input also carries `max` today — and
 close > 0) as inline field errors, backend 400s surface through the error
 toast, and after every successful write the table reloads plus the shell's
-`refetchAssetData` refreshes the quote strip and the Overview chart; and one
-muted, disabled placeholder item — fixed-income attributes.
+`refetchAssetData` refreshes the quote strip and the Overview chart. For bonds,
+certificates and cash deposits, the same form also edits issuer, issuer country
+and maturity, plus type-specific JSON attributes: coupon/rating for bonds,
+certificate type/underlying/strike/barrier/coupon for certificates, and rate/
+frequency for deposits. The create-asset Type selector offers `cash` and
+`certificate`; certificates default to the `other` investment class.
 
 TAB **Exposure** — the geo/sector distribution widgets:
 

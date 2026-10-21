@@ -106,6 +106,13 @@ export interface Asset {
   price_source?: string
   history_backfilled?: boolean
   data_status?: AssetDataStatus
+  /** Fixed-income metadata (EPIC J.2): issuer, its country, the maturity date
+   *  (RFC3339, `null`/absent when unset) and the type-specific extras stored
+   *  as free-form JSON (coupon, rating, strike, barrier, deposit rate...). */
+  maturity_date?: string
+  issuer?: string
+  issuer_country?: string
+  attributes?: Record<string, unknown>
   /** Last recorded close (decimal string) and its ISO date, from the price
    *  history (`GET /assets`, `GET /assets/{id}`). */
   last_close?: string
@@ -138,6 +145,12 @@ export interface AssetPatch {
   sector?: string
   industry?: string
   price_source?: string
+  /** Fixed-income metadata (EPIC J.2). `maturity_date` takes `YYYY-MM-DD`,
+   *  and an empty string clears the stored date. */
+  maturity_date?: string
+  issuer?: string
+  issuer_country?: string
+  attributes?: Record<string, unknown>
 }
 
 export interface Price {

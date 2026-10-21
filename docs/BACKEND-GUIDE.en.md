@@ -825,6 +825,24 @@ the close in open/high/low too, so it stays self-consistent. Manual bars are
 plain rows of the `prices` table, so the series, the P&L and the charts read
 them with no special handling.
 
+### Fixed-income asset metadata
+
+`Asset` stores the common fixed-income fields `maturity_date`, `issuer` and
+`issuer_country`; the `attributes` JSONB object stores type-specific text
+values such as coupon rate, rating, certificate underlying/barrier or deposit
+rate/frequency. `PATCH /assets/{id}` accepts these fields; maturity dates use
+`YYYY-MM-DD`, and an empty string clears the date or issuer country. An invalid
+date or country returns 400. The asset type constraint also accepts
+`certificate`; its default `asset_class` is `other`, while `cash` defaults to
+`currency`.
+
+For bonds, certificates and cash deposits, setting `issuer_country` seeds a
+single 100% country row only when no country distribution exists. That row is
+marked with `issuer_country` provenance and follows later issuer-country
+changes; provider and user-edited country distributions are preserved. Existing
+bonds and deposits inherit the issuer country from their `country` field during
+the additive schema migration.
+
 ### Asset profile and exposure
 
 For the asset detail page the backend also talks to Yahoo's `quoteSummary`
@@ -1151,9 +1169,9 @@ intact.
 
 `GET /portfolios/{id}/export` produces a JSON document with a `version` field
 (the format version, currently `1`); `POST /portfolios/import` consumes it.
-The format is deliberately **additive**: the per-asset `price_source` and
-`asset_class` fields the export writes are optional (`omitempty`), so
-documents that omit them remain valid and recoverable.
+The format is deliberately **additive**: per-asset `price_source`,
+`asset_class` and fixed-income metadata fields are optional, so older
+documents remain valid and recoverable.
 
 When the importer creates an asset whose ticker does not exist yet, every
 missing piece is filled with a default that satisfies the database
@@ -1182,7 +1200,7 @@ and a bundle newer than what the server understands is rejected with a 400
   each entry is self-contained and also importable on its own through the
   portfolio import endpoint;
 - `assets` — the per-asset data no provider can refetch, keyed by ticker:
-  the identity metadata, the **exposure** (country, region and sector rows
+  the identity and fixed-income metadata, the **exposure** (country, region and sector rows
   plus, in the `*_source` fields, the provenance of every saved dimension)
   and the **manual price rows**.
 

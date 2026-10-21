@@ -453,6 +453,8 @@ export const en = {
     derivedDesc: 'Regions derived from the country weights',
     derivedEtfLabel: 'from JustETF via countries',
     derivedEtfDesc: 'Regions derived from the countries imported from JustETF',
+    issuerCountryLabel: 'from issuer country',
+    issuerCountryDesc: 'Country exposure derived from the fixed-income issuer country',
   },
   /**
    * Wealth Overview hero zone (EPIC K.3a, redesign spec §6.1 zone A). The
@@ -1007,6 +1009,19 @@ export const en = {
     factCurrency: 'Currency',
     factExchange: 'Exchange',
     factPriceSource: 'Price source',
+    /** Fixed-income metadata (EPIC J.2): the Data-tab fields shown for bonds,
+     *  certificates and cash deposits, plus their quick facts. */
+    factIssuer: 'Issuer',
+    factIssuerCountry: 'Issuer country',
+    factMaturity: 'Maturity',
+    attrCouponRate: 'Coupon (%)',
+    attrRating: 'Rating',
+    attrCertificateType: 'Certificate type',
+    attrUnderlying: 'Underlying',
+    attrStrike: 'Strike',
+    attrBarrier: 'Barrier',
+    attrDepositRate: 'Deposit rate (%)',
+    attrDepositFrequency: 'Interest frequency',
     /** Options of the Data-tab price-source select (brand name kept). */
     priceSourceYahoo: 'Yahoo Finance',
     priceSourceManual: 'Manual price',
@@ -1019,6 +1034,7 @@ export const en = {
     typeCrypto: 'Crypto',
     typeCommodity: 'Commodity',
     typeCash: 'Cash',
+    typeCertificate: 'Certificate',
     /** Asset-class labels (identity chips, quick facts, Class selects,
      *  class-donut slice names and drill titles). */
     classEquity: 'Equities',
@@ -1049,9 +1065,8 @@ export const en = {
     manualDateRequired: 'Date is required',
     manualDateFuture: 'The date cannot be in the future',
     manualCloseInvalid: 'Close must be greater than 0',
-    /** Reserved EPIC J.2 placeholder (no behaviour yet). */
-    fixedIncome: 'Fixed-income attributes',
-    fixedIncomeHint: 'Issuer, maturity and coupon details for bonds.',
+    /** Subheading of the fixed-income fields in the Data tab's metadata form. */
+    fixedIncome: 'Fixed income',
     /** Assets list page and its delete flows (the page title, the table
      *  aria-label and the `⋯` back link all reuse `nav.assets`; headers reuse
      *  `positions.colTicker`, `chartView.colName`, `asset.factType`,

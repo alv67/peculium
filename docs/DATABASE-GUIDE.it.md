@@ -175,7 +175,8 @@ può fare login o chiamare le API.
 
 ### `assets` — i titoli
 
-Il "catalogo" dei titoli (azioni, ETF, crypto...). Il `ticker` è unico: non
+Il "catalogo" dei titoli (azioni, ETF, obbligazioni, certificati, depositi,
+crypto...). Il `ticker` è unico: non
 esistono due titoli con lo stesso simbolo. `price_fetched_at` ricorda quando è
 stato scaricato l'ultimo prezzo, per evitare chiamate inutili a Yahoo.
 `exchange`, `sector`, `industry` e `asset_class` sono metadati descrittivi
@@ -188,7 +189,7 @@ prezzi completo è stato scaricato (vedi sotto).
 | `ticker` | TEXT (UNIQUE) | simbolo, es. `AAPL` |
 | `isin` | TEXT | codice ISIN internazionale (può mancare); per gli ETF viene risolto automaticamente dal ticker tramite il servizio JustETF e resta modificabile a mano |
 | `name` | TEXT | nome del titolo |
-| `type` | TEXT (CHECK) | `stock`, `etf`, `bond`, `mutual_fund`, `crypto`, `commodity`, `cash` |
+| `type` | TEXT (CHECK) | `stock`, `etf`, `bond`, `mutual_fund`, `crypto`, `commodity`, `cash`, `certificate` |
 | `asset_class` | TEXT (CHECK) | classe di investimento: `equity`, `bond`, `commodity`, `currency`, `crypto`, `real_estate`, `mixed`, `other` (default `other`) |
 | `price_source` | TEXT (CHECK) | come si ottengono i prezzi: `yahoo` (fetch automatico, default), `manual` (gestito dall'utente), `none` (senza quotazione) |
 | `country` | TEXT | paese di origine |
@@ -196,6 +197,10 @@ prezzi completo è stato scaricato (vedi sotto).
 | `exchange` | TEXT | borsa / mercato di quotazione (può essere vuoto) |
 | `sector` | TEXT | settore economico (può essere vuoto) |
 | `industry` | TEXT | industria specifica (può essere vuota) |
+| `maturity_date` | DATE | data di scadenza fixed income (può essere null) |
+| `issuer` | TEXT | nome dell'emittente o dell'istituto (default vuoto) |
+| `issuer_country` | TEXT | paese ISO alpha-2 dell'emittente (default vuoto); gli asset bond/deposito esistenti lo ereditano da `country` |
+| `attributes` | JSONB | dettagli specifici del tipo, come cedola, rating, barriera del certificato o tasso del deposito (default `{}`) |
 | `history_backfilled` | BOOLEAN | se lo storico prezzi completo è stato scaricato (default `FALSE`) |
 | `price_fetched_at` | TIMESTAMPTZ | quando è stato aggiornato l'ultimo prezzo |
 | `created_at` | TIMESTAMPTZ | quando è stato aggiunto |

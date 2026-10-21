@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/alv67/peculium/internal/geo"
 	"github.com/alv67/peculium/internal/model"
 	"github.com/alv67/peculium/internal/repository"
 	"github.com/alv67/peculium/internal/series"
@@ -253,13 +254,17 @@ func buildBackupExposure(isin string, regions, sectors, countries []model.Exposu
 
 func toExportAsset(a *model.Asset) model.ExportAsset {
 	return model.ExportAsset{
-		Ticker:      a.Ticker,
-		Name:        a.Name,
-		Type:        a.Type,
-		Currency:    a.Currency,
-		ISIN:        a.ISIN,
-		PriceSource: a.PriceSource,
-		AssetClass:  a.AssetClass,
+		Ticker:        a.Ticker,
+		Name:          a.Name,
+		Type:          a.Type,
+		Currency:      a.Currency,
+		ISIN:          a.ISIN,
+		PriceSource:   a.PriceSource,
+		AssetClass:    a.AssetClass,
+		MaturityDate:  a.MaturityDate,
+		Issuer:        a.Issuer,
+		IssuerCountry: a.IssuerCountry,
+		Attributes:    a.Attributes,
 	}
 }
 
@@ -580,12 +585,22 @@ func importBackupAsset(ctx context.Context, rx *repository.Repository, cache map
 			if priceSources[ea.PriceSource] {
 				a.PriceSource = ea.PriceSource
 			}
+			a.MaturityDate = ea.MaturityDate
+			a.Issuer = ea.Issuer
+			a.IssuerCountry = geo.NormalizeCountry(ea.IssuerCountry)
+			if ea.IssuerCountry != "" && a.IssuerCountry == "" {
+				return nil, false, fmt.Errorf("%w: invalid issuer country", ErrInvalidInput)
+			}
+			a.Attributes = ea.Attributes
 		}
 		if a.AssetClass == "" {
 			a.AssetClass = defaultAssetClassForType(a.Type)
 		}
 		a, err = rx.Asset.Create(ctx, a)
 		if err != nil {
+			return nil, false, err
+		}
+		if err := seedIssuerCountry(ctx, rx.Exposure, a); err != nil {
 			return nil, false, err
 		}
 		created = true

@@ -151,6 +151,10 @@
     exchange: '',
     asset_class: 'other',
     price_source: 'yahoo',
+    maturity_date: '',
+    issuer: '',
+    issuer_country: '',
+    attributes: {},
   })
 
   const currency = $derived(asset?.currency || 'USD')
@@ -158,7 +162,7 @@
   const hasChanges = $derived.by(() => {
     if (!asset) return false;
 
-    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.price_source !== (asset.price_source || 'yahoo');
+    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.price_source !== (asset.price_source || 'yahoo') || form.maturity_date !== (asset.maturity_date?.slice(0, 10) || '') || form.issuer !== (asset.issuer || '') || form.issuer_country !== (asset.issuer_country || '') || JSON.stringify(form.attributes) !== JSON.stringify(Object.fromEntries(Object.entries(asset.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')])));
   });
 
   // Totals are computed on the 2-decimal values that actually enter the edit
@@ -244,6 +248,12 @@
       exchange: a.exchange || '',
       asset_class: a.asset_class || 'other',
       price_source: a.price_source || 'yahoo',
+      maturity_date: a.maturity_date?.slice(0, 10) || '',
+      issuer: a.issuer || '',
+      issuer_country: a.issuer_country || '',
+      attributes: Object.fromEntries(
+        Object.entries(a.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')]),
+      ),
     }
   }
 
@@ -426,6 +436,13 @@
       return
     }
     saving = true
+    const attributes = { ...(asset.attributes ?? {}) }
+    for (const [key, value] of Object.entries(form.attributes)) {
+      const original = asset.attributes?.[key]
+      if (value === String(original ?? '')) continue
+      if (value === '') delete attributes[key]
+      else attributes[key] = value
+    }
     const patch: AssetPatch = {
       ticker: form.ticker.trim(),
       isin: form.isin.trim(),
@@ -435,6 +452,10 @@
       exchange: form.exchange.trim(),
       asset_class: form.asset_class,
       price_source: form.price_source,
+      maturity_date: form.maturity_date,
+      issuer: form.issuer.trim(),
+      issuer_country: form.issuer_country.trim().toUpperCase(),
+      attributes,
     }
     try {
       const updated = await assetApi.update(id, patch)

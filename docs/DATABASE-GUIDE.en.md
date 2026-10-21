@@ -173,7 +173,8 @@ the admin area: `owner` and `admin` are the administrator roles, and only an
 
 ### `assets` — the securities
 
-The "catalog" of securities (stocks, ETFs, crypto...). The `ticker` is unique:
+The "catalog" of securities (stocks, ETFs, bonds, certificates, cash deposits,
+crypto...). The `ticker` is unique:
 no two securities can have the same symbol. `price_fetched_at` remembers when
 the last price was downloaded, to avoid useless Yahoo calls. `exchange`,
 `sector`, `industry` and `asset_class` are descriptive metadata edited on the
@@ -186,7 +187,7 @@ downloaded (see below).
 | `ticker` | TEXT (UNIQUE) | symbol, e.g. `AAPL` |
 | `isin` | TEXT | international ISIN code (may be missing); for ETFs it is resolved automatically from the ticker via the JustETF service and remains manually editable |
 | `name` | TEXT | name of the security |
-| `type` | TEXT (CHECK) | `stock`, `etf`, `bond`, `mutual_fund`, `crypto`, `commodity`, `cash` |
+| `type` | TEXT (CHECK) | `stock`, `etf`, `bond`, `mutual_fund`, `crypto`, `commodity`, `cash`, `certificate` |
 | `asset_class` | TEXT (CHECK) | investment class: `equity`, `bond`, `commodity`, `currency`, `crypto`, `real_estate`, `mixed`, `other` (default `other`) |
 | `price_source` | TEXT (CHECK) | how prices are obtained: `yahoo` (automatic fetch, default), `manual` (managed by the user), `none` (not priced) |
 | `country` | TEXT | country of origin |
@@ -194,6 +195,10 @@ downloaded (see below).
 | `exchange` | TEXT | stock exchange / venue (may be empty) |
 | `sector` | TEXT | economic sector (may be empty) |
 | `industry` | TEXT | specific industry (may be empty) |
+| `maturity_date` | DATE | fixed-income maturity date (may be null) |
+| `issuer` | TEXT | issuer or institution name (default empty) |
+| `issuer_country` | TEXT | issuer's ISO alpha-2 country (default empty); existing bond/deposit assets inherit it from `country` |
+| `attributes` | JSONB | type-specific details such as coupon, rating, certificate barrier or deposit rate (default `{}`) |
 | `history_backfilled` | BOOLEAN | whether the full price history has been downloaded (default `FALSE`) |
 | `price_fetched_at` | TIMESTAMPTZ | when the last price was updated |
 | `created_at` | TIMESTAMPTZ | when it was added |

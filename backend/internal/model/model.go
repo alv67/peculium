@@ -60,28 +60,36 @@ type Portfolio struct {
 type AssetType string
 
 const (
-	AssetTypeStock      AssetType = "stock"
-	AssetTypeETF        AssetType = "etf"
-	AssetTypeBond       AssetType = "bond"
-	AssetTypeMutualFund AssetType = "mutual_fund"
-	AssetTypeCrypto     AssetType = "crypto"
-	AssetTypeCommodity  AssetType = "commodity"
-	AssetTypeCash       AssetType = "cash"
+	AssetTypeStock       AssetType = "stock"
+	AssetTypeETF         AssetType = "etf"
+	AssetTypeBond        AssetType = "bond"
+	AssetTypeMutualFund  AssetType = "mutual_fund"
+	AssetTypeCrypto      AssetType = "crypto"
+	AssetTypeCommodity   AssetType = "commodity"
+	AssetTypeCash        AssetType = "cash"
+	AssetTypeCertificate AssetType = "certificate"
 )
 
 type Asset struct {
-	ID                uuid.UUID        `json:"id"`
-	Ticker            string           `json:"ticker"`
-	ISIN              string           `json:"isin,omitempty"`
-	Name              string           `json:"name"`
-	Type              AssetType        `json:"type"`
-	AssetClass        string           `json:"asset_class"`
-	PriceSource       string           `json:"price_source"`
-	Country           string           `json:"country,omitempty"`
-	Currency          string           `json:"currency"`
-	Exchange          string           `json:"exchange,omitempty"`
-	Sector            string           `json:"sector,omitempty"`
-	Industry          string           `json:"industry,omitempty"`
+	ID          uuid.UUID `json:"id"`
+	Ticker      string    `json:"ticker"`
+	ISIN        string    `json:"isin,omitempty"`
+	Name        string    `json:"name"`
+	Type        AssetType `json:"type"`
+	AssetClass  string    `json:"asset_class"`
+	PriceSource string    `json:"price_source"`
+	Country     string    `json:"country,omitempty"`
+	Currency    string    `json:"currency"`
+	Exchange    string    `json:"exchange,omitempty"`
+	Sector      string    `json:"sector,omitempty"`
+	Industry    string    `json:"industry,omitempty"`
+	// Fixed-income metadata (EPIC J.2). Attributes holds the type-specific
+	// extras (coupon, rating, strike, barrier, deposit rate...) as free-form
+	// JSON, so a new attribute needs no migration.
+	MaturityDate      *time.Time       `json:"maturity_date,omitempty"`
+	Issuer            string           `json:"issuer,omitempty"`
+	IssuerCountry     string           `json:"issuer_country,omitempty"`
+	Attributes        map[string]any   `json:"attributes,omitempty"`
 	CreatedAt         time.Time        `json:"created_at"`
 	PriceFetchedAt    *time.Time       `json:"price_fetched_at,omitempty"`
 	HistoryBackfilled bool             `json:"history_backfilled"`
@@ -139,6 +147,12 @@ type AssetPatch struct {
 	Exchange    *string    `json:"exchange"`
 	Sector      *string    `json:"sector"`
 	Industry    *string    `json:"industry"`
+	// Fixed-income metadata (EPIC J.2). MaturityDate takes a `YYYY-MM-DD`
+	// string: nil leaves the stored value alone, "" clears it.
+	MaturityDate  *string         `json:"maturity_date"`
+	Issuer        *string         `json:"issuer"`
+	IssuerCountry *string         `json:"issuer_country"`
+	Attributes    *map[string]any `json:"attributes"`
 }
 
 // ExposureRow è una singola voce di peso percentuale per una dimensione
@@ -317,8 +331,12 @@ type ExportAsset struct {
 	// PriceSource and AssetClass are additive (version-1-compatible) fields:
 	// they are omitted when empty and fall back to importer defaults when
 	// missing from an older document.
-	PriceSource string `json:"price_source,omitempty"`
-	AssetClass  string `json:"asset_class,omitempty"`
+	PriceSource   string         `json:"price_source,omitempty"`
+	AssetClass    string         `json:"asset_class,omitempty"`
+	MaturityDate  *time.Time     `json:"maturity_date,omitempty"`
+	Issuer        string         `json:"issuer,omitempty"`
+	IssuerCountry string         `json:"issuer_country,omitempty"`
+	Attributes    map[string]any `json:"attributes,omitempty"`
 }
 
 type ExportTransaction struct {

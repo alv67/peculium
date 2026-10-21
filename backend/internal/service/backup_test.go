@@ -586,6 +586,11 @@ func newBackupFixture(t *testing.T) *backupFixture {
 	f.vwceID = s.seedAsset("VWCE", "Vanguard Global Aggregate", model.AssetTypeETF, "EUR", "IE00B4L5Y983", "manual", "equity")
 	f.aaplID = s.seedAsset("AAPL", "Apple Inc.", model.AssetTypeStock, "USD", "", "yahoo", "equity")
 	f.cashID = s.seedAsset("CHF-CASH", "Swiss cash", model.AssetTypeCash, "CHF", "", "none", "currency")
+	maturity := backupDay(2028, 12, 31)
+	s.assets[f.cashID].MaturityDate = &maturity
+	s.assets[f.cashID].Issuer = "Swiss bank"
+	s.assets[f.cashID].IssuerCountry = "CH"
+	s.assets[f.cashID].Attributes = map[string]any{"deposit_rate": "2.5", "deposit_frequency": "annual"}
 	s.seedAsset("ORPHAN", "Never transacted", model.AssetTypeStock, "USD", "", "yahoo", "equity")
 
 	f.coreID = s.seedPortfolio(f.userID, "Core", "EUR", backupDay(2024, 1, 10))
@@ -607,6 +612,7 @@ func newBackupFixture(t *testing.T) *backupFixture {
 	s.seedExposure(f.vwceID, model.ExposureDimensionCountries, map[string]string{"United States": "60", "Japan": "5", "Germany": "10"}, "justetf")
 	s.seedExposure(f.vwceID, model.ExposureDimensionRegions, map[string]string{"North America": "60", "Europe": "35", "Asia": "5"}, "justetf")
 	s.seedExposure(f.aaplID, model.ExposureDimensionCountries, map[string]string{"United States": "100"}, "yahoo")
+	s.seedExposure(f.cashID, model.ExposureDimensionCountries, map[string]string{"CH": "100"}, "issuer_country")
 
 	s.seedCurrency("EUR", "Euro", "€")
 	s.seedCurrency("USD", "US Dollar", "$")
@@ -688,6 +694,10 @@ func TestBuildUserBackup_BundleShape(t *testing.T) {
 	if len(doc.Assets) != 3 || doc.Assets[0].Ticker != "AAPL" || doc.Assets[1].Ticker != "CHF-CASH" || doc.Assets[2].Ticker != "VWCE" {
 		t.Fatalf("bundle assets = %+v", doc.Assets)
 	}
+	cash := doc.Assets[1]
+	if cash.Issuer != "Swiss bank" || cash.IssuerCountry != "CH" || cash.MaturityDate == nil || cash.Attributes["deposit_rate"] != "2.5" {
+		t.Errorf("cash fixed-income metadata = %+v", cash.ExportAsset)
+	}
 
 	vwce := doc.Assets[2]
 	if vwce.Exposure == nil {
@@ -713,8 +723,8 @@ func TestBuildUserBackup_BundleShape(t *testing.T) {
 	if vwce.ManualPrices[0].Date.Day() != 15 || !vwce.ManualPrices[0].Close.Equal(dec("98.25")) || vwce.ManualPrices[0].Source != "manual" {
 		t.Errorf("VWCE price row = %+v", vwce.ManualPrices[0])
 	}
-	// AAPL carries only a Yahoo price and a stored countries dimension; the
-	// cash asset carries neither exposure nor prices.
+	// AAPL carries only a Yahoo price and a stored countries dimension; cash
+	// carries its issuer-country row but no manual prices.
 	aapl := doc.Assets[0]
 	if aapl.ManualPrices != nil {
 		t.Errorf("AAPL must carry no manual prices (Yahoo-only asset): %+v", aapl.ManualPrices)
@@ -722,9 +732,8 @@ func TestBuildUserBackup_BundleShape(t *testing.T) {
 	if aapl.Exposure == nil || len(aapl.Exposure.Countries) != 1 || aapl.Exposure.Countries[0].Name != "United States" || aapl.Exposure.CountriesSource != "yahoo" {
 		t.Errorf("AAPL exposure = %+v, want stored countries with yahoo source", aapl.Exposure)
 	}
-	cash := doc.Assets[1]
-	if cash.Exposure != nil || cash.ManualPrices != nil {
-		t.Errorf("CHF-CASH should carry no exposure or manual prices: %+v", cash)
+	if cash.Exposure == nil || cash.ManualPrices != nil {
+		t.Errorf("CHF-CASH should carry issuer exposure and no manual prices: %+v", cash)
 	}
 
 	// Currencies in use, sorted; CHF is not in the global whitelist so it
@@ -821,6 +830,10 @@ func TestUserBackupRestore_RoundTrip(t *testing.T) {
 	}
 	if vwce.Name != "Vanguard Global Aggregate" || vwce.Type != model.AssetTypeETF || vwce.PriceSource != "manual" || vwce.ISIN != "IE00B4L5Y983" || vwce.AssetClass != "equity" {
 		t.Errorf("restored VWCE identity = %+v", vwce)
+	}
+	cash := target.assetByTicker("CHF-CASH")
+	if cash == nil || cash.Issuer != "Swiss bank" || cash.IssuerCountry != "CH" || cash.MaturityDate == nil || cash.Attributes["deposit_rate"] != "2.5" {
+		t.Errorf("restored cash fixed-income metadata = %+v", cash)
 	}
 	for _, tx := range coreTxs {
 		if tx.Type == model.TxDividend && tx.AssetID != vwce.ID {

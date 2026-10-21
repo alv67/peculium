@@ -62,9 +62,18 @@ export function formatDuration(ms?: number | null): string {
 // quick facts, selects and donut slices all follow the interface language.
 
 /** Type values offered by the Type selects (Data tab + create-asset modal).
- * The stored enum is wider — the backend also accepts `cash` — and any value
- * outside the selects still gets a localized label from the tables below. */
-export const ASSET_TYPES = ['stock', 'etf', 'bond', 'mutual_fund', 'crypto', 'commodity'] as const
+ * Any value outside the list still gets a localized label from the tables
+ * below. */
+export const ASSET_TYPES = [
+  'stock',
+  'etf',
+  'bond',
+  'mutual_fund',
+  'crypto',
+  'commodity',
+  'cash',
+  'certificate',
+] as const
 
 /** Class values offered by the Data-tab Class select. */
 export const ASSET_CLASSES = [
@@ -86,6 +95,7 @@ const ASSET_TYPE_KEYS: Record<string, MessageKey> = {
   crypto: 'asset.typeCrypto',
   commodity: 'asset.typeCommodity',
   cash: 'asset.typeCash',
+  certificate: 'asset.typeCertificate',
 }
 
 const ASSET_CLASS_KEYS: Record<string, MessageKey> = {
