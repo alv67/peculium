@@ -296,7 +296,9 @@ countries** (ISO-3166 alpha-2). One row per `asset_id + country`; the weights of
 the same security should sum to 100%. The JustETF and Morningstar exposure keeps
 the raw countries, and the backend derives the regions from them so the two
 always stay consistent. The exposure response returns the countries zero-filled
-across the full canonical ISO list.
+across the full canonical ISO list. Bonds, certificates and cash deposits with
+an issuer country receive a 100% issuer-country row when no country breakdown
+exists; an existing provider or manually edited breakdown is preserved.
 
 | Column | Type | Explanation |
 |---|---|---|
@@ -309,9 +311,10 @@ across the full canonical ISO list.
 For each security, how much of its value is distributed among the **macro-regions**
 (North America, Europe, Asia...). One row per `asset_id + region`; the weights
 of the same security should ideally sum to 100%. For a single stock this is a
-single row (the country mapped to its region at 100%); for an ETF it is a mix
-entered by hand, fetched from Yahoo, or downloaded completely from JustETF
-(`POST /assets/{id}/fetch-etf-exposure`).
+single row (the country mapped to its region at 100%); for fixed income with no
+stored region breakdown, the issuer country maps to its region at 100%; for an
+ETF it is a mix entered by hand, fetched from Yahoo, or downloaded completely
+from JustETF (`POST /assets/{id}/fetch-etf-exposure`).
 
 | Column | Type | Explanation |
 |---|---|---|

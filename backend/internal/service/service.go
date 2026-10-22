@@ -1090,8 +1090,9 @@ func (s *Service) buildExposure(asset *model.Asset, regions, sectors, countries 
 
 // canonicalExposureRows returns one dimension of the complete canonical
 // exposure for an asset: every canonical name in order with its stored weight
-// (zero when absent), or a single 100% default for stocks with no stored rows.
-func canonicalExposureRows(names []string, stored []model.ExposureRow, isStock bool, defaultName string) []model.ExposureRow {
+// (zero when absent), or a single 100% default when the caller's eligibility
+// rule permits a single-name fallback and there are no stored rows.
+func canonicalExposureRows(names []string, stored []model.ExposureRow, useDefault bool, defaultName string) []model.ExposureRow {
 	weights := make(map[string]decimal.Decimal, len(stored))
 	for _, r := range stored {
 		weights[r.Name] = r.Weight
@@ -1100,7 +1101,7 @@ func canonicalExposureRows(names []string, stored []model.ExposureRow, isStock b
 	for _, name := range names {
 		out = append(out, model.ExposureRow{Name: name, Weight: weights[name]})
 	}
-	if isStock && len(stored) == 0 && defaultName != "" {
+	if useDefault && len(stored) == 0 && defaultName != "" {
 		for i := range out {
 			if out[i].Name == defaultName {
 				out[i].Weight = decimal.NewFromInt(100)
@@ -1796,7 +1797,7 @@ func (s *Service) GetPortfolioSummary(ctx context.Context, portfolioID uuid.UUID
 		staleThreshold := time.Duration(s.stalePriceDays) * 24 * time.Hour
 		for _, h := range holdings {
 			totalRealized = totalRealized.Add(h.Realized)
-			if h.Country == "" {
+			if geographyCountry(h) == "" {
 				summary.MissingCountry++
 			}
 			if h.Sector == "" {
@@ -2003,7 +2004,7 @@ func (s *Service) GetPortfolioGeographyAllocation(ctx context.Context, portfolio
 			return nil, err
 		}
 		buckets, total, cov := buildBuckets(holdings, rates, p.Currency, geo.Regions, exposures,
-			func(h *model.Holding) string { return geo.RegionForCountry(h.Country) })
+			func(h *model.Holding) string { return geo.RegionForCountry(geographyCountry(h)) }, geographyEligible, geographyDefault)
 		regions := make([]*model.RegionAllocation, 0, len(geo.Regions)+1)
 		for _, name := range geo.Regions {
 			regions = append(regions, &model.RegionAllocation{Region: name, Value: buckets[name]})
@@ -2017,7 +2018,7 @@ func (s *Service) GetPortfolioGeographyAllocation(ctx context.Context, portfolio
 			}
 		}
 		cBuckets, cTotal, _ := buildBuckets(holdings, rates, p.Currency, geo.Countries, countryExposures,
-			func(h *model.Holding) string { return h.Country })
+			geographyCountry, geographyEligible, geographyDefault)
 		countries := make([]*model.CountryAllocation, 0, len(cBuckets))
 		for name, value := range cBuckets {
 			if !value.IsPositive() {
@@ -2054,7 +2055,7 @@ func (s *Service) GetPortfolioSectorAllocation(ctx context.Context, portfolioID 
 			return nil, err
 		}
 		buckets, total, cov := buildBuckets(holdings, rates, p.Currency, geo.GICSSectors, exposures,
-			func(h *model.Holding) string { return geo.NormalizeSector(h.Sector) })
+			func(h *model.Holding) string { return geo.NormalizeSector(h.Sector) }, exposureEligible, stockDefault)
 		sectors := make([]*model.SectorAllocation, 0, len(geo.GICSSectors)+1)
 		for _, name := range geo.GICSSectors {
 			sectors = append(sectors, &model.SectorAllocation{Sector: name, Value: buckets[name]})
@@ -2083,11 +2084,11 @@ func holdingAssetIDs(holdings []*model.Holding) []uuid.UUID {
 	return ids
 }
 
-// exposureEligible reports whether a holding participates in the equity
-// universe used by the geography and sector allocations. STRICT policy:
-// stocks always, ETFs and mutual funds only when their asset class is
-// equity or real estate; everything else (bonds, crypto, commodities,
-// currencies, unclassified funds) is excluded by nature.
+// exposureEligible reports whether a holding is part of the equity universe
+// driving the sector allocation; geographyEligible widens it for the
+// geography one. STRICT policy: stocks always, ETFs and mutual funds only
+// when their asset class is equity or real estate; everything else (bonds,
+// crypto, commodities, currencies, unclassified funds) is not equity.
 func exposureEligible(h *model.Holding) bool {
 	switch h.Type {
 	case model.AssetTypeStock:
@@ -2099,19 +2100,40 @@ func exposureEligible(h *model.Holding) bool {
 	}
 }
 
-// exposureCoverage tracks the value of the eligible (equity) universe and of
-// the excluded (non-equity) holdings for the geography/sector allocations.
+// geographyEligible adds fixed-income assets with a known issuer country to
+// the geography universe. Clearing that field opts the asset out; sector
+// allocations continue to use exposureEligible's equity-only rules.
+func geographyEligible(h *model.Holding) bool {
+	return exposureEligible(h) || (fixedIncomeType(h.Type) && h.IssuerCountry != "")
+}
+
+func geographyCountry(h *model.Holding) string {
+	if fixedIncomeType(h.Type) {
+		return h.IssuerCountry
+	}
+	return h.Country
+}
+
+func geographyDefault(h *model.Holding) bool {
+	return h.Type == model.AssetTypeStock || (fixedIncomeType(h.Type) && h.IssuerCountry != "")
+}
+
+func stockDefault(h *model.Holding) bool { return h.Type == model.AssetTypeStock }
+
+// exposureCoverage tracks, for one allocation dimension, the value of the
+// holdings its eligibility rule accepts and of the ones it rejects.
 type exposureCoverage struct {
-	covered  decimal.Decimal // value of the eligible (equity) holdings
-	excluded decimal.Decimal // value of the excluded (non-equity) holdings
+	covered  decimal.Decimal // value of the dimension-eligible holdings
+	excluded decimal.Decimal // value of the holdings the dimension excludes
 }
 
 // buildBuckets aggregates the weighted value of the holdings across one
 // canonical exposure dimension. Every canonical name in order is keyed in the
 // returned map (zero when nothing maps), and any value that could not be
-// assigned lands in "Other". Only holdings eligible for the equity universe
-// participate; their value is returned as coverage metadata.
-func buildBuckets(holdings []*model.Holding, rates map[string]decimal.Decimal, currency string, names []string, exposures map[string][]model.ExposureRow, defaultName func(*model.Holding) string) (map[string]decimal.Decimal, decimal.Decimal, exposureCoverage) {
+// assigned lands in "Other". The caller supplies the dimension's eligibility
+// and single-name fallback policies; eligible holding value is returned as
+// coverage metadata.
+func buildBuckets(holdings []*model.Holding, rates map[string]decimal.Decimal, currency string, names []string, exposures map[string][]model.ExposureRow, defaultName func(*model.Holding) string, eligible, useDefault func(*model.Holding) bool) (map[string]decimal.Decimal, decimal.Decimal, exposureCoverage) {
 	byBucket := make(map[string]decimal.Decimal, len(names)+1)
 	for _, name := range names {
 		byBucket[name] = decimal.Zero
@@ -2131,15 +2153,14 @@ func buildBuckets(holdings []*model.Holding, rates map[string]decimal.Decimal, c
 		if !value.IsPositive() {
 			continue
 		}
-		if !exposureEligible(h) {
+		if !eligible(h) {
 			cov.excluded = cov.excluded.Add(value)
 			continue
 		}
 		cov.covered = cov.covered.Add(value)
 		total = total.Add(value)
 
-		isStock := h.Type == model.AssetTypeStock
-		rows := canonicalExposureRows(names, exposures[h.AssetID], isStock, defaultName(h))
+		rows := canonicalExposureRows(names, exposures[h.AssetID], useDefault(h), defaultName(h))
 		var sum decimal.Decimal
 		for _, r := range rows {
 			sum = sum.Add(r.Weight)
@@ -2156,13 +2177,16 @@ func buildBuckets(holdings []*model.Holding, rates map[string]decimal.Decimal, c
 }
 
 // allocationDrillDim describes one drillable allocation dimension: the
-// canonical bucket names, the per-asset stock default and the stored-rows
-// loader, mirroring the dimension wiring of the geography/sector
-// aggregations. A nil loader marks the class dimension, which has no
-// exposure rows: the asset's whole value sits in its own class.
+// canonical bucket names, the dimension's eligibility and single-name
+// fallback policies, the default bucket name and the stored-rows loader,
+// mirroring the dimension wiring of the geography/sector aggregations. A nil
+// loader marks the class dimension, which has no exposure rows: the asset's
+// whole value sits in its own class.
 type allocationDrillDim struct {
 	names       []string
 	defaultName func(*model.Holding) string
+	eligible    func(*model.Holding) bool
+	useDefault  func(*model.Holding) bool
 	rows        func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error)
 }
 
@@ -2170,14 +2194,18 @@ var allocationDrillDims = map[string]allocationDrillDim{
 	"class": {},
 	"region": {
 		names:       geo.Regions,
-		defaultName: func(h *model.Holding) string { return geo.RegionForCountry(h.Country) },
+		defaultName: func(h *model.Holding) string { return geo.RegionForCountry(geographyCountry(h)) },
+		eligible:    geographyEligible,
+		useDefault:  geographyDefault,
 		rows: func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error) {
 			return repos.Exposure.FindRegionsByAssets(ctx, holdingAssetIDs(holdings))
 		},
 	},
 	"country": {
 		names:       geo.Countries,
-		defaultName: func(h *model.Holding) string { return h.Country },
+		defaultName: geographyCountry,
+		eligible:    geographyEligible,
+		useDefault:  geographyDefault,
 		rows: func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error) {
 			return repos.Exposure.FindCountriesByAssets(ctx, holdingAssetIDs(holdings))
 		},
@@ -2185,6 +2213,8 @@ var allocationDrillDims = map[string]allocationDrillDim{
 	"sector": {
 		names:       geo.GICSSectors,
 		defaultName: func(h *model.Holding) string { return geo.NormalizeSector(h.Sector) },
+		eligible:    exposureEligible,
+		useDefault:  stockDefault,
 		rows: func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error) {
 			return repos.Exposure.FindSectorsByAssets(ctx, holdingAssetIDs(holdings))
 		},
@@ -2193,10 +2223,11 @@ var allocationDrillDims = map[string]allocationDrillDim{
 
 // drillBucketWeight returns the holding's weight (in percentage points) in
 // one allocation bucket with the same semantics as buildBuckets: only
-// equity-universe eligible holdings participate on the exposure dimensions
-// (the class dimension has no eligibility filter), stocks without stored
-// rows default to 100% of their canonical default bucket, and when the
-// canonical rows carry no weight at all the whole value falls into "Other".
+// holdings eligible for the dimension participate on the exposure dimensions
+// (the class dimension has no eligibility filter), holdings whose fallback
+// policy allows it default to 100% of their canonical bucket when no stored
+// rows exist, and when the canonical rows carry no weight at all the whole
+// value falls into "Other".
 // fullValue mirrors the other buildBuckets branch: the buckets that receive
 // the asset's whole value (the class itself and the "Other" fallback) are
 // fed with the raw value, without the value*weight/100 rounding.
@@ -2211,10 +2242,10 @@ func drillBucketWeight(h *model.Holding, d allocationDrillDim, key string, store
 		}
 		return decimal.NewFromInt(100), true
 	}
-	if !exposureEligible(h) {
+	if !d.eligible(h) {
 		return decimal.Zero, false
 	}
-	rows := canonicalExposureRows(d.names, stored, h.Type == model.AssetTypeStock, d.defaultName(h))
+	rows := canonicalExposureRows(d.names, stored, d.useDefault(h), d.defaultName(h))
 	var sum decimal.Decimal
 	for _, r := range rows {
 		sum = sum.Add(r.Weight)
@@ -3727,7 +3758,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 		}
 
 		gBuckets, gTotal, gCov := buildBuckets(holdings, rates, baseCurrency, geo.Regions, geoExposures,
-			func(h *model.Holding) string { return geo.RegionForCountry(h.Country) })
+			func(h *model.Holding) string { return geo.RegionForCountry(geographyCountry(h)) }, geographyEligible, geographyDefault)
 		regions := make([]*model.RegionAllocation, 0, len(geo.Regions)+1)
 		for _, name := range geo.Regions {
 			regions = append(regions, &model.RegionAllocation{Region: name, Value: gBuckets[name]})
@@ -3742,7 +3773,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 		}
 
 		sBuckets, sTotal, _ := buildBuckets(holdings, rates, baseCurrency, geo.GICSSectors, secExposures,
-			func(h *model.Holding) string { return geo.NormalizeSector(h.Sector) })
+			func(h *model.Holding) string { return geo.NormalizeSector(h.Sector) }, exposureEligible, stockDefault)
 		sectors := make([]*model.SectorAllocation, 0, len(geo.GICSSectors)+1)
 		for _, name := range geo.GICSSectors {
 			sectors = append(sectors, &model.SectorAllocation{Sector: name, Value: sBuckets[name]})
@@ -3757,7 +3788,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 		}
 
 		cBuckets, cTotal, _ := buildBuckets(holdings, rates, baseCurrency, geo.Countries, countryExposures,
-			func(h *model.Holding) string { return h.Country })
+			geographyCountry, geographyEligible, geographyDefault)
 		countries := make([]*model.CountryAllocation, 0, len(cBuckets))
 		for name, value := range cBuckets {
 			if !value.IsPositive() {

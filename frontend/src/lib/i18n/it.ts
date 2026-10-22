@@ -315,7 +315,7 @@ export const it = {
    * Superfici di allocazione (bug-fix EPIC K, sweep progressivo D1): la card
    * "Allocazione complessiva" del patrimonio in dashboard, il tab Allocazione del
    * portafoglio e il suo digest in Panoramica — titoli dei pannelli, stati di
-   * errore isolati e nota di copertura dell'universo azionario (`{pct}` porta
+   * errore isolati e le note di copertura dei due universi (`{pct}` porta
    * una cifra decimale).
    */
   allocation: {
@@ -326,9 +326,12 @@ export const it = {
     geoUnavailable: 'Allocazione geografica non disponibile',
     assetClasses: 'Classi di attività',
     sectorsEquity: 'Settori (solo azionario)',
-    regionsEquity: 'Regioni (solo azionario)',
-    countriesEquity: 'Paesi (solo azionario)',
-    /** Nota di copertura dell'universo azionario mostrata quando c'era esclusioni. */
+    regions: 'Regioni',
+    countries: 'Paesi',
+    /** Nota di copertura dell'universo geografico: azionario più fixed
+     * income con paese emittente (EPIC J.4), mostrata quando c'erano esclusioni. */
+    geoUniverse: 'Universo geografico: {pct}% del portafoglio',
+    /** Nota di copertura dell'universo azionario, solo per i pannelli settori. */
     equityUniverse: 'Universo azionario: {pct}% del portafoglio',
     /** Torta dashboard: valore del patrimonio ripartito per portafoglio. */
     byPortfolio: 'Allocazione per portafoglio',
@@ -360,7 +363,8 @@ export const it = {
   /**
    * Tab Esposizione degli asset e relative modali di modifica (bug-fix EPIC
    * K): titoli delle card, intestazioni dei pannelli, pulsanti di modifica e
-   * banner riservato all'equity.
+   * banner fuori-universo (la variante fixed income dice dove vive la
+   * geografia del paese emittente).
    */
   exposure: {
     geoTitle: 'Distribuzione geografica',
@@ -378,6 +382,10 @@ export const it = {
     universeHint:
       'Questa distribuzione si applica solo agli asset azionari (azioni ed ETF/fondi di classe equity).',
     universeClassHint: "Imposta la classe 'Azioni' o 'Immobiliare' nelle Caratteristiche per attivarla.",
+    /** Variante fixed income: la loro geografia alimenta l'allocazione tramite
+     * il paese emittente (EPIC J.4), non tramite questi editor. */
+    universeIssuerHint:
+      "Obbligazioni, certificati e liquidità partecipano all'allocazione geografica tramite il paese emittente impostato nel tab Dati; lasciando il campo vuoto restano esclusi. Questi editor si applicano solo agli asset azionari.",
     /** Chrome delle modali di modifica: intestazioni di colonna, nomi
      *  accessibili delle righe e controllo di aggiunta (il piè di pagina
      *  Salva riusa `common.save`/`common.saving`/`common.colTotal`). */

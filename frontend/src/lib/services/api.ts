@@ -332,7 +332,9 @@ export interface CountryAllocation {
 export interface PortfolioGeographyAllocation {
   currency: string
   regions: RegionAllocation[]
-  /** Equity-only per-country exposure of this portfolio (EPIC I.7, #86),
+  /** Geography-universe per-country exposure of this portfolio (EPIC I.7
+   * #86, EPIC J.4: equity plus bonds/certificates/cash with an issuer
+   * country),
    * with the same semantics as the dashboard's `countries`: ISO alpha-2
    * codes, non-zero buckets only, sorted by descending value. Values in the
    * portfolio currency. */
@@ -349,11 +351,13 @@ export interface PortfolioSectorAllocation {
 }
 
 /** Vault-wide allocation across all portfolios, converted to the user's base
- * currency (EPIC I.4): asset classes over every holding, plus the equity-only
- * breakdown by macro-region, country (ISO alpha-2, non-zero rows only) and
- * GICS sector. `classes`/`regions`/`countries`/`sectors` come back sorted by
- * descending value; `covered_value`/`excluded_value` split the total between
- * the equity universe and the non-equity holdings excluded from it. */
+ * currency (EPIC I.4): asset classes over every holding, plus the breakdown
+ * by macro-region and country over the geography universe (equity plus
+ * fixed income with an issuer country, EPIC J.4) and the equity-only GICS
+ * sector breakdown. `classes`/`regions`/`countries`/`sectors` come back
+ * sorted by descending value; `covered_value`/`excluded_value` split the
+ * total between the geography universe and the holdings excluded from it
+ * (the dashboard payload exposes no separate sector coverage). */
 export interface DashboardAllocation {
   currency: string
   classes: AssetClassSlice[]

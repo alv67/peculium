@@ -16,8 +16,8 @@
 
   /**
    * Allocation tab (EPIC K.4a): the EPIC I.7 (#86) section promoted to its
-   * own deep-linkable route — the asset-class donut plus the equity-only
-   * region, sector and country bars, mirroring the dashboard's
+   * own deep-linkable route — the asset-class donut plus the region, sector
+   * and country bars, mirroring the dashboard's
    * "Allocazione complessiva" card, all in the portfolio currency. The
    * three payloads (and their per-endpoint isolated error flags) come from
    * the shell context; a failed allocation call still only shows its own
@@ -40,22 +40,27 @@
     (ctx.geoAlloc?.countries ?? []).map((c) => ({ name: c.country, value: c.value, weight: c.weight })),
   )
 
-  // Equity-universe coverage note for the bar panels, like the dashboard:
-  // shown only when non-equity holdings were actually excluded. Geography
-  // (regions + countries) and sectors come from two isolated endpoints, so
-  // each payload carries its own covered/excluded note.
-  function equityUniverseNote(covered?: string, excluded?: string): string | undefined {
+  // Universe coverage notes for the bar panels, like the dashboard: shown
+  // only when holdings were actually excluded. Geography covers the equity
+  // universe plus fixed income carrying an issuer country (EPIC J.4);
+  // sectors stay equity-only. Geography and sectors come from two isolated
+  // endpoints, so each payload carries its own covered/excluded note.
+  function universeNote(
+    covered: string | undefined,
+    excluded: string | undefined,
+    key: 'allocation.geoUniverse' | 'allocation.equityUniverse',
+  ): string | undefined {
     const coveredNum = Number(covered || 0)
     const excludedNum = Number(excluded || 0)
     const total = coveredNum + excludedNum
     if (total <= 0 || excludedNum <= 0) return undefined
-    return t('allocation.equityUniverse', { pct: ((coveredNum / total) * 100).toFixed(1) })
+    return t(key, { pct: ((coveredNum / total) * 100).toFixed(1) })
   }
   const geoUniverseNote = $derived(
-    equityUniverseNote(ctx.geoAlloc?.covered_value, ctx.geoAlloc?.excluded_value),
+    universeNote(ctx.geoAlloc?.covered_value, ctx.geoAlloc?.excluded_value, 'allocation.geoUniverse'),
   )
   const sectorUniverseNote = $derived(
-    equityUniverseNote(ctx.sectorAlloc?.covered_value, ctx.sectorAlloc?.excluded_value),
+    universeNote(ctx.sectorAlloc?.covered_value, ctx.sectorAlloc?.excluded_value, 'allocation.equityUniverse'),
   )
 
   // Aggregated "Other" buckets are muted grey, like the slice treatment in
@@ -129,13 +134,13 @@
   </div>
   <div class="rounded-card border-border bg-surface p-4 shadow-card">
     {#if ctx.geoAllocError}
-      <h3 class="mb-1 font-semibold">{t('allocation.regionsEquity')}</h3>
+      <h3 class="mb-1 font-semibold">{t('allocation.regions')}</h3>
       <p class="text-sm text-muted-foreground">{t('allocation.geoUnavailable')}</p>
     {:else}
       <ExposureBarChart
         rows={regionBarRows}
         currency={ctx.geoAlloc?.currency || currency}
-        label={t('allocation.regionsEquity')}
+        label={t('allocation.regions')}
         note={geoUniverseNote}
         colorFor={otherGrey}
         onDrill={(name) => openDrill('region', name)}
@@ -144,13 +149,13 @@
   </div>
   <div class="rounded-card border-border bg-surface p-4 shadow-card">
     {#if ctx.geoAllocError}
-      <h3 class="mb-1 font-semibold">{t('allocation.countriesEquity')}</h3>
+      <h3 class="mb-1 font-semibold">{t('allocation.countries')}</h3>
       <p class="text-sm text-muted-foreground">{t('allocation.geoUnavailable')}</p>
     {:else}
       <ExposureBarChart
         rows={countryBarRows}
         currency={ctx.geoAlloc?.currency || currency}
-        label={t('allocation.countriesEquity')}
+        label={t('allocation.countries')}
         note={geoUniverseNote}
         colorFor={otherGrey}
         labelFor={countryDisplayName}

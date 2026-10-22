@@ -83,7 +83,8 @@ in-place zoom + YTD), ETF exposure from **JustETF** and **Morningstar** via the 
 microservice with market-aware ticker→ISIN auto-resolve, three exposure dimensions
 (countries/regions/sectors) with persisted provenance and a Redis cache, asset classes
 with a class allocation endpoint, geographic/sector/class allocation endpoints at portfolio
-and dashboard level (equity-only universe with coverage metadata), per-date FX history in
+and dashboard level (geography universe: equity plus fixed income carrying an
+issuer country; sectors equity-only; coverage metadata), per-date FX history in
 the series engine, and `price_source` (yahoo/manual/none) for non-Yahoo assets. Full
 Italian/English localisation (EPIC F). Fixed-income assets support editable issuer,
 issuer country, maturity and type-specific attributes; `cash` and `certificate` are
