@@ -75,6 +75,29 @@ INVALID=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API/assets/$ID" \
   -d '{"issuer_country":"not-a-country"}')
 check "$INVALID" 400 "invalid issuer country rejected"
 
+# A stock's geography is inferred 100% from its own country: the input is
+# normalized to ISO alpha-2 on create, and with no stored country breakdown
+# the position lands in the inferred country bucket — never in "Other".
+STOCK=$(create_asset "{\"ticker\":\"JST$(date +%s)\",\"name\":\"J test stock\",\"type\":\"stock\",\"currency\":\"EUR\",\"price_source\":\"none\",\"country\":\"it\"}")
+BODY=${STOCK%$'\n'*}
+STATUS=${STOCK##*$'\n'}
+check "$STATUS" 201 "create stock with country"
+check "$(jq -r '.country' <<<"$BODY")" IT "stock country normalized to ISO alpha-2"
+SID=$(jq -r '.id' <<<"$BODY")
+
+curl -fsS -X PUT "$API/assets/$SID/prices/manual" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d "{\"date\":\"$TODAY\",\"close\":100}" >/dev/null || fail "add manual stock price"
+SPF=$(curl -fsS -X POST "$API/portfolios" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"name":"EPIC J stock country","currency":"EUR"}')
+SPID=$(jq -r '.id // empty' <<<"$SPF")
+[[ -n "$SPID" ]] || fail "create stock-country portfolio"
+curl -fsS -X POST "$API/portfolios/$SPID/transactions" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"asset_id\":\"$SID\",\"type\":\"buy\",\"quantity\":1,\"price\":100,\"date\":\"${TODAY}T00:00:00Z\"}" >/dev/null || fail "buy stock"
+SGEO=$(curl -fsS "$API/portfolios/$SPID/allocation/geography" -H "Authorization: Bearer $TOKEN") || fail "read stock geography allocation"
+check "$(jq -r '.countries[] | select(.country == "IT") | .value | tonumber' <<<"$SGEO")" 100 "stock geography inferred from asset country"
+check "$(jq -r '[.countries[] | select(.country == "Other")] | length' <<<"$SGEO")" 0 "inferred country never falls into the Other bucket"
+
 # ── Option A1: asset-level quote divisor ──────────────────────────────────
 # A bond quoted per 100 nominal: quantity stays the nominal, the quote stays
 # the quote, and every cash amount is quantity × price / quote_divisor.

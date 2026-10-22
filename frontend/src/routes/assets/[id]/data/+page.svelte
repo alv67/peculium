@@ -119,6 +119,10 @@
         </select>
       </div>
       <div>
+        <label for="asset-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.colCountry')}</label>
+        <input id="asset-country" type="text" maxlength="2" bind:value={ctx.form.country} class="w-full rounded-control border border-input px-3 py-2 text-sm uppercase" />
+      </div>
+      <div>
         <label for="asset-price-source" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factPriceSource')}</label>
         <select
           id="asset-price-source"

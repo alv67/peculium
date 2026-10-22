@@ -17,6 +17,9 @@ export interface AssetForm {
   currency: string
   exchange: string
   asset_class: string
+  /** ISO alpha-2 country of the asset (stocks: the backend derives their
+   *  geographic exposure from it — 100% single country with no breakdown). */
+  country: string
   price_source: string
   /** Decimal string ("1" | "100"): 100 when the market price is quoted per
    *  100 of nominal. The Data tab's Advanced parameters checkbox toggles it. */

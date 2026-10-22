@@ -150,6 +150,7 @@
     currency: 'USD',
     exchange: '',
     asset_class: 'other',
+    country: '',
     price_source: 'yahoo',
     quote_divisor: '1',
     maturity_date: '',
@@ -163,7 +164,7 @@
   const hasChanges = $derived.by(() => {
     if (!asset) return false;
 
-    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.price_source !== (asset.price_source || 'yahoo') || form.quote_divisor !== (asset.quote_divisor || '1') || form.maturity_date !== (asset.maturity_date?.slice(0, 10) || '') || form.issuer !== (asset.issuer || '') || form.issuer_country !== (asset.issuer_country || '') || JSON.stringify(form.attributes) !== JSON.stringify(Object.fromEntries(Object.entries(asset.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')])));
+    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.country !== (asset.country || '') || form.price_source !== (asset.price_source || 'yahoo') || form.quote_divisor !== (asset.quote_divisor || '1') || form.maturity_date !== (asset.maturity_date?.slice(0, 10) || '') || form.issuer !== (asset.issuer || '') || form.issuer_country !== (asset.issuer_country || '') || JSON.stringify(form.attributes) !== JSON.stringify(Object.fromEntries(Object.entries(asset.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')])));
   });
 
   // Totals are computed on the 2-decimal values that actually enter the edit
@@ -248,6 +249,7 @@
       currency: a.currency,
       exchange: a.exchange || '',
       asset_class: a.asset_class || 'other',
+      country: a.country || '',
       price_source: a.price_source || 'yahoo',
       quote_divisor: a.quote_divisor || '1',
       maturity_date: a.maturity_date?.slice(0, 10) || '',
@@ -453,6 +455,7 @@
       currency: form.currency.trim(),
       exchange: form.exchange.trim(),
       asset_class: form.asset_class,
+      country: form.country.trim().toUpperCase(),
       price_source: form.price_source,
       quote_divisor: form.quote_divisor,
       maturity_date: form.maturity_date,
