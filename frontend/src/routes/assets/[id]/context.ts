@@ -18,6 +18,9 @@ export interface AssetForm {
   exchange: string
   asset_class: string
   price_source: string
+  /** Decimal string ("1" | "100"): 100 when the market price is quoted per
+   *  100 of nominal. The Data tab's Advanced parameters checkbox toggles it. */
+  quote_divisor: string
   maturity_date: string
   issuer: string
   issuer_country: string

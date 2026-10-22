@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Pencil } from 'lucide-svelte'
   import { t } from '#lib/i18n/index.svelte.js'
-  import { formatCurrency } from '#lib/format.js'
+  import { formatCurrency, quoteDivisor } from '#lib/format.js'
   import type { Transaction } from '#lib/services/api.js'
   import Table from '#lib/components/ui/Table.svelte'
   import THead from '#lib/components/ui/THead.svelte'
@@ -32,6 +32,13 @@
     if (type === 'sell') return 'negative'
     if (type === 'dividend') return 'accent'
     return 'neutral'
+  }
+
+  /** Cash of one row: buy/sell are `quantity × price / quote_divisor`
+   *  (bonds quote per 100 nominal), dividends and fees are absolute. */
+  function rowTotal(tx: Transaction): number {
+    const gross = Number(tx.quantity) * Number(tx.price)
+    return tx.type === 'buy' || tx.type === 'sell' ? gross / quoteDivisor(tx.quote_divisor) : gross
   }
 
   /** Badge label: the known types reuse the `activity.type*` chip labels;
@@ -81,7 +88,7 @@
           <Td align="right">{tx.quantity}</Td>
           <Td align="right">{formatCurrency(tx.price, currency)}</Td>
           <Td align="right">
-            {formatCurrency(Number(tx.quantity) * Number(tx.price), currency)}
+            {formatCurrency(rowTotal(tx), currency)}
           </Td>
           <Td align="right">
             <Button

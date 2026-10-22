@@ -141,7 +141,16 @@ type Holding struct {
 	Sector         string          `json:"sector,omitempty"`
 	AssetClass     string          `json:"asset_class,omitempty"`
 	Type           AssetType       `json:"-"`
+	QuoteDivisor   decimal.Decimal `json:"-"` // the asset's, divides qty×price into cash
 	PriceFetchedAt *time.Time      `json:"price_fetched_at,omitempty"`
+}
+
+// Value is the holding's market value in asset currency: quantity × last
+// close divided by the asset's quote divisor (a bond quoted per 100). It is
+// the canonical money figure every allocation/summary/ROI path aggregates;
+// an unset or 1 divisor keeps it exactly quantity × last close.
+func (h *Holding) Value() decimal.Decimal {
+	return TradeAmount(h.Qty, h.LastClose, h.QuoteDivisor)
 }
 
 type AssetHolding struct {

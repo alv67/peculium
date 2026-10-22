@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/shopspring/decimal"
 
 	"github.com/alv67/peculium/internal/geo"
 	"github.com/alv67/peculium/internal/model"
@@ -253,7 +254,7 @@ func buildBackupExposure(isin string, regions, sectors, countries []model.Exposu
 }
 
 func toExportAsset(a *model.Asset) model.ExportAsset {
-	return model.ExportAsset{
+	ea := model.ExportAsset{
 		Ticker:        a.Ticker,
 		Name:          a.Name,
 		Type:          a.Type,
@@ -266,6 +267,12 @@ func toExportAsset(a *model.Asset) model.ExportAsset {
 		IssuerCountry: a.IssuerCountry,
 		Attributes:    a.Attributes,
 	}
+	// The divisor is exported only when it differs from the default 1, so
+	// documents stay diff-stable and old importers see nothing new.
+	if d := a.QuoteDivisor; d.IsPositive() && !d.Equal(decimal.NewFromInt(1)) {
+		ea.QuoteDivisor = &d
+	}
+	return ea
 }
 
 // RestoreUserBackup rebuilds a user's data from a backup bundle, typically
@@ -592,6 +599,9 @@ func importBackupAsset(ctx context.Context, rx *repository.Repository, cache map
 				return nil, false, fmt.Errorf("%w: invalid issuer country", ErrInvalidInput)
 			}
 			a.Attributes = ea.Attributes
+			if ea.QuoteDivisor != nil {
+				a.QuoteDivisor = *ea.QuoteDivisor
+			}
 		}
 		if a.AssetClass == "" {
 			a.AssetClass = defaultAssetClassForType(a.Type)

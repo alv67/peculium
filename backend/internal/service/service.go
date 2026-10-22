@@ -412,6 +412,11 @@ func (s *Service) CreateAsset(ctx context.Context, asset *model.Asset) (*model.A
 	if !priceSources[asset.PriceSource] {
 		return nil, ErrInvalidPriceSource
 	}
+	if asset.QuoteDivisor.IsZero() {
+		asset.QuoteDivisor = decimal.NewFromInt(1) // omitted on create: the default quote unit
+	} else if !asset.QuoteDivisor.IsPositive() {
+		return nil, fmt.Errorf("%w: quote_divisor must be greater than zero", ErrInvalidInput)
+	}
 	if asset.Country != "" {
 		asset.Country = geo.NormalizeCountry(asset.Country)
 		if asset.Country == "" {
@@ -633,6 +638,12 @@ func (s *Service) UpdateAsset(ctx context.Context, id uuid.UUID, patch *model.As
 	}
 	if patch.Attributes != nil {
 		existing.Attributes = *patch.Attributes
+	}
+	if patch.QuoteDivisor != nil {
+		if !patch.QuoteDivisor.IsPositive() {
+			return nil, fmt.Errorf("%w: quote_divisor must be greater than zero", ErrInvalidInput)
+		}
+		existing.QuoteDivisor = *patch.QuoteDivisor
 	}
 
 	var updated *model.Asset
@@ -1822,7 +1833,7 @@ func (s *Service) GetPortfolioSummary(ctx context.Context, portfolioID uuid.UUID
 				Closed:      !h.Qty.IsPositive(),
 			}
 			if h.HasPrice && h.Qty.IsPositive() {
-				value := h.Qty.Mul(h.LastClose)
+				value := h.Value()
 				ah.Value = value
 				if factor, ok := series.FxFactor(rates, h.Currency, p.Currency); ok {
 					ah.ValuePF = value.Mul(factor)
@@ -1855,7 +1866,7 @@ func (s *Service) GetPortfolioSummary(ctx context.Context, portfolioID uuid.UUID
 			summary.Closed.Proceeds = summary.Closed.Proceeds.Add(h.Proceeds)
 			if h.HasPrice && h.Qty.IsPositive() {
 				summary.Active.Invested = summary.Active.Invested.Add(h.Cost)
-				value := h.Qty.Mul(h.LastClose)
+				value := h.Value()
 				if factor, ok := series.FxFactor(rates, h.Currency, p.Currency); ok {
 					summary.Active.Value = summary.Active.Value.Add(value.Mul(factor))
 				}
@@ -1903,7 +1914,7 @@ func (s *Service) GetPortfolioAllocation(ctx context.Context, portfolioID uuid.U
 			if !h.HasPrice {
 				continue
 			}
-			value := h.Qty.Mul(h.LastClose)
+			value := h.Value()
 			factor, ok := series.FxFactor(rates, h.Currency, p.Currency)
 			if ok {
 				value = value.Mul(factor)
@@ -1947,7 +1958,7 @@ func (s *Service) GetPortfolioClassAllocation(ctx context.Context, portfolioID u
 			if !h.Qty.IsPositive() || !h.HasPrice {
 				continue
 			}
-			value := h.Qty.Mul(h.LastClose)
+			value := h.Value()
 			if factor, ok := series.FxFactor(rates, h.Currency, p.Currency); ok {
 				value = value.Mul(factor)
 			} else {
@@ -2144,7 +2155,7 @@ func buildBuckets(holdings []*model.Holding, rates map[string]decimal.Decimal, c
 		if !h.Qty.IsPositive() || !h.HasPrice {
 			continue
 		}
-		value := h.Qty.Mul(h.LastClose)
+		value := h.Value()
 		factor, ok := series.FxFactor(rates, h.Currency, currency)
 		if !ok {
 			continue
@@ -2295,7 +2306,7 @@ func (s *Service) buildAllocationDrill(ctx context.Context, d allocationDrillDim
 		if !h.Qty.IsPositive() || !h.HasPrice {
 			continue
 		}
-		value := h.Qty.Mul(h.LastClose)
+		value := h.Value()
 		factor, ok := series.FxFactor(rates, h.Currency, currency)
 		if !ok {
 			continue
@@ -2461,7 +2472,7 @@ func (s *Service) GetPortfolioROI(ctx context.Context, portfolioID uuid.UUID) ([
 				Realized:      h.Realized,
 			}
 			if h.HasPrice {
-				value := h.Qty.Mul(h.LastClose)
+				value := h.Value()
 				if factor, ok := series.FxFactor(rates, h.Currency, p.Currency); ok {
 					roi.CurrentValue = value.Mul(factor)
 				} else {
@@ -3015,7 +3026,7 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 			cp.Invested = cp.Invested.Add(h.CostCCY)
 			cp.Realized = cp.Realized.Add(h.RealizedCCY)
 			if h.HasPrice {
-				cp.Value = cp.Value.Add(h.Qty.Mul(h.LastClose))
+				cp.Value = cp.Value.Add(h.Value())
 			}
 
 			// Summary totals are converted per amount, mirroring the
@@ -3051,7 +3062,7 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 				addPF(&summary.Closed.Proceeds, h.Dividends)
 			}
 			if h.HasPrice && h.Qty.IsPositive() {
-				value := h.Qty.Mul(h.LastClose)
+				value := h.Value()
 				if factor, ok := series.FxFactor(rates, h.Currency, baseCurrency); ok {
 					summary.Active.Value = summary.Active.Value.Add(value.Mul(factor))
 				} else {
@@ -3080,7 +3091,7 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 				value := invested
 				if h.HasPrice {
 					if factor, ok := series.FxFactor(rates, h.Currency, baseCurrency); ok {
-						value = h.Qty.Mul(h.LastClose).Mul(factor)
+						value = h.Value().Mul(factor)
 					}
 					ia.HasPrice = true
 				}
@@ -3136,7 +3147,7 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 				RealizedPF: h.Realized,
 			}
 			if h.HasPrice && h.Qty.IsPositive() {
-				value := h.Qty.Mul(h.LastClose)
+				value := h.Value()
 				ap.Value = value
 				ap.GainLoss = value.Sub(h.CostCCY)
 				if h.CostCCY.IsPositive() {
@@ -3178,7 +3189,7 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 					ps.Closed.Proceeds = ps.Closed.Proceeds.Add(h.Dividends)
 				}
 				if h.HasPrice && h.Qty.IsPositive() {
-					value := h.Qty.Mul(h.LastClose)
+					value := h.Value()
 					if factor, ok := series.FxFactor(rates, h.Currency, p.Currency); ok {
 						ps.Active.Value = ps.Active.Value.Add(value.Mul(factor))
 					} else {
@@ -3209,7 +3220,8 @@ func (s *Service) GetDashboard(ctx context.Context, userID uuid.UUID) (*model.Da
 // sum of the priced assets' market values, plus bond_at_cost(d), the cost
 // basis of the unpriced assets still held (already zero once fully sold),
 // all converted to the base currency. flow(d) is the day's external cash
-// flows at end of day: buy +(qty*price + fees), sell -(qty*price - fees),
+// flows at end of day: buy +(qty×price/quote_divisor + fees), sell
+// -(qty×price/quote_divisor - fees),
 // standalone fee +feeAmount (qty*price, or the price alone when no quantity
 // is set), dividend -divAmount (income taken out) and split 0; a flow whose
 // FX rate is missing on its transaction date is skipped. Realized P&L never
@@ -3337,9 +3349,9 @@ func (s *Service) GetDashboardPerformance(ctx context.Context, userID uuid.UUID,
 			var flow decimal.Decimal
 			switch tx.Type {
 			case model.TxBuy:
-				flow = tx.Quantity.Mul(tx.Price).Add(tx.Fees)
+				flow = model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor).Add(tx.Fees)
 			case model.TxSell:
-				flow = tx.Quantity.Mul(tx.Price).Sub(tx.Fees).Neg()
+				flow = model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor).Sub(tx.Fees).Neg()
 			case model.TxFee:
 				flow = tx.Price
 				if tx.Quantity.IsPositive() {
@@ -3560,9 +3572,9 @@ func (s *Service) GetPortfolioPerformanceBuckets(ctx context.Context, portfolioI
 			var flow decimal.Decimal
 			switch tx.Type {
 			case model.TxBuy:
-				flow = tx.Quantity.Mul(tx.Price).Add(tx.Fees)
+				flow = model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor).Add(tx.Fees)
 			case model.TxSell:
-				flow = tx.Quantity.Mul(tx.Price).Sub(tx.Fees).Neg()
+				flow = model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor).Sub(tx.Fees).Neg()
 			case model.TxFee:
 				flow = tx.Price
 				if tx.Quantity.IsPositive() {
@@ -3714,7 +3726,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 			if !h.Qty.IsPositive() || !h.HasPrice {
 				continue
 			}
-			value := h.Qty.Mul(h.LastClose)
+			value := h.Value()
 			factor, ok := series.FxFactor(rates, h.Currency, baseCurrency)
 			if !ok {
 				continue

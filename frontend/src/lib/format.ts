@@ -57,6 +57,17 @@ export function formatDuration(ms?: number | null): string {
   return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`
 }
 
+// ── Quote divisor ───────────────────────────────────────────────────────────
+
+/** Effective quote divisor from an asset's `quote_divisor` decimal string
+ *  ("100" when the price is quoted per 100 of nominal): missing or malformed
+ *  values fall back to 1, so per-unit quotes pass through unchanged. Every
+ *  display conversion by the divisor goes through this single helper. */
+export function quoteDivisor(value?: string | null): number {
+  const d = Number(value)
+  return Number.isFinite(d) && d > 0 ? d : 1
+}
+
 // ── Localized asset vocabulary (types, classes, price sources) ──────────────
 // Raw backend values render through the active locale via `t()`, so chips,
 // quick facts, selects and donut slices all follow the interface language.

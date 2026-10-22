@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Nuove funzionalità
+- I prezzi possono ora essere quotati per 100 di nominale (tipico delle obbligazioni): una casella nella nuova sezione **Parametri avanzati** del tab Dati dell'asset lo dichiara, e i totali delle transazioni sono calcolati di conseguenza
 - Gli asset non coperti da Yahoo (obbligazioni singole, certificati OTC, fondi pensione, conti deposito con fonte prezzi manuale o disattivata) accettano prezzi manuali: la scheda Dati dell'asset guadagna una sezione Prezzi manuali per inserire, modificare ed eliminare chiusure datate, che alimentano grafico, P/L e performance come qualsiasi altro prezzo
 - Puoi creare depositi e certificati d'investimento e registrare per gli asset fixed income emittente, paese, scadenza e dettagli come cedola, rating, sottostante o tasso del deposito
 - Obbligazioni, certificati e depositi contano ora nell'allocazione geografica tramite il paese emittente. Se non esiste una ripartizione per paese, il default è il 100% sul paese emittente; lasciando vuoto il campo l'asset resta escluso. L'allocazione settoriale resta solo azionaria e i grafici di dashboard e portafoglio indicano l'universo coperto da ciascun pannello

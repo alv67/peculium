@@ -104,6 +104,11 @@ export interface Asset {
   sector?: string
   industry?: string
   price_source?: string
+  /** Quote divisor as a decimal string ("1", "100", ...): "100" means the
+   *  market price is quoted per 100 of nominal (typical for bonds), so the
+   *  real cash behind a `quantity × price` trade is scaled by this factor.
+   *  Absent or 1 for per-unit quotes. */
+  quote_divisor?: string
   history_backfilled?: boolean
   data_status?: AssetDataStatus
   /** Fixed-income metadata (EPIC J.2): issuer, its country, the maturity date
@@ -145,6 +150,9 @@ export interface AssetPatch {
   sector?: string
   industry?: string
   price_source?: string
+  /** Decimal string, see `Asset.quote_divisor` ("100" = price quoted per 100
+   *  of nominal, "1" = per unit). */
+  quote_divisor?: string
   /** Fixed-income metadata (EPIC J.2). `maturity_date` takes `YYYY-MM-DD`,
    *  and an empty string clears the stored date. */
   maturity_date?: string
@@ -236,6 +244,9 @@ export interface Transaction {
   type: 'buy' | 'sell' | 'dividend' | 'split' | 'fee'
   quantity: string
   price: string
+  /** The asset's quote divisor (joined from the asset): buy/sell cash is
+   *  `quantity × price / quote_divisor`. Dividends and fees are absolute. */
+  quote_divisor?: string
   fees: string
   date: string
   notes: string
