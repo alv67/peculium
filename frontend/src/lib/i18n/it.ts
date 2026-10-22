@@ -386,6 +386,10 @@ export const it = {
      * il paese emittente (EPIC J.4), non tramite questi editor. */
     universeIssuerHint:
       "Obbligazioni, certificati e liquidità partecipano all'allocazione geografica tramite il paese emittente impostato nel tab Dati; lasciando il campo vuoto restano esclusi. Questi editor si applicano solo agli asset azionari.",
+    /** Nota sulla card geografica fixed income di sola lettura: il paese unico
+     *  deriva dal paese dell'emittente, modificabile nel tab Dati. */
+    issuerDerivedNote:
+      "Derivata dal paese dell'emittente impostato nel tab Dati: modificalo lì.",
     /** Chrome delle modali di modifica: intestazioni di colonna, nomi
      *  accessibili delle righe e controllo di aggiunta (il piè di pagina
      *  Salva riusa `common.save`/`common.saving`/`common.colTotal`). */
