@@ -137,6 +137,7 @@ type Holding struct {
 	LastClose      decimal.Decimal `json:"last_close"` // latest close in asset currency
 	HasPrice       bool            `json:"has_price"`
 	Country        string          `json:"country"`
+	IssuerCountry  string          `json:"-"`
 	Sector         string          `json:"sector,omitempty"`
 	AssetClass     string          `json:"asset_class,omitempty"`
 	Type           AssetType       `json:"-"`

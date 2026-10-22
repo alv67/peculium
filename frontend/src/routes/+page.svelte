@@ -272,17 +272,19 @@
   const sectorBarRows = $derived<ExposureBarRow[]>((alloc?.sectors ?? []).map((s) => ({ name: s.sector, value: s.value, weight: s.weight })));
   const countryBarRows = $derived<ExposureBarRow[]>((alloc?.countries ?? []).map((c) => ({ name: c.country, value: c.value, weight: c.weight })));
 
-  // Equity-universe coverage note for the bar charts, mirroring the long
-  // covered/excluded note the donut charts render themselves; shown only when
-  // non-equity holdings were actually excluded.
-  const equityUniverseNote = $derived.by(() => {
+  // Geographic-universe coverage note for the region/country bar charts
+  // (equity plus fixed income carrying an issuer country, EPIC J.4), shown
+  // only when holdings were actually excluded. The dashboard payload carries
+  // a single covered/excluded pair — the geography one — so the equity-only
+  // sector panel gets no note here (the portfolio endpoint exposes its own).
+  const geoUniverseNote = $derived.by(() => {
     const covered = Number(alloc?.covered_value || 0);
     const excluded = Number(alloc?.excluded_value || 0);
     const total = covered + excluded;
 
     if (total <= 0 || excluded <= 0) return undefined;
 
-    return t('allocation.equityUniverse', { pct: (covered / total * 100).toFixed(1) });
+    return t('allocation.geoUniverse', { pct: (covered / total * 100).toFixed(1) });
   });
 
   // Aggregated "Other" buckets are muted grey, like the slice treatment in the
@@ -544,9 +546,10 @@
           <p class="text-sm text-muted-foreground">{t('allocation.unavailable')}</p>
         {:else}
           <!-- EPIC I.4 layout: asset-class donut over the whole vault plus the
-               equity-only breakdown (sector, region and country bars), in a
-               responsive 2-column grid; regions sit next to countries in the
-               bottom row. The inner panels reuse the shared card surface
+               region and country bars (geography universe) and the equity-only
+               sector bars, in a responsive 2-column grid; regions sit next to
+               countries in the bottom row. The inner panels reuse the shared
+               card surface
                styling; the portfolio detail "Allocazione" section mirrors this
                exact layout in EPIC I.7 (#86). -->
           <div class="grid gap-4 lg:grid-cols-2">
@@ -563,7 +566,6 @@
                 rows={sectorBarRows}
                 currency={alloc.currency}
                 label={t('allocation.sectorsEquity')}
-                note={equityUniverseNote}
                 colorFor={otherGrey}
                 onDrill={(name) => openDrill('sector', name)}
               />
@@ -572,8 +574,8 @@
               <ExposureBarChart
                 rows={regionBarRows}
                 currency={alloc.currency}
-                label={t('allocation.regionsEquity')}
-                note={equityUniverseNote}
+                label={t('allocation.regions')}
+                note={geoUniverseNote}
                 colorFor={otherGrey}
                 onDrill={(name) => openDrill('region', name)}
               />
@@ -582,8 +584,8 @@
               <ExposureBarChart
                 rows={countryBarRows}
                 currency={alloc.currency}
-                label={t('allocation.countriesEquity')}
-                note={equityUniverseNote}
+                label={t('allocation.countries')}
+                note={geoUniverseNote}
                 colorFor={otherGrey}
                 labelFor={countryDisplayName}
                 maxVisibleRows={10}

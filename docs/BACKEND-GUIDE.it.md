@@ -938,6 +938,14 @@ sessione a vita breve, vedi `meta.go`):
   nell'editor asset vince sempre (aggiornato solo se vuota o `other`).
 - **Esposizione geografica**: per una singola **azione**, il paese (dal profilo
   asset) viene mappato a una macro-regione al 100% (`geo.RegionForCountry`).
+- **Allocazione fixed income**: obbligazioni, certificati e depositi con
+  `issuer_country` non vuoto entrano nella geografia del portafoglio e della
+  dashboard; se non esistono righe paese, il default al 100% è il paese
+  emittente, mappato alla propria macro-regione. Le righe del provider o
+  modificate a mano restano in uso. Un paese emittente vuoto esclude l'asset;
+  l'allocazione settoriale resta solo equity. I totali geografici
+  `covered_value` / `excluded_value` seguono questo universo, mentre la
+  copertura settoriale segue quello azionario.
 
 Nota sull'**ISIN**: Yahoo non espone l'ISIN in nessun modulo. Per gli ETF il
 valore viene risolto automaticamente dal ticker tramite il servizio

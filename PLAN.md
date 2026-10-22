@@ -77,7 +77,7 @@ and personal finances.
 - [x] Admin area: user governance (approval, roles, enable/disable, password reset), server settings, per-user and server-wide backup & restore — **#57, #143, #145**
 - [x] Manual price entry for non-Yahoo assets (endpoint + Data-tab UI) — **J.1 (#105)**
 - [x] Fixed-income metadata and selectable `cash`/`certificate` types — **J.2/J.3 (#106, #107)**
-- [ ] Fixed-income geography and sector exposure — **J.4 (#108)**
+- [x] Fixed-income geography and sector exposure — **J.4 (#108)**
 - [ ] Remaining **EPIC J (#113)**: deposit interest accrual (J.5 #109), bond metrics (J.6 #110), credit allocation (J.7 #111), pension wrappers (J.8 #112)
 
 ### Phase 3 — Multi-tenancy & family sharing

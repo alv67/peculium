@@ -45,6 +45,24 @@ check "$(jq -r '.attributes.coupon_rate' <<<"$BODY")" 3.5 "JSONB attributes pers
 EXPOSURE=$(curl -fsS "$API/assets/$ID/exposure" -H "Authorization: Bearer $TOKEN") || fail "read updated exposure"
 check "$(jq -r '.countries[] | select(.weight == "100") | .name' <<<"$EXPOSURE")" DE "issuer country change updates derived exposure"
 
+# Verify the repository query carries issuer_country through to actual portfolio
+# allocation, while the sector endpoint still excludes fixed-income holdings.
+TODAY=$(date -u +%F)
+curl -fsS -X PUT "$API/assets/$ID/prices/manual" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d "{\"date\":\"$TODAY\",\"close\":100}" >/dev/null || fail "add manual bond price"
+PF=$(curl -fsS -X POST "$API/portfolios" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"name":"EPIC J geography","currency":"EUR"}')
+PID=$(jq -r '.id // empty' <<<"$PF")
+[[ -n "$PID" ]] || fail "create fixed-income test portfolio"
+curl -fsS -X POST "$API/portfolios/$PID/transactions" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"asset_id\":\"$ID\",\"type\":\"buy\",\"quantity\":1,\"price\":100,\"date\":\"${TODAY}T00:00:00Z\"}" >/dev/null || fail "buy bond"
+GEO=$(curl -fsS "$API/portfolios/$PID/allocation/geography" -H "Authorization: Bearer $TOKEN") || fail "read geography allocation"
+check "$(jq -r '.countries[] | select(.country == "DE") | .value' <<<"$GEO")" 100 "bond value contributes to issuer-country geography"
+check "$(jq -r '.covered_value' <<<"$GEO")" 100 "geography coverage includes fixed income"
+SECTORS=$(curl -fsS "$API/portfolios/$PID/allocation/sector" -H "Authorization: Bearer $TOKEN") || fail "read sector allocation"
+check "$(jq -r '.excluded_value' <<<"$SECTORS")" 100 "sector allocation excludes fixed income"
+
 RESPONSE=$(create_asset "{\"ticker\":\"JCE$(date +%s)\",\"name\":\"J test certificate\",\"type\":\"certificate\",\"currency\":\"EUR\",\"price_source\":\"none\"}")
 BODY=${RESPONSE%$'\n'*}
 STATUS=${RESPONSE##*$'\n'}

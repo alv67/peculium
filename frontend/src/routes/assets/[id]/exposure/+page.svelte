@@ -20,7 +20,9 @@
    * JustETF/Morningstar/Yahoo prefill, derive-regions and per-dimension save
    * machinery — provenance badges and sum validation included — lives
    * untouched in the shell/modals. Assets outside the equity universe keep
-   * the old hint banner instead of the cards.
+   * the hint banner instead of the cards: the equity-class rule for most,
+   * the issuer-country variant for fixed income, whose geography feeds the
+   * allocation from the Data tab (EPIC J.4) and is not edited here.
    */
   const ctx = getAssetPage()
 
@@ -39,6 +41,12 @@
         (a.asset_class === 'equity' || a.asset_class === 'real_estate'))
     )
   })
+
+  // Bonds, certificates and cash: their geography feeds the allocation from
+  // the issuer country set in the Data tab (EPIC J.4), not from these cards.
+  const fixedIncome = $derived(
+    ctx.asset != null && ['bond', 'certificate', 'cash'].includes(ctx.asset.type),
+  )
 
   // ---------------------------------------------------------------------------
   // Display vs edit split (kept from the old page): the cards always render
@@ -185,13 +193,19 @@
 {:else if ctx.asset && !exposureApplicable}
   <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
     <h2 class="mb-2 font-semibold">{t('exposure.universeTitle')}</h2>
-    <p class="text-sm text-muted-foreground">
-      {t('exposure.universeHint')}
-    </p>
-    {#if ctx.asset.type !== 'stock'}
-      <p class="mt-2 text-sm text-muted-foreground">
-        {t('exposure.universeClassHint')}
+    {#if fixedIncome}
+      <p class="text-sm text-muted-foreground">
+        {t('exposure.universeIssuerHint')}
       </p>
+    {:else}
+      <p class="text-sm text-muted-foreground">
+        {t('exposure.universeHint')}
+      </p>
+      {#if ctx.asset.type !== 'stock'}
+        <p class="mt-2 text-sm text-muted-foreground">
+          {t('exposure.universeClassHint')}
+        </p>
+      {/if}
     {/if}
   </div>
 {/if}

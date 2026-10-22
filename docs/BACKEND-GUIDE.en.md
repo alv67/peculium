@@ -922,6 +922,13 @@ see `meta.go`):
   `other`).
 - **Geographic exposure**: for a single **stock**, the country (from the asset
   profile) is mapped to a macro-region at 100% (`geo.RegionForCountry`).
+- **Fixed-income allocation**: bonds, certificates and cash deposits with a
+  non-empty `issuer_country` join portfolio and dashboard geography; when no
+  country rows exist, that issuer country is the 100% default and maps to its
+  macro-region. Existing provider or manual country rows remain in use. An
+  empty issuer country opts the asset out; sector allocation remains
+  equity-only. The geography `covered_value` / `excluded_value` totals include
+  this universe, while sector coverage uses the equity universe.
 
 A note on **ISIN**: Yahoo does **not** expose the ISIN in any module. For ETFs
 the value is resolved automatically from the ticker through the JustETF

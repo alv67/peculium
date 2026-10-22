@@ -378,8 +378,8 @@ inline with Svelte 5 **`$derived`** runes. The main ones:
   `regionBarRows` / `sectorBarRows` / `countryBarRows` map the allocation
   payloads onto the `ExposureBarRow` shape consumed by `ExposureBarChart`;
   `geoUniverseNote` / `sectorUniverseNote` build the
-  "Universo azionario" coverage captions from each payload's
-  `covered_value`/`excluded_value`.
+  "Geographic universe" / "Equity universe" coverage captions from each
+  payload's `covered_value`/`excluded_value`.
 - **Asset detail**: `chartSeries` in the Overview tab (`routes/assets/[id]/
   +page.svelte`) sorts the price rows and `zoomStart` maps the selected range
   (`RANGES`: `1M` 30 days, `3M` 90 days, `1Y` 365 days, `YTD`, `MAX` unlimited)
@@ -560,13 +560,19 @@ shape-only affordance whose figures the card already shows as text.
   `GET /dashboard/allocation`, which exposes four dimensions: `classes`
   (`ClassDonut`), `regions`, `sectors` and `countries` (all three
   `ExposureBarChart`), arranged in a `lg:grid-cols-2` grid
-  inside the card. Class shares cover the whole wealth; regions, sectors and
-  countries are computed over the **equity-only universe** (stocks always,
-  ETFs/mutual funds only when `asset_class` is `equity` or `real_estate`);
-  bonds, crypto, commodities and unclassified funds are excluded and reported
-  as `covered_value` / `excluded_value`, which the dashboard bar charts turn
-  into a muted "Universo azionario: X% del
-  portafoglio" caption (`note` prop, shown only when something was excluded).
+  inside the card. Class shares cover the whole wealth; regions and countries
+  are computed over the **geography universe** (stocks always, ETFs/mutual
+  funds only when `asset_class` is `equity` or `real_estate`, plus bonds,
+  certificates and cash — defaulted to 100% in `issuer_country` when no country
+  breakdown exists, while existing provider/manual breakdowns are preserved;
+  an empty issuer country keeps the asset out. Sectors stay on the
+  **equity-only** subset; crypto, commodities and unclassified funds are
+  excluded from both. The payload reports the geography coverage as
+  `covered_value` / `excluded_value`, which the region and country bar charts
+  turn into a muted "Geographic universe: X% of the portfolio" caption
+  (`note` prop, shown only when something was excluded);
+  the sector panel gets no caption on the dashboard, where the payload
+  carries only the geography coverage.
 - **Dashboard** — `PerformanceChart` (percentage return: bars + cumulative
   TWR line) on the zone-B card and `CapitalChart` (invested vs value, compact
   hero variant) in the hero, both fed by a **single**
@@ -1025,8 +1031,9 @@ portfolio card carries a value-history sparkline strip.
   of four panels fed by `dashboardAllocation()`
   (`GET /dashboard/allocation`, aggregated in the user's base currency across
   all portfolios): **Classi di attività**
-  (`ClassDonut` over `classes`, whole wealth) and the equity-only **Regioni**,
-  **Settori** and **Paesi** horizontal bars (`ExposureBarChart`
+  (`ClassDonut` over `classes`, whole wealth) and the
+  **Regions** and **Countries** horizontal bars (geography universe, EPIC J.4)
+  plus the equity-only **Sectors** bars (`ExposureBarChart`
    over `regions` / `sectors` / `countries`; region rows carry the macro-region name verbatim;
   country rows carry ISO alpha-2 codes but are
   labelled with the **full country name** via `labelFor={countryDisplayName}`
@@ -1038,11 +1045,13 @@ portfolio card carries a value-history sparkline strip.
   with verbatim names — the ~10 macro-regions and the GICS sectors always
   fit). The region,
   sector and country panels pass a `colorFor` that mutes the aggregated `Other`
-  bucket grey, like the donut slices. All three equity bar panels
-  receive the `covered_value`/`excluded_value` coverage metadata through the
-  shared "Universo azionario: X% del
-  portafoglio" caption (`note` prop, only when non-equity holdings are
-  excluded); when the endpoint fails the card shows
+  bucket grey, like the donut slices. The region and country panels
+  receive the geography `covered_value`/`excluded_value` coverage through
+  the muted "Geographic universe: X% of the portfolio" caption (`note` prop,
+  only when holdings are excluded from
+  the geography universe); the sector panel shows no caption at this level,
+  the dashboard payload carrying only the geography coverage; when the
+  endpoint fails the card shows
   "Allocazione non disponibile" (the call is isolated, it does not block the
    page). Every panel is also a **drill-down entry point**: the `ClassDonut` passes `onDrill` with the raw
   class key and the three `ExposureBarChart`s pass it with the raw region,
@@ -1249,14 +1258,15 @@ TAB **Allocation** (mirrors the dashboard "Allocazione
 complessiva" card): a `lg:grid-cols-2` grid of panels in the **portfolio
 currency** — **Classi di attività** (`ClassDonut` over `classAllocation()`,
 class keys mapped through `assetClassLabel` by the component) and the
-equity-only **Settori**, **Regioni** and **Paesi** horizontal bars
+**Regioni** and **Paesi** (geography universe, EPIC J.4) plus the
+equity-only **Settori** horizontal bars
 (`ExposureBarChart` over `sectorAllocation()`'s `sectors` and
 `geographyAllocation()`'s `regions` + `countries` — the country panel uses
 `labelFor={countryDisplayName}` and `maxVisibleRows={10}`, exactly like the
-dashboard). The equity panels receive the
-`covered_value`/`excluded_value` coverage metadata and show the
-"Universo azionario: X% del portafoglio" note when non-equity holdings are
-excluded. Each endpoint is isolated in its own try/catch: on failure its
+dashboard). Each panel family takes its coverage from its own endpoint: the
+  geo panels show the "Geographic universe: X% of the portfolio" note and the
+  sector panel the "Equity universe: X% of the portfolio" one, each only
+when holdings are excluded from its universe. Each endpoint is isolated in its own try/catch: on failure its
 panels show "non disponibile" without blocking the section or the rest of
 the page. Every panel also drills: the class donut and the
 three bar charts pass `onDrill` (raw class key / region / sector / ISO
@@ -1515,8 +1525,11 @@ TAB **Exposure** — the geo/sector distribution widgets:
   tab renders the exposure cards only when the asset is actionable for the
   equity universe (`exposureApplicable`: stock, or etf/mutual_fund with
   `asset_class`
-  `equity`/`real_estate`); otherwise the tab shows the hint banner that the
-  distribution only applies to equity assets.
+  `equity`/`real_estate`); otherwise the tab shows the hint banner: for
+  bonds, certificates and cash it points at the issuer country set in the
+  Data tab, which is what feeds the geographic allocation (an empty issuer
+  country keeps the asset out, EPIC J.4); for the other types it explains
+  that the distribution editors apply to equity assets only.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, the Yahoo `topHoldings` sector weights)
   pre-fills the sector table **inside the modal**: a non-persisted preview,

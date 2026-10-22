@@ -341,7 +341,7 @@ export const en = {
    * Allocation surfaces (EPIC K bug-fix, progressive D1 sweep): the wealth
    * "Overall allocation" card on the dashboard, the portfolio Allocation
    * tab and its Overview digest — panel headings, isolated error states and
-   * the equity-universe coverage note (`{pct}` carries one decimal).
+   * the coverage notes of the two universes (`{pct}` carries one decimal).
    */
   allocation: {
     title: 'Overall allocation',
@@ -351,9 +351,12 @@ export const en = {
     geoUnavailable: 'Geographic allocation unavailable',
     assetClasses: 'Asset classes',
     sectorsEquity: 'Sectors (equity only)',
-    regionsEquity: 'Regions (equity only)',
-    countriesEquity: 'Countries (equity only)',
-    /** Equity-universe coverage note shown when non-equity was excluded. */
+    regions: 'Regions',
+    countries: 'Countries',
+    /** Geography-universe coverage note: equity plus fixed income carrying
+     * an issuer country (EPIC J.4). Shown when holdings were excluded. */
+    geoUniverse: 'Geographic universe: {pct}% of the portfolio',
+    /** Equity-universe coverage note, sector panels only. */
     equityUniverse: 'Equity universe: {pct}% of the portfolio',
     /** Dashboard donut: wealth value split per portfolio. */
     byPortfolio: 'Allocation by portfolio',
@@ -383,7 +386,8 @@ export const en = {
   },
   /**
    * Asset Exposure tab and its edit modals (EPIC K bug-fix): card headings,
-   * panel titles, the edit buttons and the equity-only banner.
+   * panel titles, the edit buttons and the out-of-universe banners (the
+   * fixed-income variant tells where the issuer-country geography lives).
    */
   exposure: {
     geoTitle: 'Geographic distribution',
@@ -401,6 +405,10 @@ export const en = {
     universeHint:
       'This distribution only applies to equity assets (stocks and equity-class ETFs/funds).',
     universeClassHint: "Set the 'Stocks' or 'Real estate' class in Characteristics to enable it.",
+    /** Fixed-income variant: their geography feeds the allocation through
+     * the issuer country (EPIC J.4), not through these editors. */
+    universeIssuerHint:
+      'Bonds, certificates and cash take part in the geographic allocation through the issuer country set in the Data tab; leave it empty and they stay out. These editors only apply to equity assets.',
     /** Edit-modal chrome: column headers, row accessible names and the add
      *  control (the Save footer reuses `common.save`/`common.saving`/
      *  `common.colTotal`). */

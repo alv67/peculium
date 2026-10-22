@@ -395,7 +395,8 @@ valori derivati inline con le rune **`$derived`** di Svelte 5. I principali:
   allocazione sulla forma generica `ExposureBarRow` consumata da
   `ExposureBarChart`; `geoUniverseNote` /
   `sectorUniverseNote` costruiscono le didascalie di copertura "Universo
-  azionario" dai `covered_value`/`excluded_value` di ciascun payload.
+  geografico" (pannelli geografici) e "Universo azionario" (pannello settori)
+  dai `covered_value`/`excluded_value` di ciascun payload.
 - **Dettaglio asset**: `chartSeries` nel tab Panoramica (`routes/assets/[id]/
   +page.svelte`) ordina le righe prezzo e `zoomStart` mappa l'intervallo
   selezionato (`RANGES`: `1M` 30 giorni, `3M` 90 giorni, `1Y` 365 giorni,
@@ -587,13 +588,18 @@ sola forma i cui numeri compaiono già nella card come testo.
   `classes` (`ClassDonut`), `regions`, `sectors` e `countries` (tutti e tre
   `ExposureBarChart`), disposte in una
   griglia `lg:grid-cols-2` dentro la card. Le classi coprono tutto il patrimonio;
-  regioni, settori e paesi sono calcolati sull'universo **equity-only**
-  (azioni sempre; ETF/fondi solo quando `asset_class` è `equity` o
-  `real_estate`); bond, crypto, commodity e fondi non classificati sono
-  esclusi e riportati come `covered_value` / `excluded_value`, che le barre
+  regioni e paesi sono calcolati sull'universo **geografico** (azioni sempre;
+  ETF/fondi solo quando `asset_class` è `equity` o `real_estate`; obbligazioni,
+  certificati e liquidità, con paese emittente al 100% come default quando non
+  esiste una distribuzione salvata (quelle del provider o manuali sono
+  preservate; con il campo vuoto l'asset resta escluso), mentre i settori restano sul
+  sottoinsieme **solo equity**; crypto, commodity e fondi non classificati
+  sono esclusi da entrambi. Il carico riporta la copertura geografica come
+  `covered_value` / `excluded_value`, che le barre di regioni e paesi
   della dashboard trasformano in una didascalia muted
-  "Universo azionario: X% del portafoglio" (mostrata solo quando qualcosa è
-  stato escluso).
+  "Universo geografico: X% del portafoglio" (mostrata solo quando qualcosa è
+  stato escluso); il pannello settori non ha didascalia in dashboard, dove il
+  payload porta solo la copertura geografica.
 - **Dashboard** — `PerformanceChart` (rendimento in %: barre + linea TWR
   cumulata) sulla card di zona B e `CapitalChart` (investito vs valore,
   variante compatta dell'hero) nell'hero, entrambi alimentati da
@@ -1082,8 +1088,9 @@ valore.
    (`GET /dashboard/allocation`, aggregato nella valuta base dell'utente su
    tutti i portafogli): **Classi di attività**
   (`ClassDonut` su `classes`, tutto il patrimonio) e le barre orizzontali
-  **Regioni**, **Settori** e **Paesi**, solo equity (`ExposureBarChart`
-   su `regions` / `sectors` / `countries`; le righe delle regioni riportano il nome della macro-regione
+    **Regioni** e **Paesi** (universo geografico, EPIC J.4) e **Settori**
+    (solo azionario), tutti resi con `ExposureBarChart` su `regions` / `sectors`
+    / `countries`; le righe delle regioni riportano il nome della macro-regione
    invariato; le righe dei paesi portano codici ISO alpha-2
   ma sono etichettate con il **nome completo del paese** tramite
   `labelFor={countryDisplayName}` — i codici sconosciuti ripiegano sul codice
@@ -1093,10 +1100,12 @@ valore.
   regioni e settori restano senza limite con nomi invariati — le ~10
   macro-regioni e i settori GICS entrano sempre). I pannelli a
   barre passano un `colorFor` che mette in grigio la fetta aggregata `Other`,
-  come nelle ciambelle. Tutti e tre i pannelli equity a barre ricevono i
-  metadati di copertura
-  `covered_value`/`excluded_value` tramite la didascalia muted "Universo azionario: X% del portafoglio"
-  (prop `note`, solo quando ci sono holding non azionarie escluse); se
+  come nelle ciambelle. I pannelli regioni e paesi ricevono la copertura
+  geografica
+  `covered_value`/`excluded_value` tramite la didascalia muted "Universo geografico: X% del portafoglio"
+  (prop `note`, solo quando ci sono asset esclusi dall'universo geografico);
+  il pannello settori resta senza didascalia a questo livello, perché il
+  payload della dashboard porta solo la copertura geografica; se
   l'endpoint fallisce la card mostra "Allocazione non
    disponibile" (la chiamata è isolata, non blocca la pagina). Ogni pannello
    è anche un punto d'ingresso del **drill-down**: la `ClassDonut` passa `onDrill` con la chiave classe grezza
@@ -1314,13 +1323,15 @@ TAB **Allocazione** (replica la card "Allocazione complessiva"
 della dashboard): una griglia `lg:grid-cols-2` di pannelli nella **valuta del
 portafoglio** — **Classi di attività** (`ClassDonut` su `classAllocation()`,
 chiavi delle classi mappate con `assetClassLabel` dal componente) e le
-barre orizzontali **Settori**, **Regioni** e **Paesi**, solo equity
-(`ExposureBarChart` sui `sectors` di `sectorAllocation()` e sui `regions` +
+barre orizzontali **Regioni** e **Paesi** (universo geografico, EPIC J.4)
+e **Settori** (solo azionario; `ExposureBarChart` sui `sectors` di
+`sectorAllocation()` e sui `regions` +
 `countries` di `geographyAllocation()` — il pannello paesi usa
 `labelFor={countryDisplayName}` e `maxVisibleRows={10}`, esattamente come la
-dashboard). I pannelli equity ricevono i metadati di copertura
-`covered_value`/`excluded_value` e mostrano la didascalia "Universo
-azionario: X% del portafoglio" quando ci sono holding non azionarie escluse.
+dashboard). Ogni famiglia di pannelli prende la copertura dal proprio
+endpoint: i pannelli geografici mostrano la didascalia "Universo geografico:
+X% del portafoglio" e il pannello settori la "Universo azionario: X% del
+portafoglio", ciascuna solo quando ci sono asset esclusi dal proprio universo.
 Ogni endpoint è isolato nel suo try/catch: in caso di errore i suoi pannelli
 mostrano "non disponibile" senza bloccare la sezione né il resto della
 pagina. Anche ogni pannello fa da drill: la ciambella delle
@@ -1587,8 +1598,11 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
   persistite sommano ancora a 100 per l'aggregazione del portafoglio. La
   tab renderizza le card esposizione solo quando l'asset è azionabile per l'universo
   equity (`exposureApplicable`: stock, oppure etf/mutual_fund con
-  `asset_class` `equity`/`real_estate`); altrimenti mostra il banner che
-  spiega che la distribuzione vale solo per gli asset azionari.
+  `asset_class` `equity`/`real_estate`); altrimenti mostra il banner: per
+  obbligazioni, certificati e liquidità rimanda al paese emittente impostato
+  nel tab Dati, che è ciò che alimenta l'allocazione geografica (con il campo
+  vuoto l'asset resta escluso, EPIC J.4); per gli altri tipi spiega che gli
+  editor di distribuzione valgono solo per gli asset azionari.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, i pesi settoriali `topHoldings` di
   Yahoo) precompila la tabella dei settori **dentro la modale**: è un'anteprima

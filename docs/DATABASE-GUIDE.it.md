@@ -298,7 +298,10 @@ Per ogni titolo, quanto del suo valore è distribuito tra i **singoli paesi**
 stesso titolo dovrebbero sommare a 100%. L'esposizione JustETF e Morningstar
 conserva i paesi raw e il backend ne deriva le regioni, così le due restano
 sempre coerenti. La risposta di esposizione restituisce i paesi zero-filled
-sull'intera lista ISO canonica.
+sull'intera lista ISO canonica. Obbligazioni, certificati e depositi con paese
+emittente ricevono una riga al 100% su quel paese quando non esiste una
+distribuzione geografica; una ripartizione del provider o modificata a mano
+viene preservata.
 
 | Colonna | Tipo | Spiegazione |
 |---|---|---|
@@ -311,9 +314,11 @@ sull'intera lista ISO canonica.
 Per ogni titolo, quanto del suo valore è distribuito tra le **macro-regioni**
 (Nord America, Europa, Asia...). Una riga per ogni `asset_id + region`; i pesi
 dello stesso titolo dovrebbero idealmente sommare a 100%. Per una singola
-azione c'è una sola riga (il paese mappato alla sua regione al 100%); per un
-ETF è un mix inserito a mano, scaricato da Yahoo o scaricato completamente da
-JustETF (`POST /assets/{id}/fetch-etf-exposure`).
+azione c'è una sola riga (il paese mappato alla sua regione al 100%); per il
+fixed income senza una ripartizione delle regioni salvata, il paese emittente
+viene mappato alla propria regione al 100%; per un ETF è un mix inserito a mano,
+recuperato da Yahoo o scaricato completamente da JustETF
+(`POST /assets/{id}/fetch-etf-exposure`).
 
 | Colonna | Tipo | Spiegazione |
 |---|---|---|
