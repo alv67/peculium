@@ -1612,8 +1612,10 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
   nel tab Dati la tab mostra invece una card di distribuzione geografica di
   **sola lettura**: il paese emittente è l'unica riga paese al 100% e le
   macro-regioni derivano da esso tramite
-  `POST /assets/{id}/exposure/derive` (un'anteprima non persistita; se la
-  derivazione fallisce la card espone solo la riga paese). La card non ha
+  `POST /assets/{id}/exposure/derive` (un'anteprima non persistita) e sono
+  mostrate come **elenco a barre orizzontali** come il pannello paesi accanto;
+  mentre la derivazione è in corso o è fallita il pannello regioni mostra un
+  placeholder muted e la card mantiene solo la riga paese. La card non ha
   controlli di modifica — la geografia cambia editando il paese emittente nel
   tab Dati — la frase di avviso resta sotto la card e i settori restano
   equity-only. Negli altri casi la tab mostra

@@ -257,24 +257,22 @@
         </div>
         <div class="rounded-card border border-border bg-muted p-4">
           <h3 class="mb-2 font-medium">{t('exposure.regions')}</h3>
-          <!-- Empty while the derive preview is in flight or failed: the pie
-               shows its own "no distribution" state, no rows below. -->
-          <ExposurePie
-            data={fiRegions}
-            title={t('exposure.geoTitle')}
-            complete={false}
-            showTableToggle={false}
-          />
-          {#if fiRegions.length > 0}
-            <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
+          {#if fiRegions.length === 0}
+            <!-- Empty while the derive preview is in flight or failed: a muted
+                 placeholder instead of an empty panel, no spinner or error. -->
+            <span class="py-1 text-xs text-muted-foreground">—</span>
+          {:else}
+            <div class="space-y-2 py-1">
               {#each fiRegions as r, i (r.name)}
-                <div class="flex items-center gap-1.5 text-xs">
-                  <span
-                    class="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                    style="background-color: {palette[i % palette.length]};"
-                  ></span>
-                  <span class="truncate">{r.name}</span>
-                  <span class="ml-auto text-muted-foreground tabular-nums">{formatPercent(Number(r.weight))}</span>
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="w-28 shrink-0 truncate sm:w-36" title={r.name}>{r.name}</span>
+                  <div class="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
+                    <div
+                      class="h-full rounded-full"
+                      style="width: {Number(r.weight)}%; background-color: {palette[i % palette.length]};"
+                    ></div>
+                  </div>
+                  <span class="w-14 shrink-0 text-right text-muted-foreground tabular-nums">{formatPercent(Number(r.weight))}</span>
                 </div>
               {/each}
             </div>
