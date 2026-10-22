@@ -1605,13 +1605,23 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
   scarta la riga "Other / Not Classified" dalla risposta regioni prima di
   alimentarla alla UI; il server la riaggiunge internamente così le regioni
   persistite sommano ancora a 100 per l'aggregazione del portafoglio. La
-  tab renderizza le card esposizione solo quando l'asset è azionabile per l'universo
-  equity (`exposureApplicable`: stock, oppure etf/mutual_fund con
-  `asset_class` `equity`/`real_estate`); altrimenti mostra il banner: per
-  obbligazioni, certificati e liquidità rimanda al paese emittente impostato
-  nel tab Dati, che è ciò che alimenta l'allocazione geografica (con il campo
-  vuoto l'asset resta escluso, EPIC J.4); per gli altri tipi spiega che gli
-  editor di distribuzione valgono solo per gli asset azionari.
+  tab renderizza le card esposizione modificabili solo quando l'asset è
+  azionabile per l'universo equity (`exposureApplicable`: stock, oppure
+  etf/mutual_fund con `asset_class` `equity`/`real_estate`). Per
+  obbligazioni, certificati e liquidità con un paese emittente valorizzato
+  nel tab Dati la tab mostra invece una card di distribuzione geografica di
+  **sola lettura**: il paese emittente è l'unica riga paese al 100% e le
+  macro-regioni derivano da esso tramite
+  `POST /assets/{id}/exposure/derive` (un'anteprima non persistita; se la
+  derivazione fallisce la card espone solo la riga paese). La card non ha
+  controlli di modifica — la geografia cambia editando il paese emittente nel
+  tab Dati — la frase di avviso resta sotto la card e i settori restano
+  equity-only. Negli altri casi la tab mostra
+  il banner: per obbligazioni, certificati e liquidità con paese emittente
+  vuoto rimanda a quel campo, che è ciò che alimenta l'allocazione geografica
+  (con il campo vuoto l'asset resta escluso, EPIC J.4); per gli altri tipi
+  spiega che gli editor di distribuzione valgono solo per gli asset
+  azionari.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, i pesi settoriali `topHoldings` di
   Yahoo) precompila la tabella dei settori **dentro la modale**: è un'anteprima

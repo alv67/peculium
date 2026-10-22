@@ -409,6 +409,10 @@ export const en = {
      * the issuer country (EPIC J.4), not through these editors. */
     universeIssuerHint:
       'Bonds, certificates and cash take part in the geographic allocation through the issuer country set in the Data tab; leave it empty and they stay out. These editors only apply to equity assets.',
+    /** Note on the read-only fixed-income geographic card: its single country
+     *  comes from the issuer country, edited in the Data tab. */
+    issuerDerivedNote:
+      'Derived from the issuer country set in the Data tab — edit it there.',
     /** Edit-modal chrome: column headers, row accessible names and the add
      *  control (the Save footer reuses `common.save`/`common.saving`/
      *  `common.colTotal`). */

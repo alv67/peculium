@@ -1532,14 +1532,20 @@ TAB **Exposure** — the geo/sector distribution widgets:
   "Other / Not Classified" row from the regions response
   before feeding the UI; the server keeps re-adding the residual internally so
   stored regions still sum to 100 for portfolio aggregation. The
-  tab renders the exposure cards only when the asset is actionable for the
-  equity universe (`exposureApplicable`: stock, or etf/mutual_fund with
-  `asset_class`
-  `equity`/`real_estate`); otherwise the tab shows the hint banner: for
-  bonds, certificates and cash it points at the issuer country set in the
-  Data tab, which is what feeds the geographic allocation (an empty issuer
-  country keeps the asset out, EPIC J.4); for the other types it explains
-  that the distribution editors apply to equity assets only.
+  tab renders the editable exposure cards only when the asset is actionable for
+  the equity universe (`exposureApplicable`: stock, or etf/mutual_fund with
+  `asset_class` `equity`/`real_estate`). Bonds, certificates and cash with a
+  non-empty issuer country set in the Data tab instead get a **read-only**
+  geographic distribution card: the issuer country is the single 100% country
+  row and the macro-regions derive from it through
+  `POST /assets/{id}/exposure/derive` (a non-persisted preview; if the derive
+  call fails the card shows the country row only). The card carries no edit
+  controls — the geography changes by editing the issuer country in the Data
+  tab — the hint sentence stays below it, and sectors stay equity-only. Otherwise the tab shows the hint banner:
+  for bonds, certificates and cash with an empty issuer country it points at
+  that field as what feeds the geographic allocation (an empty issuer country
+  keeps the asset out, EPIC J.4); for the other types it explains that the
+  distribution editors apply to equity assets only.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, the Yahoo `topHoldings` sector weights)
   pre-fills the sector table **inside the modal**: a non-persisted preview,
