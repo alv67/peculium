@@ -1538,8 +1538,10 @@ TAB **Exposure** — the geo/sector distribution widgets:
   non-empty issuer country set in the Data tab instead get a **read-only**
   geographic distribution card: the issuer country is the single 100% country
   row and the macro-regions derive from it through
-  `POST /assets/{id}/exposure/derive` (a non-persisted preview; if the derive
-  call fails the card shows the country row only). The card carries no edit
+  `POST /assets/{id}/exposure/derive` (a non-persisted preview) and are shown
+  as a **horizontal bar list** like the countries panel beside it; while the
+  derive is in flight or failed the regions panel shows a muted placeholder
+  and the card keeps the country row only. The card carries no edit
   controls — the geography changes by editing the issuer country in the Data
   tab — the hint sentence stays below it, and sectors stay equity-only. Otherwise the tab shows the hint banner:
   for bonds, certificates and cash with an empty issuer country it points at
