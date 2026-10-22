@@ -78,11 +78,17 @@ type Asset struct {
 	Type        AssetType `json:"type"`
 	AssetClass  string    `json:"asset_class"`
 	PriceSource string    `json:"price_source"`
-	Country     string    `json:"country,omitempty"`
-	Currency    string    `json:"currency"`
-	Exchange    string    `json:"exchange,omitempty"`
-	Sector      string    `json:"sector,omitempty"`
-	Industry    string    `json:"industry,omitempty"`
+	// QuoteDivisor normalizes quotes expressed per larger nominal unit
+	// (bonds and certificates quoted per 100): cash amounts are
+	// quantity × price / quote_divisor. 1 for ordinary per-unit quotes;
+	// the stored prices and transaction prices stay the true quote. On
+	// create an omitted or non-positive value falls back to the default 1.
+	QuoteDivisor decimal.Decimal `json:"quote_divisor"`
+	Country      string          `json:"country,omitempty"`
+	Currency     string          `json:"currency"`
+	Exchange     string          `json:"exchange,omitempty"`
+	Sector       string          `json:"sector,omitempty"`
+	Industry     string          `json:"industry,omitempty"`
 	// Fixed-income metadata (EPIC J.2). Attributes holds the type-specific
 	// extras (coupon, rating, strike, barrier, deposit rate...) as free-form
 	// JSON, so a new attribute needs no migration.
@@ -153,6 +159,12 @@ type AssetPatch struct {
 	Issuer        *string         `json:"issuer"`
 	IssuerCountry *string         `json:"issuer_country"`
 	Attributes    *map[string]any `json:"attributes"`
+	// QuoteDivisor takes a decimal (e.g. "100" for a bond quoted per 100
+	// nominal): nil or omitted leaves the stored value unchanged — to go
+	// back to the default 1 send "1", since (unlike the string fields) an
+	// empty string is not a valid divisor. Values that are not a number
+	// fail the request decode with 400; 0 and negatives are rejected.
+	QuoteDivisor *decimal.Decimal `json:"quote_divisor"`
 }
 
 // ExposureRow è una singola voce di peso percentuale per una dimensione
@@ -227,18 +239,22 @@ type Transaction struct {
 }
 
 type TransactionWithAsset struct {
-	ID          uuid.UUID       `json:"id"`
-	PortfolioID uuid.UUID       `json:"portfolio_id"`
-	AssetID     uuid.UUID       `json:"asset_id"`
-	AssetTicker string          `json:"asset_ticker"`
-	AssetName   string          `json:"asset_name"`
-	Type        TransactionType `json:"type"`
-	Quantity    decimal.Decimal `json:"quantity"`
-	Price       decimal.Decimal `json:"price"`
-	Fees        decimal.Decimal `json:"fees,omitempty"`
-	Date        time.Time       `json:"date"`
-	Notes       string          `json:"notes,omitempty"`
-	CreatedAt   time.Time       `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	PortfolioID uuid.UUID `json:"portfolio_id"`
+	AssetID     uuid.UUID `json:"asset_id"`
+	AssetTicker string    `json:"asset_ticker"`
+	AssetName   string    `json:"asset_name"`
+	// QuoteDivisor is the asset's (joined, never stored on the row): it is
+	// what the AVCO walk, the TWR cash flows and the client-side row total
+	// divide buy/sell amounts by. Dividends and fees ignore it.
+	QuoteDivisor decimal.Decimal `json:"quote_divisor"`
+	Type         TransactionType `json:"type"`
+	Quantity     decimal.Decimal `json:"quantity"`
+	Price        decimal.Decimal `json:"price"`
+	Fees         decimal.Decimal `json:"fees,omitempty"`
+	Date         time.Time       `json:"date"`
+	Notes        string          `json:"notes,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 type TransactionPage struct {
@@ -246,6 +262,20 @@ type TransactionPage struct {
 	Total        int64                  `json:"total"`
 	Limit        int                    `json:"limit"`
 	Offset       int                    `json:"offset"`
+}
+
+// TradeAmount is the canonical cash value of a buy or sell: quantity ×
+// price, divided by the asset's quote divisor (100 for a bond quoted per
+// 100 nominal). A non-positive divisor — the zero value of an unset struct
+// field — and an explicit 1 keep the product byte-for-byte, so ordinary
+// assets and synthetic rows are unchanged. Dividends and fees are absolute
+// cash and must not use this helper.
+func TradeAmount(quantity, price, quoteDivisor decimal.Decimal) decimal.Decimal {
+	trade := quantity.Mul(price)
+	if !quoteDivisor.IsPositive() || quoteDivisor.Equal(decimal.NewFromInt(1)) {
+		return trade
+	}
+	return trade.Div(quoteDivisor)
 }
 
 type Price struct {
@@ -337,6 +367,10 @@ type ExportAsset struct {
 	Issuer        string         `json:"issuer,omitempty"`
 	IssuerCountry string         `json:"issuer_country,omitempty"`
 	Attributes    map[string]any `json:"attributes,omitempty"`
+	// QuoteDivisor is additive and optional like the two above: omitted
+	// when the asset keeps the default 1, so documents written before it
+	// existed (and assets that never set it) import unchanged.
+	QuoteDivisor *decimal.Decimal `json:"quote_divisor,omitempty"`
 }
 
 type ExportTransaction struct {

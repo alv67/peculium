@@ -31,8 +31,9 @@ type State struct {
 func Apply(s *State, tx model.TransactionWithAsset) {
 	switch tx.Type {
 	case model.TxBuy:
-		costPF := tx.Quantity.Mul(tx.Price).Add(tx.Fees)
-		costCCY := tx.Quantity.Mul(tx.Price)
+		trade := model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor)
+		costPF := trade.Add(tx.Fees)
+		costCCY := trade
 		newQty := s.Qty.Add(tx.Quantity)
 		if newQty.IsPositive() {
 			s.Avg = s.Cost.Add(costPF).Div(newQty)
@@ -44,8 +45,9 @@ func Apply(s *State, tx model.TransactionWithAsset) {
 	case model.TxSell:
 		costSold := s.Avg.Mul(tx.Quantity)
 		costSoldCCY := s.AvgCCY.Mul(tx.Quantity)
-		proceedsPF := tx.Quantity.Mul(tx.Price).Sub(tx.Fees)
-		proceedsCCY := tx.Quantity.Mul(tx.Price)
+		trade := model.TradeAmount(tx.Quantity, tx.Price, tx.QuoteDivisor)
+		proceedsPF := trade.Sub(tx.Fees)
+		proceedsCCY := trade
 		s.Realized = s.Realized.Add(proceedsPF.Sub(costSold))
 		s.RealizedCCY = s.RealizedCCY.Add(proceedsCCY.Sub(costSoldCCY))
 		s.ClosedCost = s.ClosedCost.Add(costSold)

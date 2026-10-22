@@ -123,3 +123,43 @@ func TestWalkAccumulatesClosedMetricsPerPortfolioAsset(t *testing.T) {
 	assertDec(t, "pf2/assetA Proceeds", s2a.Proceeds, decimal.Zero)
 	assertDec(t, "pf2/assetA Cost", s2a.Cost, decimal.NewFromInt(40))
 }
+
+// TestApplyQuoteDivisor walks a bond quoted per 100 nominal: the buy/sell
+// amounts are divided by the divisor while dividends and fees stay absolute.
+func TestApplyQuoteDivisor(t *testing.T) {
+	div100 := decimal.NewFromInt(100)
+	tx := func(typ model.TransactionType, qty, price string) model.TransactionWithAsset {
+		return model.TransactionWithAsset{
+			Type: typ, Quantity: decimal.RequireFromString(qty),
+			Price: decimal.RequireFromString(price), QuoteDivisor: div100,
+		}
+	}
+
+	s := &State{}
+	// 10 000 nominal at 100.25 per 100 → 10 025 cash, both currencies
+	// (same-currency position), and the known AVCO pitfall: the average
+	// cost stays per nominal unit (1.0025), never converted here.
+	Apply(s, tx(model.TxBuy, "10000", "100.25"))
+	assertDec(t, "Buy Cost", s.Cost, decimal.NewFromInt(10025))
+	assertDec(t, "Buy CostCCY", s.CostCCY, decimal.NewFromInt(10025))
+	assertDec(t, "Buy Avg", s.Avg, decimal.RequireFromString("1.0025"))
+
+	// Selling at 100 yields 10 000 proceeds and the −25 price difference.
+	Apply(s, tx(model.TxSell, "10000", "100"))
+	assertDec(t, "Sell Proceeds", s.Proceeds, decimal.NewFromInt(10000))
+	assertDec(t, "Sell ProceedsCCY", s.ProceedsCCY, decimal.NewFromInt(10000))
+	assertDec(t, "Sell Realized", s.Realized, decimal.NewFromInt(-25))
+	assertDec(t, "Sell Qty", s.Qty, decimal.Zero)
+
+	// A lump-sum dividend (price carries the amount) is absolute cash.
+	Apply(s, tx(model.TxDividend, "0", "50"))
+	assertDec(t, "Dividend", s.Dividends, decimal.NewFromInt(50))
+	// A per-quantity dividend is qty×price undivided: the amount semantics
+	// are the user's, the divisor must not touch it.
+	Apply(s, tx(model.TxDividend, "100", "0.5"))
+	assertDec(t, "Per-qty Dividend", s.Dividends, decimal.NewFromInt(100))
+
+	// A fee is absolute cash and must not be divided.
+	Apply(s, tx(model.TxFee, "0", "10"))
+	assertDec(t, "Fee Cost", s.Cost, decimal.NewFromInt(10))
+}

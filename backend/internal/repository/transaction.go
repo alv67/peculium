@@ -136,7 +136,7 @@ func (r *transactionRepo) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *transactionRepo) FindByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.TransactionWithAsset, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT t.id, t.portfolio_id, t.asset_id, a.ticker, a.name, t.type,
-		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at
+		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at, a.quote_divisor
 		 FROM transactions t
 		 JOIN assets a ON a.id = t.asset_id
 		 WHERE t.portfolio_id = $1
@@ -154,7 +154,7 @@ func (r *transactionRepo) FindByPortfolio(ctx context.Context, portfolioID uuid.
 		if err := rows.Scan(
 			&tx.ID, &tx.PortfolioID, &tx.AssetID,
 			&tx.AssetTicker, &tx.AssetName, &tx.Type,
-			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt,
+			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt, &tx.QuoteDivisor,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +200,7 @@ func (r *transactionRepo) FindByPortfolioPage(ctx context.Context, portfolioID u
 	args = append(args, limit, offset)
 	query := fmt.Sprintf(
 		`SELECT t.id, t.portfolio_id, t.asset_id, a.ticker, a.name, t.type,
-		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at
+		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at, a.quote_divisor
 		 FROM transactions t
 		 JOIN assets a ON a.id = t.asset_id
 		 WHERE %s
@@ -220,7 +220,7 @@ func (r *transactionRepo) FindByPortfolioPage(ctx context.Context, portfolioID u
 		if err := rows.Scan(
 			&tx.ID, &tx.PortfolioID, &tx.AssetID,
 			&tx.AssetTicker, &tx.AssetName, &tx.Type,
-			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt,
+			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt, &tx.QuoteDivisor,
 		); err != nil {
 			return nil, err
 		}
@@ -246,7 +246,7 @@ func (r *transactionRepo) CountByPortfolio(ctx context.Context, portfolioID uuid
 func (r *transactionRepo) FindByPortfoliosAsc(ctx context.Context, portfolioIDs []uuid.UUID) ([]model.TransactionWithAsset, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT t.id, t.portfolio_id, t.asset_id, a.ticker, a.name, t.type,
-		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at
+		        t.quantity, t.price, t.fees, t.date, t.notes, t.created_at, a.quote_divisor
 		 FROM transactions t
 		 JOIN assets a ON a.id = t.asset_id
 		 WHERE t.portfolio_id = ANY($1::uuid[])
@@ -264,7 +264,7 @@ func (r *transactionRepo) FindByPortfoliosAsc(ctx context.Context, portfolioIDs 
 		if err := rows.Scan(
 			&tx.ID, &tx.PortfolioID, &tx.AssetID,
 			&tx.AssetTicker, &tx.AssetName, &tx.Type,
-			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt,
+			&tx.Quantity, &tx.Price, &tx.Fees, &tx.Date, &tx.Notes, &tx.CreatedAt, &tx.QuoteDivisor,
 		); err != nil {
 			return nil, err
 		}

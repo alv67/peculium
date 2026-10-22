@@ -166,7 +166,9 @@ func Recompute(ctx context.Context, repos *repository.Repository, portfolioID uu
 			mv := decimal.Zero
 			if st.Qty.IsPositive() && pricePos > 0 {
 				if hasFX {
-					mv = st.Qty.Mul(priceByAsset[aid][priceDates[pricePos-1]]).Mul(rawFactor).Mul(factor)
+					// The asset's divisor applies exactly like in the AVCO
+					// walk: the quote is per 100 nominal, the qty is nominal.
+					mv = model.TradeAmount(st.Qty, priceByAsset[aid][priceDates[pricePos-1]], assetTxs[0].QuoteDivisor).Mul(rawFactor).Mul(factor)
 				} else {
 					mv = lastMV // FX missing: forward-fill last known value to avoid spurious gaps
 				}

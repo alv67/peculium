@@ -990,6 +990,13 @@ export const it = {
     manualCloseInvalid: 'Il prezzo deve essere maggiore di 0',
     /** Sottotitolo dei campi fixed income nel form dei metadati del tab Dati. */
     fixedIncome: 'Reddito fisso',
+    /** Sezione "Parametri avanzati" del tab Dati: casa delle impostazioni
+     *  speciali per singolo asset, visibile per ogni tipo. La casella alterna
+     *  il divisore di quotazione tra 100 (prezzo quotato per 100 di nominale,
+     *  tipico delle obbligazioni) e 1; il valore effettivo è mostrato read-only. */
+    advancedParams: 'Parametri avanzati',
+    quotePer100: 'Prezzo quotato per 100 di nominale',
+    quoteDivisorEffective: 'Divisore effettivo: {value}',
     /** Pagina lista asset e relativa eliminazione (titolo della pagina,
      *  aria-label della tabella e collegamento di ritorno riusano
      *  `nav.assets`; le intestazioni riusano `positions.colTicker`,

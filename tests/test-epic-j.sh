@@ -75,4 +75,46 @@ INVALID=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API/assets/$ID" \
   -d '{"issuer_country":"not-a-country"}')
 check "$INVALID" 400 "invalid issuer country rejected"
 
+# ── Option A1: asset-level quote divisor ──────────────────────────────────
+# A bond quoted per 100 nominal: quantity stays the nominal, the quote stays
+# the quote, and every cash amount is quantity × price / quote_divisor.
+QD_RESPONSE=$(create_asset "{\"ticker\":\"JQD$(date +%s)\",\"name\":\"J divisor bond\",\"type\":\"bond\",\"currency\":\"EUR\",\"price_source\":\"none\",\"issuer_country\":\"IT\",\"quote_divisor\":100}")
+QD_BODY=${QD_RESPONSE%$'\n'*}
+QD_STATUS=${QD_RESPONSE##*$'\n'}
+check "$QD_STATUS" 201 "create bond with quote_divisor"
+check "$(jq -r '.quote_divisor' <<<"$QD_BODY")" 100 "quote divisor echoed as a decimal string"
+QD_ID=$(jq -r '.id' <<<"$QD_BODY")
+for BAD in '{"quote_divisor":0}' '{"quote_divisor":-5}' '{"quote_divisor":"abc"}'; do
+  INVALID=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API/assets/$QD_ID" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$BAD")
+  check "$INVALID" 400 "invalid quote_divisor $BAD rejected"
+done
+GET_BACK=$(curl -fsS "$API/assets/$QD_ID" -H "Authorization: Bearer $TOKEN")
+check "$(jq -r '.quote_divisor' <<<"$GET_BACK")" 100 "quote divisor survives the GET round-trip"
+
+curl -fsS -X PUT "$API/assets/$QD_ID/prices/manual" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d "{\"date\":\"$TODAY\",\"close\":100.25}" >/dev/null || fail "add divisor bond price"
+QDPF=$(curl -fsS -X POST "$API/portfolios" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"name":"EPIC J quote divisor","currency":"EUR"}')
+QDPID=$(jq -r '.id // empty' <<<"$QDPF")
+[[ -n "$QDPID" ]] || fail "create quote-divisor portfolio"
+curl -fsS -X POST "$API/portfolios/$QDPID/transactions" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"asset_id\":\"$QD_ID\",\"type\":\"buy\",\"quantity\":10000,\"price\":100.25,\"date\":\"${TODAY}T00:00:00Z\"}" >/dev/null || fail "buy 10000 nominal at 100.25"
+
+# Nominal × quote / 100 = 10000 × 100.25 / 100 = 10025 everywhere money moves.
+SUMMARY=$(curl -fsS "$API/portfolios/$QDPID/summary" -H "Authorization: Bearer $TOKEN") || fail "read divisor summary"
+check "$(jq -r '.total_value | tonumber' <<<"$SUMMARY")" 10025 "portfolio value is nominal × quote / divisor"
+GEO=$(curl -fsS "$API/portfolios/$QDPID/allocation/geography" -H "Authorization: Bearer $TOKEN") || fail "read divisor geography"
+check "$(jq -r '.countries[] | select(.country == "IT") | .value | tonumber' <<<"$GEO")" 10025 "geography values are divided"
+PERF=$(curl -fsS "$API/portfolios/$QDPID/performance" -H "Authorization: Bearer $TOKEN") || fail "read divisor performance"
+check "$(jq -r '.[-1].value | tonumber' <<<"$PERF")" 10025 "materialized series carries the divided value"
+EXPORT=$(curl -fsS "$API/portfolios/$QDPID/export" -H "Authorization: Bearer $TOKEN") || fail "read divisor export"
+check "$(jq -r '.assets[] | select(.ticker != null) | .quote_divisor' <<<"$EXPORT")" 100 "quote divisor travels in the portfolio export"
+
+# A plain asset (default divisor 1) still values at quantity × price: the
+# first bond in this script bought 1 unit at 100 must still sum to 100.
+BASE_SUMMARY=$(curl -fsS "$API/portfolios/$PID/summary" -H "Authorization: Bearer $TOKEN") || fail "read default-divisor summary"
+check "$(jq -r '.total_value | tonumber' <<<"$BASE_SUMMARY")" 100 "divisor 1 keeps quantity × price"
+
 printf 'EPIC J.2/J.3 smoke test: PASS\n'

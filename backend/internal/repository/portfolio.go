@@ -152,7 +152,7 @@ func (r *portfolioRepo) HoldingsDetailed(ctx context.Context, portfolioIDs []uui
 	rows, err := r.db.Query(ctx, `
 		SELECT DISTINCT t.portfolio_id, t.asset_id, a.ticker, a.name, a.currency,
 			COALESCE(p.close, 0) AS last_close, (p.close IS NOT NULL) AS has_price,
-			a.country, a.issuer_country, a.sector, a.asset_class, a.type, a.price_fetched_at
+			a.country, a.issuer_country, a.sector, a.asset_class, a.type, a.quote_divisor, a.price_fetched_at
 		FROM transactions t
 		JOIN assets a ON a.id = t.asset_id
 		LEFT JOIN LATERAL (
@@ -168,7 +168,7 @@ func (r *portfolioRepo) HoldingsDetailed(ctx context.Context, portfolioIDs []uui
 	base := make([]*model.Holding, 0)
 	for rows.Next() {
 		h := &model.Holding{}
-		if err := rows.Scan(&h.PortfolioID, &h.AssetID, &h.Ticker, &h.Name, &h.Currency, &h.LastClose, &h.HasPrice, &h.Country, &h.IssuerCountry, &h.Sector, &h.AssetClass, &h.Type, &h.PriceFetchedAt); err != nil {
+		if err := rows.Scan(&h.PortfolioID, &h.AssetID, &h.Ticker, &h.Name, &h.Currency, &h.LastClose, &h.HasPrice, &h.Country, &h.IssuerCountry, &h.Sector, &h.AssetClass, &h.Type, &h.QuoteDivisor, &h.PriceFetchedAt); err != nil {
 			return nil, err
 		}
 		base = append(base, h)

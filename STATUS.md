@@ -89,6 +89,9 @@ the series engine, and `price_source` (yahoo/manual/none) for non-Yahoo assets. 
 Italian/English localisation (EPIC F). Fixed-income assets support editable issuer,
 issuer country, maturity and type-specific attributes; `cash` and `certificate` are
 selectable asset types, with certificates assigned to the `other` investment class.
+An asset-level quote divisor (`quote_divisor`, default 1) lets a quote be expressed per
+100 of nominal, with every buy/sell amount and market value computed as
+quantity × price / divisor; dividends and fees stay absolute amounts.
 
 ### Design system (EPIC D/E)
 

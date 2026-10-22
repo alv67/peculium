@@ -1075,6 +1075,13 @@ export const en = {
     manualCloseInvalid: 'Close must be greater than 0',
     /** Subheading of the fixed-income fields in the Data tab's metadata form. */
     fixedIncome: 'Fixed income',
+    /** Data tab "Advanced parameters" disclosure: the home of the special
+     *  per-asset settings, shown for every asset type. The checkbox toggles
+     *  the quote divisor between 100 (price quoted per 100 of nominal,
+     *  typical for bonds) and 1; the effective divisor is shown read-only. */
+    advancedParams: 'Advanced parameters',
+    quotePer100: 'Price quoted per 100 of nominal',
+    quoteDivisorEffective: 'Effective divisor: {value}',
     /** Assets list page and its delete flows (the page title, the table
      *  aria-label and the `⋯` back link all reuse `nav.assets`; headers reuse
      *  `positions.colTicker`, `chartView.colName`, `asset.factType`,

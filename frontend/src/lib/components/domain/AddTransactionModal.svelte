@@ -2,7 +2,7 @@
   import { toast } from '#lib/stores/toast.svelte.js'
   import { t } from '#lib/i18n/index.svelte.js'
   import { transactionApi, type Asset, type Transaction } from '#lib/services/api.js'
-  import { formatCurrency } from '#lib/format.js'
+  import { formatCurrency, quoteDivisor } from '#lib/format.js'
   import { viewport } from '#lib/stores/viewport.svelte.js'
   import Modal from '#lib/components/ui/Modal.svelte'
   import Sheet from '#lib/components/ui/Sheet.svelte'
@@ -102,8 +102,17 @@
   let deleting = $state(false)
 
   const isDividend = $derived(form.type === 'dividend')
+  // The price field carries the market quote as printed by the exchange.
+  // Assets quoted per 100 of nominal (`quote_divisor` ≠ 1, typical for
+  // bonds) trade at `quantity × price / divisor` real cash, so the preview
+  // scales by the selected asset's divisor; everything else divides by 1.
+  const divisor = $derived(
+    quoteDivisor(assets.find((a) => a.id === form.asset_id)?.quote_divisor),
+  )
   const total = $derived(
-    isDividend ? Number(dividendAmount) : Number(form.quantity) * Number(form.price),
+    isDividend
+      ? Number(dividendAmount)
+      : (Number(form.quantity) * Number(form.price)) / divisor,
   )
   const totalEntered = $derived(
     isDividend

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '#lib/i18n/index.svelte.js'
   import type { MessageKey } from '#lib/i18n/index.svelte.js'
-  import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel } from '#lib/format.js'
+  import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel, quoteDivisor } from '#lib/format.js'
   import { History, RefreshCw, Trash2 } from 'lucide-svelte'
   import Button from '#lib/components/ui/Button.svelte'
   import Spinner from '#lib/components/ui/Spinner.svelte'
@@ -157,6 +157,28 @@
         </div>
       </div>
     {/if}
+
+    <!-- Advanced parameters: the home of the special per-asset settings,
+         visible for every asset type. Currently one control: the quote
+         divisor, mapping the checkbox to the `quote_divisor` decimal string
+         (100 when the price is quoted per 100 of nominal, 1 otherwise). -->
+    <details class="mt-5 border-t border-border pt-4">
+      <summary class="cursor-pointer text-sm font-semibold">{t('asset.advancedParams')}</summary>
+      <div class="mt-3 space-y-1">
+        <label class="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            class="h-4 w-4 rounded border-input"
+            checked={quoteDivisor(ctx.form.quote_divisor) !== 1}
+            onchange={(e) => (ctx.form.quote_divisor = e.currentTarget.checked ? '100' : '1')}
+          />
+          {t('asset.quotePer100')}
+        </label>
+        <p class="text-xs text-muted-foreground">
+          {t('asset.quoteDivisorEffective', { value: quoteDivisor(ctx.form.quote_divisor) })}
+        </p>
+      </div>
+    </details>
   </div>
 
   <!-- Danger zone (spec §6.3): the three layout-owned actions the old
