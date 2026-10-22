@@ -1102,17 +1102,20 @@ func (s *Service) buildExposure(asset *model.Asset, regions, sectors, countries 
 // canonicalExposureRows returns one dimension of the complete canonical
 // exposure for an asset: every canonical name in order with its stored weight
 // (zero when absent), or a single 100% default when the caller's eligibility
-// rule permits a single-name fallback and there are no stored rows.
+// rule permits a single-name fallback and the stored rows carry no positive
+// weight (a saved-but-empty table must not mask the country inference).
 func canonicalExposureRows(names []string, stored []model.ExposureRow, useDefault bool, defaultName string) []model.ExposureRow {
 	weights := make(map[string]decimal.Decimal, len(stored))
+	var sum decimal.Decimal
 	for _, r := range stored {
 		weights[r.Name] = r.Weight
+		sum = sum.Add(r.Weight)
 	}
 	out := make([]model.ExposureRow, 0, len(names))
 	for _, name := range names {
 		out = append(out, model.ExposureRow{Name: name, Weight: weights[name]})
 	}
-	if useDefault && len(stored) == 0 && defaultName != "" {
+	if useDefault && !sum.IsPositive() && defaultName != "" {
 		for i := range out {
 			if out[i].Name == defaultName {
 				out[i].Weight = decimal.NewFromInt(100)
@@ -2236,9 +2239,9 @@ var allocationDrillDims = map[string]allocationDrillDim{
 // one allocation bucket with the same semantics as buildBuckets: only
 // holdings eligible for the dimension participate on the exposure dimensions
 // (the class dimension has no eligibility filter), holdings whose fallback
-// policy allows it default to 100% of their canonical bucket when no stored
-// rows exist, and when the canonical rows carry no weight at all the whole
-// value falls into "Other".
+// policy allows it default to 100% of their canonical bucket when the stored
+// rows carry no positive weight, and when the canonical rows carry no weight
+// at all the whole value falls into "Other".
 // fullValue mirrors the other buildBuckets branch: the buckets that receive
 // the asset's whole value (the class itself and the "Other" fallback) are
 // fed with the raw value, without the value*weight/100 rounding.

@@ -1371,11 +1371,15 @@ TAB **Overview**:
   nothing; a failure degrades it to a muted "unavailable" note; an empty
   result shows the "Non è detenuto in nessun portafoglio" line.
 - **Quick facts**: read-only identity grid (ISIN in mono, type, class,
-  currency, exchange, price source; fixed-income assets also show issuer,
-  issuer country and maturity); editing lives in the Data tab.
+  currency, exchange, country in mono, price source; fixed-income assets
+  also show issuer, issuer country and maturity); editing lives in the
+  Data tab.
 
 TAB **Data**: the metadata form — same
-fields (Ticker, ISIN, Name, Type, Currency, Exchange, Classe, **Fonte
+fields (Ticker, ISIN, Name, Type, Currency, Exchange, Classe, **Country**
+— a 2-letter ISO code that drives the geographic allocation of stocks when
+no country breakdown exists; a code that is not two letters is rejected on
+save —, **Fonte
 prezzo** `price_source` selector), same dirty-save (`hasChanges` enables
 "Salva modifiche"; the PATCH, the shared `form` `$state` and the
 `form.isin` prefill sync all live in the layout, so unsaved edits survive

@@ -121,6 +121,8 @@
         mono: false
       },
 
+      { label: t('asset.colCountry'), value: a.country || '—', mono: true },
+
       {
         label: t('asset.factPriceSource'),
         value: priceSourceLabel(a.price_source || 'yahoo'),

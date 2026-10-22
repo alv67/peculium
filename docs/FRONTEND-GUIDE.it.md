@@ -1443,12 +1443,16 @@ TAB **Panoramica**:
   lo degrada a una nota muted "non disponibile"; un risultato vuoto mostra
   la riga "Non è detenuto in nessun portafoglio".
 - **Dati principali**: griglia di identità sola lettura (ISIN in mono, tipo,
-  classe, valuta, exchange, fonte prezzo; gli asset fixed income mostrano anche
-  emittente, paese emittente e scadenza); la modifica vive nel tab Dati.
+  classe, valuta, exchange, paese in mono, fonte prezzo; gli asset fixed
+  income mostrano anche emittente, paese emittente e scadenza); la modifica
+  vive nel tab Dati.
 
 TAB **Dati**: il form dei metadati —
-stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, selettore
-**Fonte prezzo** `price_source`), stesso dirty-save (`hasChanges` abilita
+stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, **Paese**
+— un codice ISO a 2 lettere che determina l'allocazione geografica delle
+azioni quando non esiste una ripartizione per paese; un codice che non è di
+due lettere viene rifiutato al salvataggio —, selettore **Fonte prezzo**
+`price_source`), stesso dirty-save (`hasChanges` abilita
 "Salva modifiche"; il PATCH, il `form` `$state` condiviso e la sincronzza
 `form.isin` dei prefills vivono nel layout, quindi le modifiche non salvate
 sopravvivono ai cambi di tab); la **zona pericolosa** con le tre azioni
