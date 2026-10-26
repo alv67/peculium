@@ -1046,6 +1046,8 @@ export const en = {
     priceSourceYahoo: 'Yahoo Finance',
     priceSourceManual: 'Manual price',
     priceSourceNone: 'No price',
+    /** Empty option of the Data-tab country selects (asset and issuer). */
+    countryNone: 'No country',
     /** Asset-type labels (identity chips, quick facts, Type selects). */
     typeStock: 'Stock',
     typeEtf: 'ETF',

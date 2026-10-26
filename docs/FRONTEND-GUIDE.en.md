@@ -1378,9 +1378,12 @@ TAB **Overview**:
 
 TAB **Data**: the metadata form — same
 fields (Ticker, ISIN, Name, Type, Currency, Exchange, Classe, **Country**
-— a 2-letter ISO code that drives the geographic allocation of stocks when
-no country breakdown exists; a code that is not two letters is rejected on
-save —, **Fonte
+— chosen from the canonical country list, the same options as the geo
+editor (`{code} — {name}`, ordered by display name) plus an empty "No
+country" option; it is the only geographic input for stocks (the allocation
+always derives from it, stored breakdowns are ignored), and a legacy value
+outside the list (e.g. `UK`) stays selectable as its own option so it is
+never silently erased —, **Fonte
 prezzo** `price_source` selector), same dirty-save (`hasChanges` enables
 "Salva modifiche"; the PATCH, the shared `form` `$state` and the
 `form.isin` prefill sync all live in the layout, so unsaved edits survive
@@ -1398,7 +1401,8 @@ close > 0) as inline field errors, backend 400s surface through the error
 toast, and after every successful write the table reloads plus the shell's
 `refetchAssetData` refreshes the quote strip and the Overview chart. For bonds,
 certificates and cash deposits, the same form also edits issuer, issuer country
-and maturity, plus type-specific JSON attributes: coupon/rating for bonds,
+(the same canonical-list select, empty option included) and maturity, plus
+type-specific JSON attributes: coupon/rating for bonds,
 certificate type/underlying/strike/barrier/coupon for certificates, and rate/
 frequency for deposits. The create-asset Type selector offers `cash` and
 `certificate`; certificates default to the `other` investment class.

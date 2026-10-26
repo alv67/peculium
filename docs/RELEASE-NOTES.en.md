@@ -7,7 +7,7 @@
 - Assets that Yahoo does not cover (individual bonds, OTC certificates, pension funds, time deposits with a manual or disabled price source) accept manual prices: the asset's Data tab gains a Manual prices section to insert, edit and delete dated closing prices, which feed the chart, P/L and performance like any other price
 - You can create cash deposits and investment certificates, and record an issuer, issuer country, maturity and details such as coupon, rating, underlying or deposit rate on fixed-income assets
 - Bonds, certificates and cash now count in the geographic allocation through their issuer country. When no country breakdown exists, it defaults to 100% issuer country; an empty issuer-country field keeps the asset out. Sector allocation stays equity-only, and dashboard and portfolio charts identify each panel's universe
-- The asset's country can now be set in the Data tab: for stocks it is the only geographic input, and the Exposure tab shows that country and its region
+- The asset's country can now be picked in the Data tab from the country list (or left empty): for stocks it is the only geographic input, and the Exposure tab shows that country and its region
 - On a stock's Exposure tab the geographic distribution is read-only and derived from the country set in the Data tab — the Yahoo refresh fills that country when it's still empty — while the sector distribution stays editable
 
 ### Fixes

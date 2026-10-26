@@ -2,6 +2,7 @@
   import { t } from '#lib/i18n/index.svelte.js'
   import type { MessageKey } from '#lib/i18n/index.svelte.js'
   import { ASSET_TYPES, ASSET_CLASSES, assetTypeLabel, assetClassLabel, quoteDivisor } from '#lib/format.js'
+  import { CANONICAL_COUNTRIES, countryDisplayName } from '#lib/countryNames.js'
   import { History, RefreshCw, Trash2 } from 'lucide-svelte'
   import Button from '#lib/components/ui/Button.svelte'
   import Spinner from '#lib/components/ui/Spinner.svelte'
@@ -21,6 +22,12 @@
    */
   const ctx = getAssetPage()
 
+  /** Canonical country codes ordered by display name — same list and ordering
+   *  as the geo modal's add-country select. */
+  const sortedCountryCodes = [...CANONICAL_COUNTRIES].sort((a, b) =>
+    countryDisplayName(a).localeCompare(countryDisplayName(b), 'it'),
+  )
+
   const fixedIncomeFields: Record<string, { key: string; label: MessageKey }[]> = {
     bond: [
       { key: 'coupon_rate', label: 'asset.attrCouponRate' },
@@ -39,6 +46,18 @@
     ],
   }
 </script>
+
+{#snippet countryOptions(current: string)}
+  <option value="">{t('asset.countryNone')}</option>
+  {#if current && !CANONICAL_COUNTRIES.includes(current)}
+    <!-- Legacy free-text value that is not a canonical code (e.g. "UK"):
+         kept selectable, labelled by code, so it is never silently erased. -->
+    <option value={current}>{current}</option>
+  {/if}
+  {#each sortedCountryCodes as code (code)}
+    <option value={code}>{code} — {countryDisplayName(code)}</option>
+  {/each}
+{/snippet}
 
 {#if ctx.asset}
   <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
@@ -120,7 +139,13 @@
       </div>
       <div>
         <label for="asset-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.colCountry')}</label>
-        <input id="asset-country" type="text" maxlength="2" bind:value={ctx.form.country} class="w-full rounded-control border border-input px-3 py-2 text-sm uppercase" />
+        <select
+          id="asset-country"
+          bind:value={ctx.form.country}
+          class="w-full rounded-control border border-input px-3 py-2 text-sm"
+        >
+          {@render countryOptions(ctx.form.country)}
+        </select>
       </div>
       <div>
         <label for="asset-price-source" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factPriceSource')}</label>
@@ -146,7 +171,13 @@
           </div>
           <div>
             <label for="asset-issuer-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factIssuerCountry')}</label>
-            <input id="asset-issuer-country" type="text" maxlength="2" bind:value={ctx.form.issuer_country} class="w-full rounded-control border border-input px-3 py-2 text-sm uppercase" />
+            <select
+              id="asset-issuer-country"
+              bind:value={ctx.form.issuer_country}
+              class="w-full rounded-control border border-input px-3 py-2 text-sm"
+            >
+              {@render countryOptions(ctx.form.issuer_country)}
+            </select>
           </div>
           <div>
             <label for="asset-maturity" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factMaturity')}</label>
