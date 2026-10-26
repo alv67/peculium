@@ -3108,6 +3108,49 @@ func TestGetAssetMetaNormalizesCountry(t *testing.T) {
 	})
 }
 
+// TestGetAssetMetaCacheRoundTripKeepsSectorIndustry covers the sector and
+// industry the stock lookup now carries: both must survive the JSON cache
+// write and the later cache read.
+func TestGetAssetMetaCacheRoundTripKeepsSectorIndustry(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("cache write after fetch", func(t *testing.T) {
+		lk := &fakeLookupRepo{}
+		svc := newFetchTestService(t, &fakeAssetRepo{}, &fakeExposureRepo{}, lk,
+			&fakeYahooFetcher{meta: &price.AssetMeta{
+				Ticker: "AAPL", Type: "stock", Country: "United States",
+				Sector: "Technology", Industry: "Consumer Electronics",
+			}}, nil)
+
+		if _, err := svc.GetAssetMeta(ctx, "AAPL"); err != nil {
+			t.Fatalf("GetAssetMeta: %v", err)
+		}
+		var stored price.AssetMeta
+		if err := json.Unmarshal(lk.data["meta:AAPL"], &stored); err != nil {
+			t.Fatalf("stored cache entry is not valid JSON: %v", err)
+		}
+		if stored.Sector != "Technology" || stored.Industry != "Consumer Electronics" {
+			t.Fatalf("cached sector/industry = %q/%q, want Technology/Consumer Electronics", stored.Sector, stored.Industry)
+		}
+	})
+
+	t.Run("cache read", func(t *testing.T) {
+		lk := &fakeLookupRepo{data: map[string][]byte{
+			"meta:AAPL": []byte(`{"ticker":"AAPL","type":"stock","country":"US","sector":"Technology","industry":"Consumer Electronics"}`),
+		}}
+		svc := newFetchTestService(t, &fakeAssetRepo{}, &fakeExposureRepo{}, lk,
+			&fakeYahooFetcher{metaErr: errors.New("must not be called")}, nil)
+
+		meta, err := svc.GetAssetMeta(ctx, "AAPL")
+		if err != nil {
+			t.Fatalf("GetAssetMeta: %v", err)
+		}
+		if meta.Sector != "Technology" || meta.Industry != "Consumer Electronics" {
+			t.Fatalf("meta sector/industry = %q/%q, want Technology/Consumer Electronics", meta.Sector, meta.Industry)
+		}
+	})
+}
+
 // fakeUserRepo is a single-user stand-in for repository.UserRepository:
 // FindByID serves the stored record whatever the requested id (the service
 // tests always pass the id the fake owns) and Update persists a snapshot so

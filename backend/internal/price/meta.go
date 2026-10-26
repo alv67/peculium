@@ -22,12 +22,15 @@ type AssetMeta struct {
 	Currency   string `json:"currency"`
 	Exchange   string `json:"exchange"`
 	Country    string `json:"country,omitempty"`
+	Sector     string `json:"sector,omitempty"`
+	Industry   string `json:"industry,omitempty"`
 	AssetClass string `json:"asset_class,omitempty"`
 }
 
-// FetchMeta resolves metadata (currency, name, type, country) for a ticker via
-// the Yahoo chart endpoint. Country is only derived for equities, since ETFs
-// usually span multiple countries.
+// FetchMeta resolves metadata (currency, name, type, country, sector,
+// industry) for a ticker via the Yahoo chart endpoint. Country, sector and
+// industry are only derived for equities, since ETFs usually span multiple
+// countries.
 func (f *YahooFetcher) FetchMeta(ctx context.Context, ticker string) (*AssetMeta, error) {
 	chart, err := f.fetchChart(ctx, ticker)
 	if err != nil {
@@ -54,8 +57,16 @@ func (f *YahooFetcher) FetchMeta(ctx context.Context, ticker string) (*AssetMeta
 	// multiple countries. For stocks the exposure country comes from the
 	// issuer's domicile (assetProfile.country) so cross-listings keep the
 	// issuer home market; the exchange-based derivation is only a fallback.
+	// The same profile call carries the GICS sector/industry: they are kept
+	// when the profile answers and left empty when it fails, never failing
+	// the lookup itself.
 	if assetType == "stock" {
-		if _, _, country, err := f.FetchAssetProfile(ctx, ticker); err == nil && country != "" {
+		sector, industry, country, err := f.FetchAssetProfile(ctx, ticker)
+		if err == nil {
+			assetMeta.Sector = sector
+			assetMeta.Industry = industry
+		}
+		if err == nil && country != "" {
 			assetMeta.Country = country
 		} else {
 			assetMeta.Country = exchangeCountry(meta.ExchangeName)

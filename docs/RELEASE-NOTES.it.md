@@ -8,7 +8,8 @@
 - Puoi creare depositi e certificati d'investimento e registrare per gli asset fixed income emittente, paese, scadenza e dettagli come cedola, rating, sottostante o tasso del deposito
 - Obbligazioni, certificati e depositi contano ora nell'allocazione geografica tramite il paese emittente. Se non esiste una ripartizione per paese, il default è il 100% sul paese emittente; lasciando vuoto il campo l'asset resta escluso. L'allocazione settoriale resta solo azionaria e i grafici di dashboard e portafoglio indicano l'universo coperto da ciascun pannello
 - Il paese dell'asset può ora essere scelto nel tab Dati da una lista di paesi (o lasciato vuoto): per le azioni è l'unico dato geografico, e il tab Esposizione mostra quel paese e la sua regione
-- Nella tab Exposure di un'azione la distribuzione geografica è di sola lettura e deriva dal paese impostato nel tab Dati — il refresh da Yahoo lo compila quando è ancora vuoto — mentre la distribuzione settoriale resta modificabile
+- Nel tab Esposizione di un'azione la distribuzione geografica è di sola lettura e deriva dal paese impostato nel tab Dati — il refresh da Yahoo lo compila quando è ancora vuoto — mentre la distribuzione settoriale resta modificabile
+- Le nuove azioni arrivano già con settore e industria compilati da Yahoo, sia quando le aggiungi sia quando ne aggiorni i dati da Yahoo
 
 ### Correzioni
 - Su telefono l'editor dell'esposizione sta nella schermata: la lista dei paesi non sborda più dalla modale e i pulsanti di prefill dell'editor settori restano visibili

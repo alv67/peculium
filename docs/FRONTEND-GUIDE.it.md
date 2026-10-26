@@ -1354,7 +1354,9 @@ Endpoint chiamati: `assetApi.list()`, `settingsApi.listCurrencies()`.
   caratteri, debounce 350 ms) chiama `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) e mostra un menu di suggerimenti; selezionandone
   uno, il form viene arricchito con `assetApi.meta(ticker)`
-  (`GET /assets/meta?ticker=`). Creazione → `assetApi.create()`.
+  (`GET /assets/meta?ticker=`), che porta anche **settore e industria** delle
+  azioni: nella modale non hanno campi, viaggiano semplicemente nel corpo
+  della `assetApi.create()`.
 
 ### `/assets/[id]` — Dettaglio asset (sotto-route a tab)
 
@@ -1408,7 +1410,10 @@ negativi che rispecchiano il `px-4 lg:px-6` / `pt-4 lg:pt-6` responsivo di `<mai
    da Yahoo** (`assetApi.meta(ticker)` aggiorna nome/tipo/valuta/exchange;
    l'override manuale di `asset_class` e `country` vince sempre — il refresh
    non sovrascrive mai una classe diversa da `other`/vuota e compila il
-   paese solo quando il campo è vuoto), **Backfill storico
+   paese solo quando il campo è vuoto — e aggiorna **settore e industria**
+   delle azioni, che nel tab Dati non hanno campi input: restano nel form
+   perché vengano persistiti al salvataggio successivo, e un Yahoo senza
+   risposta su quei campi lascia invariati i valori correnti), **Backfill storico
    completo** (`assetApi.backfillHistory(id)` poi un `pricesApi.byAsset(id)`
    fresco — la cache GET del client è già stata svuotata dalla POST) ed
    **Elimina asset** (dialog di conferma → API → toast → ritorno a

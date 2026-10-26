@@ -1287,8 +1287,9 @@ Called endpoints: `assetApi.list()`, `settingsApi.listCurrencies()`.
 - **Add Asset**: ticker field with **autocomplete** — as you type (from 2
   characters, debounced 350 ms) it calls `assetApi.lookup(q)`
   (`GET /assets/lookup?q=`) and shows a suggestion dropdown; selecting one
-  enriches the form with `assetApi.meta(ticker)` (`GET /assets/meta?ticker=`).
-  Create → `assetApi.create()`.
+  enriches the form with `assetApi.meta(ticker)` (`GET /assets/meta?ticker=`),
+  which also brings the **sector and industry** of stocks: they get no inputs
+  in the modal, they just ride along in the `assetApi.create()` body.
 
 ### `/assets/[id]` — Asset detail (nested tab routes)
 
@@ -1338,7 +1339,9 @@ margins/padding mirroring `<main>`'s responsive `px-4 lg:px-6` / `pt-4 lg:pt-6`)
   **Aggiorna da Yahoo** (`assetApi.meta(ticker)` to refresh
   name/type/currency/exchange; `asset_class` and `country` manual overrides
   always win — the refresh never overwrites a non-`other` class and fills the
-  country only when the field is empty), **Backfill storico
+  country only when the field is empty — and the stock **sector/industry**,
+  which have no Data-tab inputs: they are carried in the form so the next
+  save persists them, empty Yahoo answers keeping the current values), **Backfill storico
   completo** (`assetApi.backfillHistory(id)` then a fresh
   `pricesApi.byAsset(id)` — the client GET cache is already cleared by the
   POST) and **Elimina asset** (confirm dialog → API → toast → back to
