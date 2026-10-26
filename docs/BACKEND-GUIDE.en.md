@@ -920,6 +920,11 @@ see `meta.go`):
   Yahoo") and **not** to the sector read: `fetch-exposure` does not update it.
   A manual override in the asset editor always wins (only applied when empty or
   `other`).
+- **Country (`GET /assets/meta`)**: the provider returns the country as a
+  display name (`United States`). `GetAssetMeta` normalises it to the ISO
+  alpha-2 code with `geo.NormalizeCountry` on both the fetched and the cached
+  path, so clients always receive `US` and an unknown name becomes an empty
+  string.
 - **Geographic exposure**: for a single **stock**, geography is never read
   from stored rows: the country (from the asset profile) is always mapped to
   its macro-region at 100% (`geo.RegionForCountry`), and any stored country

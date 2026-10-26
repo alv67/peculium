@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"testing"
@@ -3052,6 +3053,59 @@ func TestBackfillAssetHistory_SkipsNonYahooAssets(t *testing.T) {
 			t.Fatalf("price_source=%q: EnsureHistory calls = %d, want 0 (silent no-op)", source, yf.historyCalls)
 		}
 	}
+}
+
+// TestGetAssetMetaNormalizesCountry covers the Data-tab country select: the
+// meta returned (and cached) must carry the ISO alpha-2 code, not Yahoo's
+// raw assetProfile name, and old cache entries are fixed on read.
+func TestGetAssetMetaNormalizesCountry(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct{ name, fetched, want string }{
+		{"full name", "United States", "US"},
+		{"lowercase code", "it", "IT"},
+		{"unknown value", "Noland", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lk := &fakeLookupRepo{}
+			svc := newFetchTestService(t, &fakeAssetRepo{}, &fakeExposureRepo{}, lk,
+				&fakeYahooFetcher{meta: &price.AssetMeta{Country: tc.fetched}}, nil)
+
+			meta, err := svc.GetAssetMeta(ctx, "AAPL")
+			if err != nil {
+				t.Fatalf("GetAssetMeta: %v", err)
+			}
+			if meta.Country != tc.want {
+				t.Fatalf("meta.Country = %q, want %q", meta.Country, tc.want)
+			}
+			var stored price.AssetMeta
+			if err := json.Unmarshal(lk.data["meta:AAPL"], &stored); err != nil {
+				t.Fatalf("stored cache entry is not valid JSON: %v", err)
+			}
+			if stored.Country != tc.want {
+				t.Fatalf("cached country = %q, want %q (new entries must be stored canonical)", stored.Country, tc.want)
+			}
+		})
+	}
+
+	t.Run("legacy cache entry fixed on read", func(t *testing.T) {
+		lk := &fakeLookupRepo{data: map[string][]byte{
+			"meta:AAPL": []byte(`{"ticker":"AAPL","country":"United States"}`),
+		}}
+		svc := newFetchTestService(t, &fakeAssetRepo{}, &fakeExposureRepo{}, lk,
+			&fakeYahooFetcher{metaErr: errors.New("must not be called")}, nil)
+
+		meta, err := svc.GetAssetMeta(ctx, "AAPL")
+		if err != nil {
+			t.Fatalf("GetAssetMeta: %v", err)
+		}
+		if meta.Country != "US" {
+			t.Fatalf("meta.Country = %q, want US", meta.Country)
+		}
+		if lk.setCalls != 0 {
+			t.Fatalf("Set calls = %d, want 0 (cache hit must not refetch or rewrite)", lk.setCalls)
+		}
+	})
 }
 
 // fakeUserRepo is a single-user stand-in for repository.UserRepository:
