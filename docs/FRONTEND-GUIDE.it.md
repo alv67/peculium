@@ -1450,9 +1450,13 @@ TAB **Panoramica**:
 
 TAB **Dati**: il form dei metadati —
 stessi campi (Ticker, ISIN, Nome, Tipo, Valuta, Exchange, Classe, **Paese**
-— un codice ISO a 2 lettere che determina l'allocazione geografica delle
-azioni quando non esiste una ripartizione per paese; un codice che non è di
-due lettere viene rifiutato al salvataggio —, selettore **Fonte prezzo**
+— scelto dalla lista canonica dei paesi, le stesse opzioni dell'editor
+geografico (`{codice} — {nome}`, ordinate per nome) più una voce vuota
+"Nessun paese"; è l'unico dato geografico delle azioni (l'allocazione
+deriva sempre da esso, le ripartizioni salvate vengono ignorate); un valore
+legacy fuori lista (es. `UK`)
+resta selezionabile come opzione propria, così non viene mai cancellato
+inavvertitamente —, selettore **Fonte prezzo**
 `price_source`), stesso dirty-save (`hasChanges` abilita
 "Salva modifiche"; il PATCH, il `form` `$state` condiviso e la sincronzza
 `form.isin` dei prefills vivono nel layout, quindi le modifiche non salvate
@@ -1471,7 +1475,8 @@ close > 0) come errori inline dei campi, i 400 del backend emergono tramite
 il toast di errore, e dopo ogni scrittura riuscita la tabella si ricarica
 più `refetchAssetData` della shell aggiorna la fascia quote e il grafico
 Overview. Per obbligazioni, certificati e depositi lo stesso form modifica
-anche emittente, paese emittente e scadenza, più gli attributi JSON specifici:
+anche emittente, paese emittente (lo stesso selettore a lista canonica,
+voce vuota inclusa) e scadenza, più gli attributi JSON specifici:
 cedola/rating per le obbligazioni, tipo/sottostante/strike/barriera/cedola per
 i certificati, tasso/frequenza per i depositi. Il selettore Tipo del modale
 di creazione offre `cash` e `certificate`; i certificati usano la classe

@@ -964,6 +964,8 @@ export const it = {
     priceSourceYahoo: 'Yahoo Finance',
     priceSourceManual: 'Prezzo manuale',
     priceSourceNone: 'Nessun prezzo',
+    /** Opzione vuota dei selettori paese nel tab Dati (asset ed emittente). */
+    countryNone: 'Nessun paese',
     /** Etichette dei tipi asset (chip d'identità, dati principali, selettori
      *  Tipo). */
     typeStock: 'Azione',
