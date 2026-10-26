@@ -9,6 +9,7 @@
 - Bonds, certificates and cash now count in the geographic allocation through their issuer country. When no country breakdown exists, it defaults to 100% issuer country; an empty issuer-country field keeps the asset out. Sector allocation stays equity-only, and dashboard and portfolio charts identify each panel's universe
 - The asset's country can now be picked in the Data tab from the country list (or left empty): for stocks it is the only geographic input, and the Exposure tab shows that country and its region
 - On a stock's Exposure tab the geographic distribution is read-only and derived from the country set in the Data tab — the Yahoo refresh fills that country when it's still empty — while the sector distribution stays editable
+- New stocks arrive with their sector and industry already filled in from Yahoo, both when you add them and when you refresh their data from Yahoo
 
 ### Fixes
 - On phones the exposure editor fits the screen: the countries list no longer overflows the modal and the sector editor's prefill buttons stay visible

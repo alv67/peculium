@@ -721,6 +721,11 @@ export interface AssetMeta {
   exchange: string
   country: string
   asset_class: string
+  /** Yahoo sector/industry for stocks. Auto-filled only: the UI never
+   * exposes inputs for them (the sector allocation and the sector modal's
+   * single-sector prefill read the persisted values on the asset). */
+  sector?: string
+  industry?: string
 }
 
 interface RequestOptions {

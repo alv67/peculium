@@ -151,6 +151,8 @@
     exchange: '',
     asset_class: 'other',
     country: '',
+    sector: '',
+    industry: '',
     price_source: 'yahoo',
     quote_divisor: '1',
     maturity_date: '',
@@ -164,7 +166,7 @@
   const hasChanges = $derived.by(() => {
     if (!asset) return false;
 
-    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.country !== (asset.country || '') || form.price_source !== (asset.price_source || 'yahoo') || form.quote_divisor !== (asset.quote_divisor || '1') || form.maturity_date !== (asset.maturity_date?.slice(0, 10) || '') || form.issuer !== (asset.issuer || '') || form.issuer_country !== (asset.issuer_country || '') || JSON.stringify(form.attributes) !== JSON.stringify(Object.fromEntries(Object.entries(asset.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')])));
+    return form.ticker !== asset.ticker || form.isin !== (asset.isin || '') || form.name !== asset.name || form.type !== asset.type || form.currency !== asset.currency || form.exchange !== (asset.exchange || '') || form.asset_class !== (asset.asset_class || 'other') || form.country !== (asset.country || '') || form.sector !== (asset.sector || '') || form.industry !== (asset.industry || '') || form.price_source !== (asset.price_source || 'yahoo') || form.quote_divisor !== (asset.quote_divisor || '1') || form.maturity_date !== (asset.maturity_date?.slice(0, 10) || '') || form.issuer !== (asset.issuer || '') || form.issuer_country !== (asset.issuer_country || '') || JSON.stringify(form.attributes) !== JSON.stringify(Object.fromEntries(Object.entries(asset.attributes ?? {}).map(([key, value]) => [key, String(value ?? '')])));
   });
 
   // Totals are computed on the 2-decimal values that actually enter the edit
@@ -250,6 +252,8 @@
       exchange: a.exchange || '',
       asset_class: a.asset_class || 'other',
       country: a.country || '',
+      sector: a.sector || '',
+      industry: a.industry || '',
       price_source: a.price_source || 'yahoo',
       quote_divisor: a.quote_divisor || '1',
       maturity_date: a.maturity_date?.slice(0, 10) || '',
@@ -456,6 +460,8 @@
       exchange: form.exchange.trim(),
       asset_class: form.asset_class,
       country: form.country.trim().toUpperCase(),
+      sector: form.sector.trim(),
+      industry: form.industry.trim(),
       price_source: form.price_source,
       quote_divisor: form.quote_divisor,
       maturity_date: form.maturity_date,
@@ -496,6 +502,10 @@
         // Same rule for the country (drives the stock read-only geography):
         // fill it from Yahoo only when unset — a manual correction wins.
         country: form.country.trim() ? form.country : meta.country || form.country,
+        // Sector/industry: no UI inputs, so Yahoo is the only writer; keep
+        // the current values when it returns nothing for them.
+        sector: meta.sector || form.sector,
+        industry: meta.industry || form.industry,
       }
       toast.success(t('asset.metaRefreshed'))
     } catch (err: unknown) {

@@ -20,6 +20,11 @@ export interface AssetForm {
   /** ISO alpha-2 country of the asset (stocks: the backend derives their
    *  geographic exposure from it — 100% single country with no breakdown). */
   country: string
+  /** Yahoo sector/industry (e.g. "Technology" / "Consumer Electronics").
+   *  NOT editable in the Data tab: carried in the form only so a Yahoo
+   *  refresh can persist them with the next PATCH. */
+  sector: string
+  industry: string
   price_source: string
   /** Decimal string ("1" | "100"): 100 when the market price is quoted per
    *  100 of nominal. The Data tab's Advanced parameters checkbox toggles it. */

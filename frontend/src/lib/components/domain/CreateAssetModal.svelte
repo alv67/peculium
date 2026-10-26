@@ -33,6 +33,8 @@
     country: '',
     exchange: '',
     asset_class: '',
+    sector: '',
+    industry: '',
     price_source: 'yahoo',
   })
 
@@ -62,6 +64,8 @@
       country: '',
       exchange: result.exchange || '',
       asset_class: '',
+      sector: '',
+      industry: '',
       price_source: 'yahoo',
     }
 
@@ -75,6 +79,8 @@
         country: meta.country || form.country,
         exchange: meta.exchange || form.exchange,
         asset_class: meta.asset_class || '',
+        sector: meta.sector || '',
+        industry: meta.industry || '',
       }
     } catch {
       // keep lookup defaults; currency/type remain editable
