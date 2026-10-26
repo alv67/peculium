@@ -936,6 +936,11 @@ sessione a vita breve, vedi `meta.go`):
   È accorpata al recupero info asset (usato alla creazione e da "Aggiorna da Yahoo") e
   **non** alla lettura dei settori: `fetch-exposure` non la aggiorna. L'override manuale
   nell'editor asset vince sempre (aggiornato solo se vuota o `other`).
+- **Paese (`GET /assets/meta`)**: il provider restituisce il paese come nome
+  visualizzato (`United States`). `GetAssetMeta` lo normalizza nel codice ISO
+  alpha-2 con `geo.NormalizeCountry` sia sul percorso fetch sia su quello in
+  cache, quindi i client ricevono sempre `US` e un nome sconosciuto diventa
+  stringa vuota.
 - **Esposizione geografica**: per una singola **azione** la geografia non si
   legge mai dalle righe salvate: il paese (dal profilo asset) viene sempre
   mappato alla propria macro-regione al 100% (`geo.RegionForCountry`), e le

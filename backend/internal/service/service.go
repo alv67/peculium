@@ -1341,6 +1341,9 @@ func (s *Service) GetAssetMeta(ctx context.Context, ticker string) (*price.Asset
 	if cached, err := s.repos.Lookup.Get(ctx, key); err == nil {
 		var m price.AssetMeta
 		if err := json.Unmarshal(cached, &m); err == nil {
+			// Old cache entries carry the raw provider country; normalise on
+			// read so they are fixed before the TTL expires.
+			m.Country = geo.NormalizeCountry(m.Country)
 			return &m, nil
 		}
 	}
@@ -1353,6 +1356,7 @@ func (s *Service) GetAssetMeta(ctx context.Context, ticker string) (*price.Asset
 	}
 	s.recordHealth(ctx, nil, "asset_meta", "success", "", ticker+": meta fetched", start)
 
+	meta.Country = geo.NormalizeCountry(meta.Country)
 	if data, err := json.Marshal(meta); err == nil {
 		if err := s.repos.Lookup.Set(ctx, key, data, s.lookupCacheTTL); err != nil {
 			log.Warn().Err(err).Str("ticker", key).Msg("failed to cache asset meta")
