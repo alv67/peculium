@@ -390,6 +390,15 @@ export const it = {
      *  deriva dal paese dell'emittente, modificabile nel tab Dati. */
     issuerDerivedNote:
       "Derivata dal paese dell'emittente impostato nel tab Dati: modificalo lì.",
+    /** Nota sulla card geografica delle azioni di sola lettura: il paese unico
+     *  deriva dal paese dell'asset, modificabile nel tab Dati e compilato da
+     *  Yahoo. */
+    stockDerivedNote:
+      "Derivata dal paese impostato nel tab Dati e aggiornato da Yahoo: modificalo lì.",
+    /** Azione senza paese: la geografia derivata non è disponibile finché il
+     *  paese nel tab Dati non è impostato; i settori restano modificabili. */
+    stockCountryHint:
+      'La distribuzione geografica deriva dal paese dell\'asset: impostalo nel tab Dati (il refresh da Yahoo lo compila) per attivarla. I settori restano modificabili qui sotto.',
     /** Chrome delle modali di modifica: intestazioni di colonna, nomi
      *  accessibili delle righe e controllo di aggiunta (il piè di pagina
      *  Salva riusa `common.save`/`common.saving`/`common.colTotal`). */

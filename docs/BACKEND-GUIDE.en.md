@@ -920,8 +920,11 @@ see `meta.go`):
   Yahoo") and **not** to the sector read: `fetch-exposure` does not update it.
   A manual override in the asset editor always wins (only applied when empty or
   `other`).
-- **Geographic exposure**: for a single **stock**, the country (from the asset
-  profile) is mapped to a macro-region at 100% (`geo.RegionForCountry`).
+- **Geographic exposure**: for a single **stock**, geography is never read
+  from stored rows: the country (from the asset profile) is always mapped to
+  its macro-region at 100% (`geo.RegionForCountry`), and any stored country
+  or region rows on the stock are ignored by the geographic allocation and
+  its drill-down. Sector rows are unaffected.
 - **Fixed-income allocation**: bonds, certificates and cash deposits with a
   non-empty `issuer_country` join portfolio and dashboard geography; when no
   country rows exist, that issuer country is the 100% default and maps to its

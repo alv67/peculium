@@ -413,6 +413,14 @@ export const en = {
      *  comes from the issuer country, edited in the Data tab. */
     issuerDerivedNote:
       'Derived from the issuer country set in the Data tab — edit it there.',
+    /** Note on the read-only stock geographic card: its single country comes
+     *  from the asset country, edited in the Data tab and filled by Yahoo. */
+    stockDerivedNote:
+      'Derived from the country set in the Data tab and updated from Yahoo — edit it there.',
+    /** Stock without a country: the derived geography is unavailable until
+     *  the Data-tab country is set; sectors stay editable regardless. */
+    stockCountryHint:
+      'The geographic distribution is derived from the asset country: set it in the Data tab (the Yahoo refresh fills it) to enable it. Sectors stay editable below.',
     /** Edit-modal chrome: column headers, row accessible names and the add
      *  control (the Save footer reuses `common.save`/`common.saving`/
      *  `common.colTotal`). */

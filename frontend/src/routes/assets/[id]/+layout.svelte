@@ -493,6 +493,9 @@
           !asset.asset_class || asset.asset_class === 'other'
             ? meta.asset_class || form.asset_class
             : form.asset_class,
+        // Same rule for the country (drives the stock read-only geography):
+        // fill it from Yahoo only when unset — a manual correction wins.
+        country: form.country.trim() ? form.country : meta.country || form.country,
       }
       toast.success(t('asset.metaRefreshed'))
     } catch (err: unknown) {

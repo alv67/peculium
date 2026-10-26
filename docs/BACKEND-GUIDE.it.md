@@ -936,8 +936,12 @@ sessione a vita breve, vedi `meta.go`):
   È accorpata al recupero info asset (usato alla creazione e da "Aggiorna da Yahoo") e
   **non** alla lettura dei settori: `fetch-exposure` non la aggiorna. L'override manuale
   nell'editor asset vince sempre (aggiornato solo se vuota o `other`).
-- **Esposizione geografica**: per una singola **azione**, il paese (dal profilo
-  asset) viene mappato a una macro-regione al 100% (`geo.RegionForCountry`).
+- **Esposizione geografica**: per una singola **azione** la geografia non si
+  legge mai dalle righe salvate: il paese (dal profilo asset) viene sempre
+  mappato alla propria macro-regione al 100% (`geo.RegionForCountry`), e le
+  eventuali righe paese o regione salvate sull'azione sono ignorate
+  dall'allocazione geografica e dal relativo drill-down. Le righe di settore
+  non cambiano.
 - **Allocazione fixed income**: obbligazioni, certificati e depositi con
   `issuer_country` non vuoto entrano nella geografia del portafoglio e della
   dashboard; se non esistono righe paese, il default al 100% è il paese
