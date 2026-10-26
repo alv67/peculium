@@ -1336,8 +1336,9 @@ margins/padding mirroring `<main>`'s responsive `px-4 lg:px-6` / `pt-4 lg:pt-6`)
   "nessun sync automatico" warning chip for non-Yahoo price sources. The
   row carries no actions menu: the three shell-owned actions —
   **Aggiorna da Yahoo** (`assetApi.meta(ticker)` to refresh
-  name/type/currency/exchange; `asset_class` manual override always wins —
-  the refresh never overwrites a non-`other` class), **Backfill storico
+  name/type/currency/exchange; `asset_class` and `country` manual overrides
+  always win — the refresh never overwrites a non-`other` class and fills the
+  country only when the field is empty), **Backfill storico
   completo** (`assetApi.backfillHistory(id)` then a fresh
   `pricesApi.byAsset(id)` — the client GET cache is already cleared by the
   POST) and **Elimina asset** (confirm dialog → API → toast → back to
@@ -1537,21 +1538,30 @@ TAB **Exposure** — the geo/sector distribution widgets:
   before feeding the UI; the server keeps re-adding the residual internally so
   stored regions still sum to 100 for portfolio aggregation. The
   tab renders the editable exposure cards only when the asset is actionable for
-  the equity universe (`exposureApplicable`: stock, or etf/mutual_fund with
-  `asset_class` `equity`/`real_estate`). Bonds, certificates and cash with a
-  non-empty issuer country set in the Data tab instead get a **read-only**
-  geographic distribution card: the issuer country is the single 100% country
-  row and the macro-regions derive from it through
+  the equity universe (`exposureApplicable`: etf/mutual_fund with
+  `asset_class` `equity`/`real_estate`); the editable geographic card and the
+  sector card both appear, the latter below it. **Stocks** get no editable
+  geography: the geographic card is **read-only** and derived from the asset's
+  **Country** field — the one edited in the Data tab and filled by "Aggiorna
+  da Yahoo" when empty — shown as the single 100% country row with the
+  macro-regions the server maps from it; the **sector card keeps its
+  "Modifica" button** and its modal below, exactly as for ETFs. **Bonds,
+  certificates and cash** with a non-empty issuer country set in the Data tab
+  get the same read-only card, driven by the issuer country, and no sector
+  card. In both read-only cards the regions come through
   `POST /assets/{id}/exposure/derive` (a non-persisted preview) and are shown
-  as a **horizontal bar list** like the countries panel beside it; while the
+  as a **horizontal bar list** beside the country panel; while the
   derive is in flight or failed the regions panel shows a muted placeholder
   and the card keeps the country row only. The card carries no edit
-  controls — the geography changes by editing the issuer country in the Data
-  tab — the hint sentence stays below it, and sectors stay equity-only. Otherwise the tab shows the hint banner:
-  for bonds, certificates and cash with an empty issuer country it points at
-  that field as what feeds the geographic allocation (an empty issuer country
-  keeps the asset out, EPIC J.4); for the other types it explains that the
-  distribution editors apply to equity assets only.
+  controls — the geography changes by editing the country field in the Data
+  tab — and its note says so. Otherwise the tab shows the hint banner:
+  a stock with an empty country gets a muted note that setting the country in
+  the Data tab enables the geographic distribution, with the editable sector
+  card below; bonds, certificates and cash with an empty issuer country get a
+  banner pointing at that field as what feeds the geographic allocation (an
+  empty issuer country keeps the asset out, EPIC J.4); for the other types
+  the banner explains that the distribution editors apply to equity assets
+  only.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, the Yahoo `topHoldings` sector weights)
   pre-fills the sector table **inside the modal**: a non-persisted preview,

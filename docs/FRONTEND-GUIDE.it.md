@@ -1406,8 +1406,9 @@ negativi che rispecchiano il `px-4 lg:px-6` / `pt-4 lg:pt-6` responsivo di `<mai
    "nessun sync automatico" per fonti prezzo non-Yahoo. La riga non
    porta alcun menu azioni: le tre azioni della shell — **Aggiorna
    da Yahoo** (`assetApi.meta(ticker)` aggiorna nome/tipo/valuta/exchange;
-   l'override manuale di `asset_class` vince sempre — il refresh non
-   sovrascrive mai una classe diversa da `other`/vuota), **Backfill storico
+   l'override manuale di `asset_class` e `country` vince sempre — il refresh
+   non sovrascrive mai una classe diversa da `other`/vuota e compila il
+   paese solo quando il campo è vuoto), **Backfill storico
    completo** (`assetApi.backfillHistory(id)` poi un `pricesApi.byAsset(id)`
    fresco — la cache GET del client è già stata svuotata dalla POST) ed
    **Elimina asset** (dialog di conferma → API → toast → ritorno a
@@ -1610,24 +1611,31 @@ TAB **Esposizione** — i widget della distribuzione geo/settoriale:
   alimentarla alla UI; il server la riaggiunge internamente così le regioni
   persistite sommano ancora a 100 per l'aggregazione del portafoglio. La
   tab renderizza le card esposizione modificabili solo quando l'asset è
-  azionabile per l'universo equity (`exposureApplicable`: stock, oppure
-  etf/mutual_fund con `asset_class` `equity`/`real_estate`). Per
-  obbligazioni, certificati e liquidità con un paese emittente valorizzato
-  nel tab Dati la tab mostra invece una card di distribuzione geografica di
-  **sola lettura**: il paese emittente è l'unica riga paese al 100% e le
-  macro-regioni derivano da esso tramite
+  azionabile per l'universo equity (`exposureApplicable`: etf/mutual_fund
+  con `asset_class` `equity`/`real_estate`); la card geografica modificabile
+  e la card settori compaiono entrambe, la seconda sotto la prima. Per le
+  **azioni** la geografia non è modificabile: la card geografica è di
+  **sola lettura** e deriva dal campo **Country** dell'asset — quello
+  modificabile nel tab Dati e compilato da "Aggiorna da Yahoo" quando vuoto —
+  mostrata come unica riga paese al 100% con le macro-regioni che il server
+  ne derivano; la **card settori conserva il pulsante "Modifica"** e la sua
+  modale, esattamente come per gli ETF. Per **obbligazioni, certificati e
+  liquidità** con un paese emittente valorizzato nel tab Dati la tab mostra
+  la stessa card di sola lettura, guidata dal paese emittente, e nessuna
+  card settori. In entrambe le card di sola lettura le regioni derivano da
   `POST /assets/{id}/exposure/derive` (un'anteprima non persistita) e sono
-  mostrate come **elenco a barre orizzontali** come il pannello paesi accanto;
+  mostrate come **elenco a barre orizzontali** accanto al pannello paesi;
   mentre la derivazione è in corso o è fallita il pannello regioni mostra un
   placeholder muted e la card mantiene solo la riga paese. La card non ha
-  controlli di modifica — la geografia cambia editando il paese emittente nel
-  tab Dati — la frase di avviso resta sotto la card e i settori restano
-  equity-only. Negli altri casi la tab mostra
-  il banner: per obbligazioni, certificati e liquidità con paese emittente
-  vuoto rimanda a quel campo, che è ciò che alimenta l'allocazione geografica
-  (con il campo vuoto l'asset resta escluso, EPIC J.4); per gli altri tipi
-  spiega che gli editor di distribuzione valgono solo per gli asset
-  azionari.
+  controlli di modifica — la geografia cambia editando il campo paese nel
+  tab Dati — e la nota in alto lo dichiara. Negli altri casi la tab mostra
+  il banner: per un'azione con paese vuoto una nota muted spiega che
+  impostare il paese nel tab Dati attiva la distribuzione geografica, con la
+  card settori modificabile sotto; per obbligazioni, certificati e liquidità
+  con paese emittente vuoto rimanda a quel campo, che è ciò che alimenta
+  l'allocazione geografica (con il campo vuoto l'asset resta escluso, EPIC
+  J.4); per gli altri tipi spiega che gli editor di distribuzione valgono
+  solo per gli asset azionari.
 - **Prefill da Yahoo** — `assetApi.fetchExposure(id)`
   (`POST /assets/{id}/fetch-exposure`, i pesi settoriali `topHoldings` di
   Yahoo) precompila la tabella dei settori **dentro la modale**: è un'anteprima

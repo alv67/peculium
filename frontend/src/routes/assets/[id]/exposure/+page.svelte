@@ -20,13 +20,13 @@
    * the (layout-mounted) `ExposureGeoModal`/`ExposureSectorModal`: the whole
    * JustETF/Morningstar/Yahoo prefill, derive-regions and per-dimension save
    * machinery — provenance badges and sum validation included — lives
-   * untouched in the shell/modals. Assets outside the equity universe keep
-   * the hint banner instead of the editable cards: the equity-class rule for
-   * most, and — for bonds, certificates and cash carrying an issuer country
-   * (EPIC J.4) — a read-only geographic card derived from the Data-tab
-   * issuer country (100% single country + server-derived regions), with no
-   * edit affordance: the geography changes by editing that field in the
-   * Data tab.
+   * untouched in the shell/modals. Per asset type: equity/real-estate
+   * ETFs/mutual funds keep the editable cards; STOCKS get the read-only
+   * geographic card derived from the Data-tab `country` (editable sectors
+   * only — the geography changes by editing that field, also filled by the
+   * Yahoo refresh); bonds, certificates and cash keep the read-only card
+   * derived from the issuer country (EPIC J.4, no sector card); anything
+   * else outside the equity universe keeps the hint banner.
    */
   const ctx = getAssetPage()
 
@@ -34,17 +34,19 @@
   // swatches in sync with the donut colors across theme flips.
   const palette = $derived(resolvePalette(resolved()))
 
-  // The distribution applies to the equity universe: stocks, and equity or
-  // real-estate ETFs/mutual funds (same rule the old page gated on).
+  // The EDITABLE distribution applies to ETFs/mutual funds of the equity or
+  // real-estate class. Stocks are excluded: their geography is read-only,
+  // derived from the Data-tab country (see below), while sectors stay editable.
   const exposureApplicable = $derived.by(() => {
     const a = ctx.asset
     if (!a) return false
     return (
-      a.type === 'stock' ||
-      ((a.type === 'etf' || a.type === 'mutual_fund') &&
-        (a.asset_class === 'equity' || a.asset_class === 'real_estate'))
+      (a.type === 'etf' || a.type === 'mutual_fund') &&
+      (a.asset_class === 'equity' || a.asset_class === 'real_estate')
     )
   })
+
+  const stock = $derived(ctx.asset?.type === 'stock')
 
   // Bonds, certificates and cash: their geography feeds the allocation from
   // the issuer country set in the Data tab (EPIC J.4), not from these cards.
@@ -52,39 +54,44 @@
     ctx.asset != null && ['bond', 'certificate', 'cash'].includes(ctx.asset.type),
   )
 
-  // Read-only fixed-income geography: a single issuer country at 100% plus
-  // the macro-regions the SERVER maps it to. The regions are a non-persisted
-  // preview through POST /assets/{id}/exposure/derive, fetched once per
-  // id+country; a failure stays silent and the card degrades to the country
-  // row only (no region rows, no toast).
+  // Read-only derived geography (stocks and fixed income): a single country
+  // at 100% plus the macro-regions the SERVER maps it to — the stock country
+  // (Data tab / Yahoo) or the bond issuer country. The regions are a
+  // non-persisted preview through POST /assets/{id}/exposure/derive, fetched
+  // once per id+country; a failure stays silent and the card degrades to the
+  // country row only (no region rows, no toast).
+  const country = $derived(ctx.asset?.country?.trim() ?? '')
   const issuerCountry = $derived(ctx.asset?.issuer_country?.trim() ?? '')
-  const fiReadOnlyGeo = $derived(fixedIncome && issuerCountry !== '')
-  let fiRegions = $state<ExposureRow[]>([])
+  const derivedCountry = $derived(
+    stock ? country : fixedIncome ? issuerCountry : '',
+  )
+  const readOnlyGeo = $derived(derivedCountry !== '')
+  let roRegions = $state<ExposureRow[]>([])
   // Key of the request currently owned by the effect (`''` when none): keeps
   // unrelated re-runs from firing duplicate calls and discards in-flight
-  // responses that went stale when the asset or issuer country changed.
+  // responses that went stale when the asset or derived country changed.
   // Plain (non-reactive) variable: reading or writing it never re-triggers
   // the effect itself.
-  let fiRequestKey = ''
+  let roRequestKey = ''
 
   $effect(() => {
     const id = ctx.id
-    if (!fiReadOnlyGeo || !id) {
-      fiRequestKey = ''
-      fiRegions = []
+    if (!readOnlyGeo || !id) {
+      roRequestKey = ''
+      roRegions = []
       return
     }
-    const key = `${id}:${issuerCountry}`
-    if (fiRequestKey === key) return
-    fiRequestKey = key
+    const key = `${id}:${derivedCountry}`
+    if (roRequestKey === key) return
+    roRequestKey = key
     assetApi
-      .deriveRegions(id, [{ name: issuerCountry, weight: '100' }])
+      .deriveRegions(id, [{ name: derivedCountry, weight: '100' }])
       .then((res) => {
         // Drop the response if a newer key took over meanwhile.
-        if (fiRequestKey === key) fiRegions = res.regions.filter((r) => Number(r.weight) > 0)
+        if (roRequestKey === key) roRegions = res.regions.filter((r) => Number(r.weight) > 0)
       })
       .catch(() => {
-        if (fiRequestKey === key) fiRegions = []
+        if (roRequestKey === key) roRegions = []
       })
   })
 
@@ -190,8 +197,92 @@
       </div>
     </div>
   </div>
+{:else if ctx.asset && !exposureApplicable}
+  {#if readOnlyGeo}
+    <!-- Read-only geographic card for stocks and fixed income: the Data-tab
+         country (stocks, also filled by the Yahoo refresh) or issuer country
+         shown as the single 100% country row, plus the macro-regions the
+         backend derives from it (non-persisted preview). No edit affordances
+         by design — the values change with that field. -->
+    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
+      <h2 class="font-semibold">{t('exposure.geoTitle')}</h2>
+      <p class="mb-4 mt-1 text-sm text-muted-foreground">
+        {stock ? t('exposure.stockDerivedNote') : t('exposure.issuerDerivedNote')}
+      </p>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="rounded-card border border-border bg-muted p-4">
+          <h3 class="mb-2 font-medium">{t('exposure.countries')}</h3>
+          <div class="space-y-2 py-1">
+            <div class="flex items-center gap-2 text-xs">
+              <span
+                class="w-28 shrink-0 truncate sm:w-36"
+                title={derivedCountry + ' — ' + countryDisplayName(derivedCountry)}
+              >{countryDisplayName(derivedCountry)} ({derivedCountry})</span>
+              <div class="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
+                <div class="h-full w-full rounded-full" style="background-color: {palette[0]};"></div>
+              </div>
+              <span class="w-14 shrink-0 text-right text-muted-foreground tabular-nums">{formatPercent(100)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-card border border-border bg-muted p-4">
+          <h3 class="mb-2 font-medium">{t('exposure.regions')}</h3>
+          {#if roRegions.length === 0}
+            <!-- Empty while the derive preview is in flight or failed: a muted
+                 placeholder instead of an empty panel, no spinner or error. -->
+            <span class="py-1 text-xs text-muted-foreground">—</span>
+          {:else}
+            <div class="space-y-2 py-1">
+              {#each roRegions as r, i (r.name)}
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="w-28 shrink-0 truncate sm:w-36" title={r.name}>{r.name}</span>
+                  <div class="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
+                    <div
+                      class="h-full rounded-full"
+                      style="width: {Number(r.weight)}%; background-color: {palette[i % palette.length]};"
+                    ></div>
+                  </div>
+                  <span class="w-14 shrink-0 text-right text-muted-foreground tabular-nums">{formatPercent(Number(r.weight))}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+      {#if fixedIncome}
+        <p class="mt-4 text-sm text-muted-foreground">{t('exposure.universeIssuerHint')}</p>
+      {/if}
+    </div>
+  {:else if stock}
+    <!-- Stock without a country: the derived geography is unavailable until
+         the Data-tab country is set. Sectors below stay editable anyway. -->
+    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
+      <h2 class="mb-2 font-semibold">{t('exposure.geoTitle')}</h2>
+      <p class="text-sm text-muted-foreground">{t('exposure.stockCountryHint')}</p>
+    </div>
+  {:else if fixedIncome}
+    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
+      <h2 class="mb-2 font-semibold">{t('exposure.universeTitle')}</h2>
+      <p class="text-sm text-muted-foreground">
+        {t('exposure.universeIssuerHint')}
+      </p>
+    </div>
+  {:else}
+    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
+      <h2 class="mb-2 font-semibold">{t('exposure.universeTitle')}</h2>
+      <p class="text-sm text-muted-foreground">
+        {t('exposure.universeHint')}
+      </p>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {t('exposure.universeClassHint')}
+      </p>
+    </div>
+  {/if}
+{/if}
 
-  <!-- Sector distribution card -->
+{#if ctx.asset && ctx.exposure && (stock || exposureApplicable)}
+  <!-- Sector distribution card: editable for the equity universe and for
+       stocks (whose geography is read-only while sectors stay editable). -->
   <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h2 class="font-semibold">{t('exposure.sectorTitle')}</h2>
@@ -230,74 +321,4 @@
       </div>
     </div>
   </div>
-{:else if ctx.asset && !exposureApplicable}
-  {#if fiReadOnlyGeo}
-    <!-- Read-only geographic card for fixed income (EPIC J.4): the Data-tab
-         issuer country shown as the single 100% country row, plus the macro-
-         regions the backend derives from it (non-persisted preview). No edit
-         affordances by design — the values change with the issuer country. -->
-    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
-      <h2 class="font-semibold">{t('exposure.geoTitle')}</h2>
-      <p class="mb-4 mt-1 text-sm text-muted-foreground">{t('exposure.issuerDerivedNote')}</p>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div class="rounded-card border border-border bg-muted p-4">
-          <h3 class="mb-2 font-medium">{t('exposure.countries')}</h3>
-          <div class="space-y-2 py-1">
-            <div class="flex items-center gap-2 text-xs">
-              <span
-                class="w-28 shrink-0 truncate sm:w-36"
-                title={issuerCountry + ' — ' + countryDisplayName(issuerCountry)}
-              >{countryDisplayName(issuerCountry)} ({issuerCountry})</span>
-              <div class="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
-                <div class="h-full w-full rounded-full" style="background-color: {palette[0]};"></div>
-              </div>
-              <span class="w-14 shrink-0 text-right text-muted-foreground tabular-nums">{formatPercent(100)}</span>
-            </div>
-          </div>
-        </div>
-        <div class="rounded-card border border-border bg-muted p-4">
-          <h3 class="mb-2 font-medium">{t('exposure.regions')}</h3>
-          {#if fiRegions.length === 0}
-            <!-- Empty while the derive preview is in flight or failed: a muted
-                 placeholder instead of an empty panel, no spinner or error. -->
-            <span class="py-1 text-xs text-muted-foreground">—</span>
-          {:else}
-            <div class="space-y-2 py-1">
-              {#each fiRegions as r, i (r.name)}
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="w-28 shrink-0 truncate sm:w-36" title={r.name}>{r.name}</span>
-                  <div class="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
-                    <div
-                      class="h-full rounded-full"
-                      style="width: {Number(r.weight)}%; background-color: {palette[i % palette.length]};"
-                    ></div>
-                  </div>
-                  <span class="w-14 shrink-0 text-right text-muted-foreground tabular-nums">{formatPercent(Number(r.weight))}</span>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </div>
-      <p class="mt-4 text-sm text-muted-foreground">{t('exposure.universeIssuerHint')}</p>
-    </div>
-  {:else}
-    <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
-      <h2 class="mb-2 font-semibold">{t('exposure.universeTitle')}</h2>
-      {#if fixedIncome}
-        <p class="text-sm text-muted-foreground">
-          {t('exposure.universeIssuerHint')}
-        </p>
-      {:else}
-        <p class="text-sm text-muted-foreground">
-          {t('exposure.universeHint')}
-        </p>
-        {#if ctx.asset.type !== 'stock'}
-          <p class="mt-2 text-sm text-muted-foreground">
-            {t('exposure.universeClassHint')}
-          </p>
-        {/if}
-      {/if}
-    </div>
-  {/if}
 {/if}

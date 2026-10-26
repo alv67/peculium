@@ -2013,10 +2013,12 @@ func (s *Service) GetPortfolioGeographyAllocation(ctx context.Context, portfolio
 		if err != nil {
 			return nil, err
 		}
+		exposures = withoutStockGeography(holdings, exposures)
 		countryExposures, err := s.repos.Exposure.FindCountriesByAssets(ctx, holdingAssetIDs(holdings))
 		if err != nil {
 			return nil, err
 		}
+		countryExposures = withoutStockGeography(holdings, countryExposures)
 		buckets, total, cov := buildBuckets(holdings, rates, p.Currency, geo.Regions, exposures,
 			func(h *model.Holding) string { return geo.RegionForCountry(geographyCountry(h)) }, geographyEligible, geographyDefault)
 		regions := make([]*model.RegionAllocation, 0, len(geo.Regions)+1)
@@ -2134,6 +2136,35 @@ func geographyDefault(h *model.Holding) bool {
 
 func stockDefault(h *model.Holding) bool { return h.Type == model.AssetTypeStock }
 
+// withoutStockGeography drops the stored geography rows of every stock
+// holding: a stock's geography is always derived 100% from its country
+// field, so legacy manual edits from the geo modal must be ignored. Other
+// holdings (ETFs, mutual funds, bonds) keep their stored breakdowns. The
+// caller's map is never mutated; the rows are copied when something is
+// dropped.
+func withoutStockGeography(holdings []*model.Holding, rows map[string][]model.ExposureRow) map[string][]model.ExposureRow {
+	var hasStock bool
+	for _, h := range holdings {
+		if h.Type == model.AssetTypeStock {
+			hasStock = true
+			break
+		}
+	}
+	if !hasStock || len(rows) == 0 {
+		return rows
+	}
+	out := make(map[string][]model.ExposureRow, len(rows))
+	for id, r := range rows {
+		out[id] = r
+	}
+	for _, h := range holdings {
+		if h.Type == model.AssetTypeStock {
+			delete(out, h.AssetID)
+		}
+	}
+	return out
+}
+
 // exposureCoverage tracks, for one allocation dimension, the value of the
 // holdings its eligibility rule accepts and of the ones it rejects.
 type exposureCoverage struct {
@@ -2212,7 +2243,11 @@ var allocationDrillDims = map[string]allocationDrillDim{
 		eligible:    geographyEligible,
 		useDefault:  geographyDefault,
 		rows: func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error) {
-			return repos.Exposure.FindRegionsByAssets(ctx, holdingAssetIDs(holdings))
+			rows, err := repos.Exposure.FindRegionsByAssets(ctx, holdingAssetIDs(holdings))
+			if err != nil {
+				return nil, err
+			}
+			return withoutStockGeography(holdings, rows), nil
 		},
 	},
 	"country": {
@@ -2221,7 +2256,11 @@ var allocationDrillDims = map[string]allocationDrillDim{
 		eligible:    geographyEligible,
 		useDefault:  geographyDefault,
 		rows: func(ctx context.Context, repos *repository.Repository, holdings []*model.Holding) (map[string][]model.ExposureRow, error) {
-			return repos.Exposure.FindCountriesByAssets(ctx, holdingAssetIDs(holdings))
+			rows, err := repos.Exposure.FindCountriesByAssets(ctx, holdingAssetIDs(holdings))
+			if err != nil {
+				return nil, err
+			}
+			return withoutStockGeography(holdings, rows), nil
 		},
 	},
 	"sector": {
@@ -3763,6 +3802,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 		if err != nil {
 			return nil, err
 		}
+		geoExposures = withoutStockGeography(holdings, geoExposures)
 		secExposures, err := s.repos.Exposure.FindSectorsByAssets(ctx, holdingAssetIDs(holdings))
 		if err != nil {
 			return nil, err
@@ -3771,6 +3811,7 @@ func (s *Service) GetDashboardAllocation(ctx context.Context, userID uuid.UUID) 
 		if err != nil {
 			return nil, err
 		}
+		countryExposures = withoutStockGeography(holdings, countryExposures)
 
 		gBuckets, gTotal, gCov := buildBuckets(holdings, rates, baseCurrency, geo.Regions, geoExposures,
 			func(h *model.Holding) string { return geo.RegionForCountry(geographyCountry(h)) }, geographyEligible, geographyDefault)
