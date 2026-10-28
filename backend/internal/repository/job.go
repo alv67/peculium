@@ -23,6 +23,10 @@ type JobRepository interface {
 	SetCheckpoint(ctx context.Context, id uuid.UUID, checkpoint []byte) error
 	// Finish moves a running job to its terminal status and stamps finished_at.
 	Finish(ctx context.Context, id uuid.UUID, status string, errMsg string) error
+	// FailRunning marks every still-running job as failed, returning how many
+	// rows changed. Called by the worker at startup: a running row can only
+	// belong to a previous process (single worker), so it is orphaned.
+	FailRunning(ctx context.Context, errMsg string) (int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error)
 	// FindOpenForAsset returns the newest queued/running job that would update
 	// this asset's market data: a history_backfill targeting it, or a global
@@ -133,6 +137,15 @@ func (r *jobRepo) Finish(ctx context.Context, id uuid.UUID, status string, errMs
 	_, err := r.db.Exec(ctx,
 		`UPDATE jobs SET status = $2, error = $3, finished_at = NOW() WHERE id = $1`, id, status, errMsg)
 	return err
+}
+
+func (r *jobRepo) FailRunning(ctx context.Context, errMsg string) (int64, error) {
+	tag, err := r.db.Exec(ctx,
+		`UPDATE jobs SET status = 'failed', error = $1, finished_at = NOW() WHERE status = 'running'`, errMsg)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (r *jobRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error) {

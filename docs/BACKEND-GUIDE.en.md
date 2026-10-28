@@ -703,6 +703,9 @@ timeout.
 - A second request for the same job while one is still queued or running
   returns that open job instead of stacking a duplicate (deduplicated by
   type + target).
+- At startup the worker closes any job left `running` by a previous process
+  as `failed` (`worker restarted while running`), so an interrupted job never
+  holds its dedup slot forever.
 - The client follows progress by polling `GET /jobs/{id}` (and `GET /jobs` for
   the recent list). A job is `queued`/`running` while open and ends
   `done`/`failed`/`partial`; `processed`/`total` report per-item progress.

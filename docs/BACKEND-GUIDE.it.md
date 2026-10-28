@@ -713,6 +713,9 @@ possono mai superare il timeout della richiesta.
 - Una seconda richiesta per lo stesso job mentre uno è ancora in coda o in
   esecuzione restituisce quel job aperto invece di impilarne un duplicato
   (dedup per tipo + target).
+- All'avvio il worker chiude come `failed` ogni job rimasto `running` da un
+  processo precedente (`worker restarted while running`), così un job
+  interrotto non occupa per sempre il suo slot di dedup.
 - Il client segue l'avanzamento interrogando `GET /jobs/{id}` (e `GET /jobs`
   per la lista recente). Un job è `queued`/`running` mentre è aperto e termina
   `done`/`failed`/`partial`; `processed`/`total` riportano l'avanzamento per

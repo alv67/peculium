@@ -52,6 +52,9 @@ func (f *fakeJobQueue) Finish(ctx context.Context, id uuid.UUID, status string, 
 func (f *fakeJobQueue) DeleteBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	return 0, nil
 }
+func (f *fakeJobQueue) FailRunning(ctx context.Context, errMsg string) (int64, error) {
+	return 0, nil
+}
 
 func (f *fakeJobQueue) GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error) {
 	for _, j := range f.jobs {

@@ -12,6 +12,7 @@
 - Le nuove azioni arrivano già con settore e industria compilati da Yahoo, sia quando le aggiungi sia quando ne aggiorni i dati da Yahoo
 
 ### Correzioni
+- Un aggiornamento in background interrotto da un riavvio del worker non resta più “in corso” per sempre: viene segnato come fallito e l'aggiornamento successivo può partire
 - Su telefono l'editor dell'esposizione sta nella schermata: la lista dei paesi non sborda più dalla modale e i pulsanti di prefill dell'editor settori restano visibili
 - Lasciare vuoto un peso mentre si modificano paesi, regioni o settori di un asset ora conta come zero invece di far fallire il salvataggio con un errore generico: puoi compilare solo le righe che ti servono
 - La distribuzione settoriale degli ETF importati da JustETF copre l'intero fondo: le etichette che prima mancavano nel grafico sono classificate correttamente o mostrate come quota "Other / Not Classified", e una distribuzione parziale non blocca più il salvataggio dell'esposizione
