@@ -177,6 +177,7 @@ frontend/
     │   ├── i18n/           # dizionari en.ts/it.ts + store del locale reattivo
     │   ├── chartPalette.ts # palette serie + risoluzione token a runtime (dark-aware)
     │   ├── chartTheme.ts   # temi ECharts registrati per light/dark
+    │   ├── assetProfile.ts # campi form, tab e chip dell'header per tipo di asset
     │   └── format.ts       # formattatori + etichette classi (capitolo 6)
     └── routes/             # le pagine
         ├── +layout.ts      # ssr=false, prerender=false

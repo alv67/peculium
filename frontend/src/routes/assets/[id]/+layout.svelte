@@ -30,6 +30,8 @@
     priceSourceLabel
   } from '#lib/format.js';
 
+  import { assetProfile, type AssetTab, type QuoteChip } from '#lib/assetProfile.js'
+
   import { ArrowLeft } from 'lucide-svelte';
   import Badge from '#lib/components/ui/Badge.svelte';
   import ConfirmDialog from '#lib/components/ui/ConfirmDialog.svelte';
@@ -163,6 +165,11 @@
 
   const currency = $derived(asset?.currency || 'USD')
 
+  // Per-type UI profile (#281): tabs, header chips and (later) form fields.
+  // Unknown or not-yet-loaded types fall back to the stock baseline, which
+  // matches today's behaviour, so nothing changes on screen.
+  const profile = $derived(assetProfile(asset?.type))
+
   const hasChanges = $derived.by(() => {
     if (!asset) return false;
 
@@ -209,16 +216,15 @@
   // 1D/1W/1M/1Y/YTD quote deltas of `AssetQuote`, as compact chips in the
   // sticky header (spec §6.3; the old body-level "Metriche quote" card's
   // five metrics — same values, same zero-muted coloring via `PnlValue`).
-  const METRICS: {
-    key: 'change_1d' | 'change_1w' | 'change_1m' | 'change_1y' | 'change_ytd'
-    label: MessageKey
-  }[] = [
+  const METRICS: { key: QuoteChip; label: MessageKey }[] = [
     { key: 'change_1d', label: 'asset.chip1d' },
     { key: 'change_1w', label: 'asset.chip1w' },
     { key: 'change_1m', label: 'asset.chip1m' },
     { key: 'change_1y', label: 'asset.chip1y' },
     { key: 'change_ytd', label: 'asset.chipYtd' },
   ]
+
+  const metrics = $derived(METRICS.filter((m) => profile.quoteChips.includes(m.key)))
 
   // Identity chips of the header (spec §6.3 `[ETF | equity | EUR | XETRA]`):
   // type and class go through the shared localized label helpers, currency
@@ -871,21 +877,20 @@
 
   // --- Tabs (spec §4.2.2: nested routes, real URLs) ------------------------
   // hrefs resolved per the repo convention; `ui/Tabs` derives the active
-  // tab from the URL, so deep links and the back button just work.
+  // tab from the URL, so deep links and the back button just work. The
+  // profile's `tabs` list decides which ones show, in order.
+  const TAB_TABLE: Record<AssetTab, { path: string; label: MessageKey }> = {
+    overview: { path: '', label: 'asset.tabOverview' },
+    exposure: { path: '/exposure', label: 'asset.tabExposure' },
+    data: { path: '/data', label: 'asset.tabData' },
+  }
+
   const tabItems = $derived(
     id
-    ? [
-      { href: resolve(`assets/${id}`), label: t('asset.tabOverview') },
-      {
-        href: resolve(`assets/${id}/exposure`),
-        label: t('asset.tabExposure')
-      },
-
-      {
-        href: resolve(`assets/${id}/data`),
-        label: t('asset.tabData')
-      }
-    ]
+      ? profile.tabs.map((tab) => ({
+          href: resolve(`assets/${id}${TAB_TABLE[tab].path}`),
+          label: t(TAB_TABLE[tab].label),
+        }))
       : [],
   )
 
@@ -997,7 +1002,7 @@
         <span class="text-xl font-bold tabular-nums">
           {formatCurrency(quote.last_close, quote.currency)}
         </span>
-        {#each METRICS as m (m.key)}
+        {#each metrics as m (m.key)}
           <span class="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
             <span class="text-muted-foreground">{t(m.label)}</span>
             <PnlValue value={quote[m.key]} kind="percent" size="sm" />
