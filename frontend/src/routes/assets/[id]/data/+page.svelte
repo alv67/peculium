@@ -6,7 +6,9 @@
   import { History, RefreshCw, Trash2 } from 'lucide-svelte'
   import Button from '#lib/components/ui/Button.svelte'
   import Spinner from '#lib/components/ui/Spinner.svelte'
+  import Select from '#lib/components/ui/Select.svelte'
   import ManualPricesCard from '#lib/components/domain/ManualPricesCard.svelte'
+  import Textarea from '#lib/components/ui/Textarea.svelte'
   import { getAssetPage } from '../context'
 
   /**
@@ -97,15 +99,11 @@
       </div>
       <div>
         <label for="asset-type" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factType')}</label>
-        <select
-          id="asset-type"
-          bind:value={ctx.form.type}
-          class="w-full rounded-control border border-input px-3 py-2 text-sm"
-        >
+        <Select id="asset-type" bind:value={ctx.form.type}>
           {#each ASSET_TYPES as value (value)}
             <option value={value}>{assetTypeLabel(value)}</option>
           {/each}
-        </select>
+        </Select>
       </div>
       <div>
         <label for="asset-currency" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factCurrency')}</label>
@@ -127,37 +125,25 @@
       </div>
       <div>
         <label for="asset-class" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factClass')}</label>
-        <select
-          id="asset-class"
-          bind:value={ctx.form.asset_class}
-          class="w-full rounded-control border border-input px-3 py-2 text-sm"
-        >
+        <Select id="asset-class" bind:value={ctx.form.asset_class}>
           {#each ASSET_CLASSES as value (value)}
             <option value={value}>{assetClassLabel(value)}</option>
           {/each}
-        </select>
+        </Select>
       </div>
       <div>
         <label for="asset-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.colCountry')}</label>
-        <select
-          id="asset-country"
-          bind:value={ctx.form.country}
-          class="w-full rounded-control border border-input px-3 py-2 text-sm"
-        >
+        <Select id="asset-country" bind:value={ctx.form.country}>
           {@render countryOptions(ctx.form.country)}
-        </select>
+        </Select>
       </div>
       <div>
         <label for="asset-price-source" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factPriceSource')}</label>
-        <select
-          id="asset-price-source"
-          bind:value={ctx.form.price_source}
-          class="w-full rounded-control border border-input px-3 py-2 text-sm"
-        >
+        <Select id="asset-price-source" bind:value={ctx.form.price_source}>
           <option value="yahoo">{t('asset.priceSourceYahoo')}</option>
           <option value="manual">{t('asset.priceSourceManual')}</option>
           <option value="none">{t('asset.priceSourceNone')}</option>
-        </select>
+        </Select>
       </div>
     </div>
 
@@ -171,18 +157,33 @@
           </div>
           <div>
             <label for="asset-issuer-country" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factIssuerCountry')}</label>
-            <select
-              id="asset-issuer-country"
-              bind:value={ctx.form.issuer_country}
-              class="w-full rounded-control border border-input px-3 py-2 text-sm"
-            >
+            <Select id="asset-issuer-country" bind:value={ctx.form.issuer_country}>
               {@render countryOptions(ctx.form.issuer_country)}
-            </select>
+            </Select>
           </div>
           <div>
             <label for="asset-maturity" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factMaturity')}</label>
             <input id="asset-maturity" type="date" bind:value={ctx.form.maturity_date} class="w-full rounded-control border border-input px-3 py-2 text-sm" />
           </div>
+          {#if ctx.form.type === 'bond'}
+            <div>
+              <label for="asset-issuer-type" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.factIssuerType')}</label>
+              <!-- Explicit value + onchange: a missing key would otherwise
+                   bind `undefined` to the select on the first render. -->
+              <Select
+                id="asset-issuer-type"
+                value={ctx.form.attributes.issuer_type ?? ''}
+                onchange={(e) => (ctx.form.attributes.issuer_type = e.currentTarget.value)}
+              >
+                <option value="">{t('asset.issuerTypeUnknown')}</option>
+                <option value="sovereign">{t('asset.issuerTypeSovereign')}</option>
+                <option value="corporate">{t('asset.issuerTypeCorporate')}</option>
+                <option value="supranational">{t('asset.issuerTypeSupranational')}</option>
+                <option value="agency">{t('asset.issuerTypeAgency')}</option>
+                <option value="municipal">{t('asset.issuerTypeMunicipal')}</option>
+              </Select>
+            </div>
+          {/if}
           {#each fixedIncomeFields[ctx.form.type] ?? [] as field (field.key)}
             <div>
               <label for="asset-attribute-{field.key}" class="mb-1 block text-xs font-medium text-muted-foreground">{t(field.label)}</label>
@@ -214,6 +215,21 @@
         </p>
       </div>
     </details>
+
+    <!-- Free-text notes for every asset type: coupon steps, indexation,
+         clauses or tax details that no calculation reads yet. Saved with the
+         same "Save changes" button, through the attributes JSONB. -->
+    <div class="mt-5 border-t border-border pt-4">
+      <label for="asset-notes" class="mb-1 block text-xs font-medium text-muted-foreground">{t('asset.notes')}</label>
+      <Textarea
+        id="asset-notes"
+        value={ctx.form.attributes.notes ?? ''}
+        placeholder={t('asset.notesPlaceholder')}
+        rows={3}
+        oninput={(e) => (ctx.form.attributes.notes = e.currentTarget.value)}
+      />
+      <p class="mt-1 text-xs text-muted-foreground">{t('asset.notesHint')}</p>
+    </div>
   </div>
 
   <!-- Danger zone (spec §6.3): the three layout-owned actions the old

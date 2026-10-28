@@ -10,6 +10,7 @@
 
   import PriceChart from '#lib/components/PriceChart.svelte';
   import PnlValue from '#lib/components/ui/PnlValue.svelte';
+  import Badge from '#lib/components/ui/Badge.svelte';
   import Button from '#lib/components/ui/Button.svelte';
   import EmptyState from '#lib/components/ui/EmptyState.svelte';
   import Table from '#lib/components/ui/Table.svelte';
@@ -52,7 +53,15 @@
       .map((p) => ({ date: p.date, close: p.close }))
   })
 
+  // Bonds hold a handful of manual prices: the full window is the only
+  // meaningful view, so the zoom buttons are hidden and MAX is forced.
+  const bond = $derived(ctx.asset?.type === 'bond')
+  // Manual-price bonds have no Yahoo history to backfill: their empty chart
+  // points at the manual-price form instead.
+  const bondManual = $derived(bond && (ctx.asset?.price_source || 'yahoo') !== 'yahoo')
+
   const zoomStart = $derived.by(() => {
+    if (bond) return 'MAX' as const
     if (!range) return null
     if (range === 'MAX') return 'MAX' as const
     if (range === 'YTD') {
@@ -165,20 +174,32 @@
   <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h2 class="font-semibold">{t('asset.priceHistory')}</h2>
-      <div class="flex gap-1">
-        {#each RANGES as r (r.key)}
-          <button
-            onclick={() => selectRange(r.key)}
-            class="rounded-control px-3 py-1.5 text-sm {range === r.key
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:bg-muted'}"
-          >
-            {r.key}
-          </button>
-        {/each}
-      </div>
+      {#if !bond}
+        <div class="flex gap-1">
+          {#each RANGES as r (r.key)}
+            <button
+              onclick={() => selectRange(r.key)}
+              class="rounded-control px-3 py-1.5 text-sm {range === r.key
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:bg-muted'}"
+            >
+              {r.key}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
-    {#if (ctx.backfillingHistory || ctx.dataSyncing) && ctx.prices.length === 0}
+    {#if bondManual && ctx.prices.length === 0}
+      <!-- Manual-price bond: an empty chart is expected, point to the entry
+           form instead of the Yahoo-only backfill states below. -->
+      <div class="flex h-[340px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <span>{t('asset.bondNoPrice')}</span>
+        <a
+          href={resolve(`assets/${ctx.id ?? ''}/data`)}
+          class="font-medium text-accent-text hover:underline"
+        >{t('asset.tabData')}</a>
+      </div>
+    {:else if (ctx.backfillingHistory || ctx.dataSyncing) && ctx.prices.length === 0}
       <!-- Syncing with nothing to plot yet (#193): a progress bar instead of a
            silently empty chart. -->
       <div class="flex h-[340px] items-center justify-center">
@@ -209,7 +230,8 @@
         <div class="mt-3 flex justify-center">
           {@render syncIndicator()}
         </div>
-      {:else if status === 'partial'}
+      {:else if status === 'partial' && !bondManual}
+        <!-- Backfill is Yahoo-only, so it is never offered to manual bonds. -->
         <div class="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
           {t('asset.dataPartial')}
           <Button variant="secondary" size="sm" disabled={ctx.backfillingHistory} onclick={ctx.backfillHistory}>
@@ -225,10 +247,11 @@
        what open P/L — derived client-side from the per-portfolio `assets` of
        `GET /dashboard` by the shell's isolated `loadHoldings()` (amounts in
        the asset's own currency, richest holding first), so no backend
-       addition was needed. While that fetch has not resolved the block
-       renders nothing (it never blocks the page); on failure it degrades to
-       the muted "unavailable" note, and an empty result to the "not held"
-       line. -->
+       addition was needed. Fully sold positions (qty 0, non-zero realized)
+       keep a separate "Closed positions" table so the history is visible.
+       While that fetch has not resolved the block renders nothing (it never
+       blocks the page); on failure it degrades to the muted "unavailable"
+       note, and an empty result to the "not held" line. -->
   {#if ctx.heldFailed}
     <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
       <h2 class="mb-2 font-semibold">{t('asset.whereHeld')}</h2>
@@ -238,7 +261,11 @@
     <div class="mb-6 rounded-card border-border bg-surface p-4 shadow-card">
       <h2 class="mb-4 font-semibold">{t('asset.whereHeld')}</h2>
       {#if ctx.held.length === 0}
-        <p class="text-sm text-muted-foreground">{t('asset.whereHeldEmpty')}</p>
+        <p class="text-sm text-muted-foreground">
+          {ctx.closedHeld && ctx.closedHeld.length > 0
+            ? t('asset.noOpenPositions')
+            : t('asset.whereHeldEmpty')}
+        </p>
       {:else}
         <div class="overflow-x-auto">
           <Table aria-label={t('asset.whereHeld')}>
@@ -273,6 +300,42 @@
               {/each}
             </TBody>
           </Table>
+        </div>
+      {/if}
+
+      {#if ctx.closedHeld && ctx.closedHeld.length > 0}
+        <!-- Same asset fully sold in one or more portfolios: kept visible as
+             history, with the realized result and without qty/value columns
+             (both zero once the position is closed). -->
+        <div class="mt-6 border-t border-border pt-4">
+          <h3 class="mb-3 text-sm font-semibold">{t('asset.closedPositions')}</h3>
+          <div class="overflow-x-auto">
+            <Table aria-label={t('asset.closedPositions')}>
+              <THead>
+                <Tr>
+                  <Th>{t('asset.heldPortfolio')}</Th>
+                  <Th>{t('asset.closedStatus')}</Th>
+                  <Th align="right">{t('asset.heldRealized')}</Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {#each ctx.closedHeld as row (row.portfolioId)}
+                  <Tr>
+                    <Td>
+                      <a
+                        href={resolve(`portfolios/${row.portfolioId}`)}
+                        class="font-medium text-accent-text hover:underline"
+                      >{row.portfolioName}</a>
+                    </Td>
+                    <Td><Badge>{t('asset.closedBadge')}</Badge></Td>
+                    <Td align="right">
+                      <PnlValue value={row.realized} kind="currency" currency={row.currency} size="sm" />
+                    </Td>
+                  </Tr>
+                {/each}
+              </TBody>
+            </Table>
+          </div>
         </div>
       {/if}
     </div>

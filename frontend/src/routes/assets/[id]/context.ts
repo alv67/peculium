@@ -56,6 +56,20 @@ export interface HeldRow {
 }
 
 /**
+ * One closed position: this asset was held by ONE of the user's portfolios and
+ * is now fully sold. `realized` is the realized P/L in the portfolio currency
+ * (`realized_pf` in the dashboard payload); closed rows are only those with a
+ * non-zero realized result, so a dividend-only row is not misread as a
+ * position that was once bought.
+ */
+export interface ClosedHeldRow {
+  portfolioId: string
+  portfolioName: string
+  currency: string
+  realized: string
+}
+
+/**
  * Typed context shared by the asset-detail shell (`+layout.svelte`,
  * EPIC K.4b, spec §4.2/§6.3) and its three tab pages (Overview /
  * Exposure / Data).
@@ -96,6 +110,8 @@ export interface AssetPageContext {
   // --- Overview tab: "Where held" (isolated dashboard-derived block)
   /** `null` while the (non-blocking) dashboard fetch hasn't resolved. */
   readonly held: HeldRow[] | null
+  /** Fully closed positions of this asset, with their realized P/L. */
+  readonly closedHeld: ClosedHeldRow[] | null
   /** The dashboard call failed: the block degrades to an unavailable note. */
   readonly heldFailed: boolean
 

@@ -44,6 +44,7 @@
     setAssetPage,
     type AssetForm,
     type AssetPageContext,
+    type ClosedHeldRow,
     type HeldRow
   } from './context';
 
@@ -99,6 +100,7 @@
   // "Where held" rows (see the docstring): `null` until the isolated
   // dashboard fetch resolves, `heldFailed` when it did not.
   let held = $state<HeldRow[] | null>(null)
+  let closedHeld = $state<ClosedHeldRow[] | null>(null)
   let heldFailed = $state(false)
   // Working copy of the modals. Prefill handlers write provider data here as a
   // non-persisted preview: the page cards never read these lists, they render
@@ -410,18 +412,21 @@
   });
 
   /** Fill `held` with one row per portfolio currently holding this asset
-   * (qty > 0: closed holdings are skipped), derived from the per-portfolio
-   * `assets` of `GET /dashboard`. Deliberately silent on failure — the
-   * block is supplementary and the Overview tab shows an "unavailable"
-   * note via `heldFailed` instead of ever blocking or toasting. */
+   * (qty > 0) and `closedHeld` with the fully closed positions that have a
+   * non-zero realized result, derived from the per-portfolio `assets` of
+   * `GET /dashboard`. Deliberately silent on failure — the block is
+   * supplementary and the Overview tab shows an "unavailable" note via
+   * `heldFailed` instead of ever blocking or toasting. */
   async function loadHoldings(): Promise<void> {
     if (!id) return
     try {
       const dash = await portfolioApi.dashboard()
       const rows: HeldRow[] = []
+      const closedRows: ClosedHeldRow[] = []
       for (const p of dash.assets ?? []) {
         for (const a of p.assets ?? []) {
-          if (a.asset_id === id && Number(a.qty) > 0) {
+          if (a.asset_id !== id) continue
+          if (Number(a.qty) > 0) {
             rows.push({
               portfolioId: p.portfolio_id,
               portfolioName: p.portfolio_name,
@@ -432,12 +437,22 @@
               gain_loss: a.gain_loss,
               roi: a.roi,
             })
+          } else if (Number(a.realized_pf) !== 0 || Number(a.realized) !== 0) {
+            closedRows.push({
+              portfolioId: p.portfolio_id,
+              portfolioName: p.portfolio_name,
+              currency: p.currency,
+              realized: a.realized_pf,
+            })
           }
         }
       }
-      // Richest holding first, like the dashboard's invested-assets table.
+      // Richest holding first, like the dashboard's invested-assets table;
+      // closed positions by realized result, best first.
       rows.sort((x, y) => Number(y.value) - Number(x.value))
+      closedRows.sort((x, y) => Number(y.realized) - Number(x.realized))
       held = rows
+      closedHeld = closedRows
     } catch {
       heldFailed = true
     }
@@ -923,6 +938,9 @@
     get held() {
       return held
     },
+    get closedHeld() {
+      return closedHeld
+    },
     get heldFailed() {
       return heldFailed
     },
@@ -1002,6 +1020,10 @@
         <span class="text-xl font-bold tabular-nums">
           {formatCurrency(quote.last_close, quote.currency)}
         </span>
+        {#if Number(asset?.quote_divisor) > 1}
+          <!-- Bond-style quotes: the price is per 100 of nominal. -->
+          <span class="text-xs text-muted-foreground">{t('asset.pricePerNominal')}</span>
+        {/if}
         {#each metrics as m (m.key)}
           <span class="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
             <span class="text-muted-foreground">{t(m.label)}</span>
