@@ -155,6 +155,14 @@ func (s *JobService) DeleteBefore(ctx context.Context, cutoff time.Time) (int64,
 	return s.repos.Job.DeleteBefore(ctx, cutoff)
 }
 
+// FailRunning closes every still-running job as failed and returns how many
+// rows changed. The worker calls it at startup: with a single worker a
+// running row can only belong to a dead process, and leaving it open wedges
+// the per-target dedup for that job type forever.
+func (s *JobService) FailRunning(ctx context.Context, errMsg string) (int64, error) {
+	return s.repos.Job.FailRunning(ctx, errMsg)
+}
+
 // jobIDKey tags a context with the job being executed. HealthService reads it
 // so every event recorded while a job runs is attributed to its queue row.
 type jobIDKey struct{}

@@ -103,6 +103,19 @@ func (f *fakeJobRepo) Finish(ctx context.Context, id uuid.UUID, status string, e
 	return nil
 }
 
+func (f *fakeJobRepo) FailRunning(ctx context.Context, errMsg string) (int64, error) {
+	var count int64
+	now := time.Now()
+	for _, j := range f.jobs {
+		if j.Status != model.JobStatusRunning {
+			continue
+		}
+		j.Status, j.Error, j.FinishedAt = model.JobStatusFailed, errMsg, &now
+		count++
+	}
+	return count, nil
+}
+
 func (f *fakeJobRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Job, error) {
 	if j := f.find(id); j != nil {
 		return j, nil
@@ -367,6 +380,49 @@ func TestJobDeleteBeforePrunesAnyOldStatus(t *testing.T) {
 	}
 	if len(repo.jobs) != 2 {
 		t.Fatalf("kept %d jobs, want 2 (young done and never-timestamped queued survive)", len(repo.jobs))
+	}
+}
+
+func TestJobFailRunningOrphansOnlyRunning(t *testing.T) {
+	svc, repo := newFakeJobSvc()
+	ctx := context.Background()
+	started := time.Now().Add(-time.Hour)
+
+	seed := func(status string) *model.Job {
+		j := &model.Job{ID: uuid.New(), Type: model.JobTypeAssetSync, TargetType: model.JobTargetGlobal, Status: status}
+		if status != model.JobStatusQueued {
+			j.StartedAt = &started
+		}
+		repo.jobs = append(repo.jobs, j)
+		return j
+	}
+	queued := seed(model.JobStatusQueued)
+	running := seed(model.JobStatusRunning)
+	done := seed(model.JobStatusDone)
+	done.FinishedAt = &started
+	failed := seed(model.JobStatusFailed)
+	failed.FinishedAt = &started
+	failed.Error = "boom"
+
+	msg := "worker restarted while running"
+	n, err := svc.FailRunning(ctx, msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("reconciled = %d, want 1", n)
+	}
+	if running.Status != model.JobStatusFailed || running.Error != msg || running.FinishedAt == nil {
+		t.Fatalf("orphan not closed: status=%q error=%q finished_at=%v", running.Status, running.Error, running.FinishedAt)
+	}
+	if queued.Status != model.JobStatusQueued || queued.FinishedAt != nil {
+		t.Fatal("queued job must be untouched")
+	}
+	if done.Status != model.JobStatusDone || done.Error != "" {
+		t.Fatal("terminal jobs must be untouched")
+	}
+	if failed.Status != model.JobStatusFailed || failed.Error != "boom" {
+		t.Fatal("already-failed job must keep its original error")
 	}
 }
 

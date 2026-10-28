@@ -12,6 +12,7 @@
 - New stocks arrive with their sector and industry already filled in from Yahoo, both when you add them and when you refresh their data from Yahoo
 
 ### Fixes
+- A background update interrupted by a worker restart no longer stays “in progress” forever: it is marked as failed, and the next update can start
 - On phones the exposure editor fits the screen: the countries list no longer overflows the modal and the sector editor's prefill buttons stay visible
 - Leaving a weight empty while editing an asset's countries, regions or sectors now counts as zero instead of failing the save with a generic error, so you can fill only the rows that apply
 - The sector breakdown of ETFs imported from JustETF covers the whole fund: labels that used to be missing from the chart are classified correctly or shown as an "Other / Not Classified" share, and a partial breakdown no longer blocks saving the exposure

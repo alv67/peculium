@@ -77,6 +77,14 @@ func main() {
 	svc.RegisterJobExecutors(jobRunner)
 	// splits_fetch intentionally has no executor yet: a queued job of that
 	// type fails fast with "no executor for type" until it gets producers.
+	// Reconcile orphans first: with a single worker, any job still running
+	// at startup was killed mid-run by a restart and would block its dedup
+	// slot forever. A failure here (e.g. un-migrated volume) is not fatal.
+	if n, err := jobSvc.FailRunning(ctx, "worker restarted while running"); err != nil {
+		log.Warn().Err(err).Msg("orphaned job reconciliation failed")
+	} else if n > 0 {
+		log.Info().Int64("jobs", n).Msg("failed orphaned running jobs on startup")
+	}
 	go jobRunner.Loop(ctx, service.DefaultJobPollInterval)
 
 	pruneActivity := func() {
