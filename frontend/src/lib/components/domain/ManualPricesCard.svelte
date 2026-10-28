@@ -146,7 +146,7 @@
   <h2 class="mb-1 font-semibold">{t('asset.manualPrice')}</h2>
   <p class="mb-4 text-sm text-muted-foreground">{t('asset.manualPriceHint')}</p>
 
-  <div class="mb-4 flex flex-wrap items-start gap-3">
+  <div class="mb-4 flex flex-wrap items-end gap-3">
     <Field label={t('common.colDate')} class="w-40" error={errors.date || undefined}>
       <Input
         type="date"
@@ -166,10 +166,12 @@
         oninput={() => (errors.close = '')}
       />
     </Field>
-    <Field label={`${t('asset.manualColVolume')} (${t('common.optional')})`} class="w-32">
-      <Input type="number" step="1" min="0" bind:value={form.volume} />
+    <Field label={t('asset.manualColVolume')} class="w-32">
+      <!-- "Optional" in the placeholder: a wrapped label would push this
+           control below the date and price inputs. -->
+      <Input type="number" step="1" min="0" placeholder={t('common.optional')} bind:value={form.volume} />
     </Field>
-    <div class="flex items-center gap-2 self-end">
+    <div class="flex items-center gap-2">
       <Button disabled={saving} onclick={submit}>
         {editingDate ? t('common.save') : t('asset.manualAdd')}
       </Button>

@@ -168,6 +168,7 @@ frontend/
     │   ├── i18n/           # en.ts/it.ts dictionaries + reactive locale store
     │   ├── chartPalette.ts # series palette + runtime token resolution (dark-aware)
     │   ├── chartTheme.ts   # registered ECharts themes for light/dark
+    │   ├── assetProfile.ts # per-asset-type form fields, tabs and header chips
     │   └── format.ts       # formatters + asset-class labels (chapter 6)
     └── routes/             # the pages
         ├── +layout.ts      # ssr=false, prerender=false
