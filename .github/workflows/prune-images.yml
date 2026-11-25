@@ -56,7 +56,7 @@ jobs:
       # Pinned to an exact version rather than a moving major tag: this action
       # is handed `packages: write` and can delete every version, so updates
       # come through Dependabot PRs. See the CAUTION note above.
-      - uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+      - uses: dataaxiom/ghcr-cleanup-action@v1.3.0
         with:
           package: peculium-backend,peculium-worker,peculium-python-service,peculium-frontend,peculium-secrets-init
           exclude-tags: "v*,latest,develop"
